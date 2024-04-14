@@ -1,3 +1,4 @@
+--lawz
 gravity { 0.00, 0.00, -27.00 }
 
 globalplane()
