@@ -129,8 +129,12 @@ joint "l_hip"
     velocity { 150 }
     axis { 1.00, 0.00, 0.00 }
     range { -1.90, 1.10 }
+    altStrength { 400 }
+    altVelocity { 50 }
+    altAxis { 0.00, 0.00, 1.00 }
+    altRange { -0.50, 0.50 }
     connections { "l_butt", "l_thigh" }
-    connectionType "hinge"
+    connectionType "universal"
 joint "l_pecs"
     shape "sphere"
     radius { 0.15 }
@@ -261,8 +265,12 @@ joint "r_shoulder"
     velocity { 150 }
     axis { 0.00, 1.00, 0.00 }
     range { -1.20, 1.20 }
+    altStrength { 400 }
+    altVelocity { 25 }
+    altAxis { 1.00, 0.00, 0.00 }
+    altRange { -0.20, 0.20 }
     connections { "r_pecs", "r_biceps" }
-    connectionType "hinge"
+    connectionType "universal"
 joint "chest"
     shape "sphere"
     radius { 0.16 }
@@ -316,8 +324,12 @@ joint "l_shoulder"
     velocity { 150 }
     axis { 0.00, 1.00, 0.00 }
     range { -1.20, 1.20 }
+    altStrength { 400 }
+    altVelocity { 25 }
+    altAxis { 1.00, 0.00, 0.00 }
+    altRange { -0.50, 0.50 }
     connections { "l_pecs", "l_biceps" }
-    connectionType "hinge"
+    connectionType "universal"
 joint "r_hip"
     shape "sphere"
     radius { 0.15 }
@@ -327,5 +339,9 @@ joint "r_hip"
     velocity { 150 }
     axis { 1.00, 0.00, 0.00 }
     range { -1.90, 1.10 }
+    altStrength { 400 }
+    altVelocity { 50 }
+    altAxis { 0.00, 0.00, 1.00 }
+    altRange { -0.50, 0.50 }
     connections { "r_butt", "r_thigh" }
-    connectionType "hinge"
+    connectionType "universal"

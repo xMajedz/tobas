@@ -1,2 +1,2 @@
-build/tobas.exe: sources/main.cpp
-	g++ -o tobas.exe main.cpp
+build/tobas: sources/main.cpp
+	g++ -o build/tobas sources/main.cpp -lluajit -lraylib -lode -Iinclude -Llib
