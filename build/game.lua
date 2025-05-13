@@ -117,7 +117,7 @@ joint "r_elbow"
     strength { 400 }
     velocity { 150 }
     axis { 0.00, 0.65, 1.00 }
-    range { 0.05, 2.30 }
+    range { -2.30, -0.05 }
     connections { "r_biceps", "r_triceps" }
     connectionType "hinge"
 joint "l_hip"
@@ -152,9 +152,9 @@ joint "r_wrist"
     position { -0.20, 0.90, 2.30 }
     density { 0.0025 }
     strength { 400 }
-    velocity { 150 }
+    velocity { 50 }
     axis { 0.00, 0.00, 1.00 }
-    range { 0.00, 1.85 }
+    range { -1.85, 0.00 }
     connections { "r_triceps", "r_hand" }
     connectionType "hinge"
 joint "l_knee"
@@ -165,7 +165,7 @@ joint "l_knee"
     strength { 400 }
     velocity { 150 }
     axis { 1.00, 0.00, 0.00 }
-    range { 0.00, 2.30 }
+    range { -2.30, 0.00 }
     connections { "l_thigh", "l_leg" }
     connectionType "hinge"
 joint "l_wrist"
@@ -174,7 +174,7 @@ joint "l_wrist"
     position { 2.20, 0.90, 2.30 }
     density { 0.0025 }
     strength { 400 }
-    velocity { 150 }
+    velocity { 50 }
     axis { 0.00, 0.00, 1.00 }
     range { 0.00, 1.85 }
     connections { "l_triceps", "l_hand" }
@@ -187,7 +187,7 @@ joint "r_ankle"
     strength { 400 }
     velocity { 150 }
     axis { 1.00, 0.00, 0.00 }
-    range { -0.30, 1.10 }
+    range { -1.10, 0.30 }
     connections { "r_leg", "r_foot" }
     connectionType "hinge"
 joint "r_glute"
@@ -198,7 +198,7 @@ joint "r_glute"
     strength { 400 }
     velocity { 150 }
     axis { 0.00, 1.00, -0.25 }
-    range { -0.40, 1.00 }
+    range { -1.00, 0.40 }
     connections { "groin", "r_butt" }
     connectionType "hinge"
 joint "r_knee"
@@ -209,7 +209,7 @@ joint "r_knee"
     strength { 400 }
     velocity { 150 }
     axis { 1.00, 0.00, 0.00 }
-    range { 0.00, 2.30 }
+    range { -2.30, 0.00 }
     connections { "r_thigh", "r_leg" }
     connectionType "hinge"
 joint "r_pecs"
@@ -220,7 +220,7 @@ joint "r_pecs"
     strength { 400 }
     velocity { 150 }
     axis { 0.00, 0.00, 1.00 }
-    range { -0.70, 1.50 }
+    range { -1.50, 0.70 }
     connections { "breast", "r_pecs" }
     connectionType "hinge"
 joint "l_ankle"
@@ -231,7 +231,7 @@ joint "l_ankle"
     strength { 400 }
     velocity { 150 }
     axis { 1.00, 0.00, 0.00 }
-    range { -0.30, 1.10 }
+    range { -1.10, 0.30 }
     connections { "l_leg", "l_foot" }
     connectionType "hinge"
 joint "abs"
@@ -268,7 +268,7 @@ joint "r_shoulder"
     altStrength { 400 }
     altVelocity { 25 }
     altAxis { 1.00, 0.00, 0.00 }
-    altRange { -0.20, 0.20 }
+    altRange { -0.50, 0.50 }
     connections { "r_pecs", "r_biceps" }
     connectionType "universal"
 joint "chest"
