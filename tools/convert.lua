@@ -416,10 +416,17 @@ for _, line in pairs(source) do
         elseif context == "joint" then
             data.joint[joint_name].pos = line:gsub(".*pos ", "")
         end
+    elseif line:match("rot ") then
+        if context == "body" then
+            data.body[body_name].rot = line:gsub(".*rot ", "")
+        end
     elseif line:match("sides ") then
         if context == "body" then
             line = line:gsub(".*sides ", "")
-            if data.body[body_name].shape == "cylinder" then
+            if data.body[body_name].shape == "sphere" then
+                line = line:explode(" ")
+                data.body[body_name].radius = line[1]
+            elseif data.body[body_name].shape == "cylinder" then
                 line = line:explode(" ")
                 data.body[body_name].radius = line[1]
                 data.body[body_name].length = line[2]
@@ -472,6 +479,9 @@ for body_name, body in pairs(data.body) do
         File.line("\tshape \"" .. data.body[body_name].shape .. "\"")
     end
     File.line("\tposition {" .. data.body[body_name].pos:gsub(" ",", ") .. "}")
+    if  data.body[body_name].rot then
+--        File.line("\torientation {" .. data.body[body_name].rot:gsub(" ", ", ") .. "}")
+    end
     if body_name == "head" or data.body[body_name].shape == "sphere" then
         File.line("\tradius {" .. data.body[body_name].radius .. "}")
     elseif data.body[body_name].shape == "cylinder" then
