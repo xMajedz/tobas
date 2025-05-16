@@ -458,6 +458,8 @@ end
 
 File.ClearContent()
 
+File.line("-- converted from " .. arg[1] .. " using convert.lua")
+
 File.line("globalplane {}")
 
 File.line("gravity {" .. data.gravity:gsub(" ",", ") .. "}")
@@ -487,7 +489,7 @@ for joint_name, joint in pairs(data.joint) do
     File.line("\tradius {" .. data.joint[joint_name].radius .. "}")
     File.line("\tposition {".. data.joint[joint_name].pos:gsub(" ",", ") .. "}")
     File.line("\tdensity {0.0025}")
-    File.line("\tstrength {" .. data.joint[joint_name].strength .. "}")
+    File.line("\tstrength {" .. tonumber(data.joint[joint_name].strength) * 10*10*10 .. "}")
     File.line("\tvelocity {" .. data.joint[joint_name].velocity .. "}")
     File.line("\taxis {" .. data.joint[joint_name].axis:gsub(" ",", ") .. "}")
     File.line("\trange {" .. data.joint[joint_name].range:gsub(" ",", ") .. "}")
@@ -495,4 +497,4 @@ for joint_name, joint in pairs(data.joint) do
     File.line("\tconnectionType \"hinge\"")
 end
 
-File.write("output.lua")
+File.write(arg[2] or "output.lua")

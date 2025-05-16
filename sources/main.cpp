@@ -2219,7 +2219,7 @@ void GlobalPassiveStateToggle()
 	std::map<std::string, JointData>::iterator j = Joint.begin();
 
 	while (j != Joint.end()) {
-		if (GlobalPassiveState) s = 1000.0f * j->second.strength;
+		if (GlobalPassiveState) s = j->second.strength;
 		switch(j->second.connectionType) {
 			case Hinge: {
 				dJointSetHingeParam(j->second.dJoint[0], dParamFMax, s);
@@ -2254,7 +2254,7 @@ void PassiveStateToggle()
 
 	Joint[SelectedJoint].passiveState = Joint[SelectedJoint].passiveState == false;
 	
-	dReal s = 1000.0f * Joint[SelectedJoint].strength;
+	dReal s = Joint[SelectedJoint].strength;
 
 	if (!Joint[SelectedJoint].passiveState) s = 0.0f;
 
@@ -2286,7 +2286,7 @@ void AltPassiveStateToggle()
 
 	Joint[SelectedJoint].altPassiveState = Joint[SelectedJoint].altPassiveState == false;
 	
-	dReal s = 1000.0f * Joint[SelectedJoint].altStrength;
+	dReal s = Joint[SelectedJoint].altStrength;
 
 	if (!Joint[SelectedJoint].altPassiveState) s = 0.0f;
 
@@ -2321,7 +2321,7 @@ void ActiveStateToggle()
 	
 	switch(Joint[SelectedJoint].connectionType) {
 		case Hinge: {
-			dJointSetHingeParam(Joint[SelectedJoint].dJoint[0], dParamFMax, Joint[SelectedJoint].strength * 1000.0f);
+			dJointSetHingeParam(Joint[SelectedJoint].dJoint[0], dParamFMax, Joint[SelectedJoint].strength);
 			dJointSetHingeParam(Joint[SelectedJoint].dJoint[0], dParamVel, dir * Joint[SelectedJoint].velocity);
 		} break;
 		case Slider: {
