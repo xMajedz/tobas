@@ -57,6 +57,16 @@ function string.explode(str, sstr)
     return nil
 end
 
+function euler2quat(roll, pitch, yaw)
+    local cos ,sin = math.cos, math.sin
+    return {
+        w = cos(roll/2)*cos(pitch/2)*cos(yaw/2) + sin(roll/2)*sin(pitch/2)*sin(yaw/2),
+        x = sin(roll/2)*cos(pitch/2)*cos(yaw/2) - cos(roll/2)*sin(pitch/2)*sin(yaw/2),
+        y = cos(roll/2)*sin(pitch/2)*cos(yaw/2) + sin(roll/2)*cos(pitch/2)*sin(yaw/2),
+        z = cos(roll/2)*cos(pitch/2)*sin(yaw/2) - sin(roll/2)*sin(pitch/2)*cos(yaw/2),
+    }
+end
+
 local source = File.readLines(arg[1])
 
 local data = { env_obj = {}, env_obj_joint = {}, body = {}, joint = {}}
@@ -397,6 +407,7 @@ for _, line in pairs(source) do
     elseif line:match("env_obj ") then
         context = "env_obj"
         env_obj_num = line:gsub(".*env_obj ", "")
+        data.env_obj[env_obj_num] = {}
     elseif line:match("env_obj_joint") then
         context = "env_obj_joint"
         env_obj_joint_num = line:gsub(".*env_obj_joint ", "")
@@ -409,18 +420,24 @@ for _, line in pairs(source) do
     elseif line:match("shape ") then
         if context == "body" then
             data.body[body_name].shape = line:gsub(".*shape ", "")
+        elseif context == "env_obj" then
+            data.env_obj[env_obj_num].shape = line:gsub(".*shape ", "")
         end
     elseif line:match("pos ") then
         if context == "body" then
             data.body[body_name].pos = line:gsub(".*pos ", "")
         elseif context == "joint" then
             data.joint[joint_name].pos = line:gsub(".*pos ", "")
+        elseif context == "env_obj" then
+            data.env_obj[env_obj_num].pos = line:gsub(".*pos ", "")
         end
     elseif line:match("rot ") then
         if context == "body" then
             data.body[body_name].rot = line:gsub(".*rot ", "")
+        elseif context == "env_obj" then
+            data.env_obj[env_obj_num].rot = line:gsub(".*rot ", "")
         end
-    elseif line:match("sides ") then
+    elseif line:match("%s+sides ") then
         if context == "body" then
             line = line:gsub(".*sides ", "")
             if data.body[body_name].shape == "sphere" then
@@ -432,6 +449,18 @@ for _, line in pairs(source) do
                 data.body[body_name].length = line[2]
             else
                 data.body[body_name].sides = line
+            end
+        elseif context == "env_obj" then
+            line = line:gsub(".*sides ", "")
+            if data.env_obj[env_obj_num].shape == "sphere" then
+                line = line:explode(" ")
+                data.env_obj[env_obj_num].radius = line[1]
+            elseif data.env_obj[env_obj_num].shape == "cylinder" then
+                line = line:explode(" ")
+                data.env_obj[env_obj_num].radius = line[1]
+                data.env_obj[env_obj_num].length = line[2]
+            else
+                data.env_obj[env_obj_num].sides = line
             end
         end
     elseif line:match("radius ") then
@@ -480,7 +509,12 @@ for body_name, body in pairs(data.body) do
     end
     File.line("\tposition {" .. data.body[body_name].pos:gsub(" ",", ") .. "}")
     if  data.body[body_name].rot then
---        File.line("\torientation {" .. data.body[body_name].rot:gsub(" ", ", ") .. "}")
+        local XYZ = data.body[body_name].rot:explode(" ")
+        XYZ[1] = tonumber(XYZ[1]) * math.pi/180
+        XYZ[2] = tonumber(XYZ[2]) * math.pi/180
+        XYZ[3] = tonumber(XYZ[3]) * math.pi/180
+        local q = euler2quat(XYZ[1], XYZ[2], XYZ[3])
+        File.line("\torientation {" .. q.w .. ", " .. q.x .. ", " .. q.y .. ", " .. q.z .. "}")
     end
     if body_name == "head" or data.body[body_name].shape == "sphere" then
         File.line("\tradius {" .. data.body[body_name].radius .. "}")
@@ -505,6 +539,39 @@ for joint_name, joint in pairs(data.joint) do
     File.line("\trange {" .. data.joint[joint_name].range:gsub(" ",", ") .. "}")
     File.line("\tconnections {" .. data.joint[joint_name].connections .. "}")
     File.line("\tconnectionType \"hinge\"")
+end
+
+
+for env_obj_num, env_obj in pairs(data.env_obj) do
+    File.line("object \"" .. env_obj_num .. "\"")
+    if data.env_obj[env_obj_num].shape then
+        File.line("\tshape \"" .. data.env_obj[env_obj_num].shape .. "\"")
+    else
+        File.line("\tshape \"box\"")
+    end
+    File.line("\tposition {" .. data.env_obj[env_obj_num].pos:gsub(" ", ", ") .. "}")
+    if  data.env_obj[env_obj_num].rot then
+        local XYZ = data.env_obj[env_obj_num].rot:explode(" ")
+        XYZ[1] = tonumber(XYZ[1]) * math.pi/180
+        XYZ[2] = tonumber(XYZ[2]) * math.pi/180
+        XYZ[3] = tonumber(XYZ[3]) * math.pi/180
+        local q = euler2quat(XYZ[1], XYZ[2], XYZ[3])
+        File.line("\torientation {" .. q.w .. ", " .. q.x .. ", " .. q.y .. ", " .. q.z .. "}")
+        end
+    if data.env_obj[env_obj_num].shape == "sphere" then
+        File.line("\tradius {" .. data.env_obj[env_obj_num].radius .. "}")
+    elseif data.env_obj[env_obj_num].shape == "cylinder" then
+        File.line("\tradius {" .. data.env_obj[env_obj_num].radius .. "}")
+        File.line("\tlength {" .. data.env_obj[env_obj_num].length .. "}")
+    else
+        File.line("\tsides {" .. data.env_obj[env_obj_num].sides:gsub(" ", ", ") .. "}")
+    end
+    if data.env_obj[env_obj_num].density then
+        File.line("\tdensity {".. data.env_obj[env_obj_num].density .."}")
+    else
+        File.line("\tdensity {0.25}")
+    end
+    File.line("static()")
 end
 
 File.write(arg[2] or "output.lua")

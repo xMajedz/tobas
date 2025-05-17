@@ -1266,11 +1266,11 @@ void GameStart()
 		
 				dJointSetHingeParam(
 					j->second.dJoint[0],
-					dParamLoStop,
+					dParamHiStop,
 					j->second.range[0]);
 				dJointSetHingeParam(
 					j->second.dJoint[0],
-					dParamHiStop,
+					dParamLoStop,
 					j->second.range[1]);
 		
 				j->second.dJoint[1] = dJointCreateFixed(game.world, 0);
@@ -1294,11 +1294,11 @@ void GameStart()
 		
 				dJointSetSliderParam(
 					j->second.dJoint[0],
-					dParamLoStop,
+					dParamHiStop,
 					j->second.range[0]);
 				dJointSetSliderParam(
 					j->second.dJoint[0],
-					dParamHiStop,
+					dParamLoStop,
 					j->second.range[1]);
 		
 				j->second.dJoint[1] = dJointCreateFixed(game.world, 0);
@@ -1339,22 +1339,22 @@ void GameStart()
 		
 				dJointSetUniversalParam(
 					j->second.dJoint[0],
-					dParamLoStop,
+					dParamHiStop,
 					j->second.range[0]);
 
 				dJointSetUniversalParam(
 					j->second.dJoint[0],
-					dParamLoStop2,
+					dParamHiStop2,
 					j->second.altRange[0]);
 
 				dJointSetUniversalParam(
 					j->second.dJoint[0],
-					dParamHiStop,
+					dParamLoStop,
 					j->second.range[1]);
 
 				dJointSetUniversalParam(
 					j->second.dJoint[0],
-					dParamHiStop2,
+					dParamLoStop2,
 					j->second.altRange[1]);
 		
 				j->second.dJoint[1] = dJointCreateFixed(game.world, 0);
@@ -1399,22 +1399,22 @@ void GameStart()
 
 				dJointSetHinge2Param(
 					j->second.dJoint[0],
-					dParamLoStop,
+					dParamHiStop,
 					j->second.range[0]);
 
 				dJointSetHinge2Param(
 					j->second.dJoint[0],
-					dParamLoStop2,
+					dParamHiStop2,
 					j->second.altRange[0]);
 
 				dJointSetHinge2Param(
 					j->second.dJoint[0],
-					dParamHiStop,
+					dParamLoStop,
 					j->second.range[1]);
 
 				dJointSetHinge2Param(
 					j->second.dJoint[0],
-					dParamHiStop2,
+					dParamLoStop2,
 					j->second.altRange[1]);
 		
 				j->second.dJoint[1] = dJointCreateFixed(game.world, 0);
