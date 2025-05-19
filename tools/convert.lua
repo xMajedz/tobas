@@ -535,8 +535,23 @@ for joint_name, joint in pairs(data.joint) do
     File.line("\tdensity {0.0025}")
     File.line("\tstrength {" .. tonumber(data.joint[joint_name].strength) * 10*10*10 .. "}")
     File.line("\tvelocity {" .. data.joint[joint_name].velocity .. "}")
-    File.line("\taxis {" .. data.joint[joint_name].axis:gsub(" ",", ") .. "}")
-    File.line("\trange {" .. data.joint[joint_name].range:gsub(" ",", ") .. "}")
+    data.joint[joint_name].axis = data.joint[joint_name].axis:explode(" ")
+    data.joint[joint_name].axis[1] = tonumber(data.joint[joint_name].axis[1]) * -1
+    data.joint[joint_name].axis[2] = tonumber(data.joint[joint_name].axis[2]) * -1
+    data.joint[joint_name].axis[3] = tonumber(data.joint[joint_name].axis[3]) * -1
+    File.line("\taxis {"
+        .. data.joint[joint_name].axis[1] .. ", "
+        .. data.joint[joint_name].axis[2] .. ", "
+        .. data.joint[joint_name].axis[3] .. "}")
+    data.joint[joint_name].range = data.joint[joint_name].range:explode(" ")
+    if joint_name:match("r_pecs") or joint_name:match("r_elbow") or joint_name:match("r_wrist") then
+        local r = data.joint[joint_name].range[1]
+        data.joint[joint_name].range[1] = tonumber(data.joint[joint_name].range[2]) * -1
+        data.joint[joint_name].range[2] = tonumber(r) * -1
+    end
+    File.line("\trange {"
+    .. data.joint[joint_name].range[1] .. ", "
+    .. data.joint[joint_name].range[2] .. "}")
     File.line("\tconnections {" .. data.joint[joint_name].connections .. "}")
     File.line("\tconnectionType \"hinge\"")
 end
