@@ -1,4 +1,3 @@
-currently inactive [Toribash](https://www.toribash.com/about.html) clone project.
 # Depends on
 * Raylib 5.5 ([raysan5/raylib](https://github.com/raysan5/raylib))
 * Open Dynamics Engine 0.16.6 ([odedevs/ode](https://bitbucket.org/odedevs/ode/)) 
