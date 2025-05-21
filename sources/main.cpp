@@ -63,6 +63,10 @@ struct game
 	dSpaceID space;
 	dJointGroupID contactgroup;
 	plane globalplane;
+	dReal engagedistance;
+	dReal engageheight;
+	dReal engageplayerpos[3];
+	dReal engageplayerrot[3];
 	dReal gravity[3];
 	dReal freeze_time;
 	dReal freeze_t;
@@ -168,7 +172,7 @@ std::string MSG;
 
 std::string SelectedJoint = "NONE";
 
-Color DynamicObjectColor = (Color){ 255, 255, 255, 255 };
+Color DynamicObjectColor = (Color){ 0, 255, 0, 255 };
 Color StaticObjectColor = (Color){ 51, 51, 51, 255 };
 Color JointColor = (Color){ 155, 155, 155, 255 };
 Color BodyColor = (Color){ 255, 255, 255, 255 };
@@ -182,11 +186,31 @@ std::string ObjectKey;
 std::string BodyKey;
 std::string JointKey;
 
+unsigned long StaticObjectsCategoryBits = 0b0001;
+unsigned long StaticObjectsCollideBits = 0b0000;
+
+unsigned long DynamicObjectsCategoryBits = 0b0010;
+unsigned long DynamicObjectsCollideBits = 0b0001;
+
+unsigned long BodyCategoryBits = 0b0100;
+unsigned long BodyCollideBits = 0b0001;
+
+unsigned long JointCategoryBits = 0b1000;
+unsigned long JointCollideBits = 0b0001;
+
 static void nearCallback (void *, dGeomID o1, dGeomID o2)
 {
-	//TODO: Fix Collisions
-	if (o1 != game.globalplane.dGeom && o2 != game.globalplane.dGeom) return;
- 
+	unsigned long cat1 = dGeomGetCategoryBits(o1);
+	unsigned long col1 = dGeomGetCollideBits(o1);
+	unsigned long cat2 = dGeomGetCategoryBits(o2);
+	unsigned long col2 = dGeomGetCollideBits(o2);
+
+ 	if ((cat1 & col2) || (cat2 & col1)) {
+
+	} else {
+		return;
+	}
+
 	int i;
 
 	dBodyID b1 = dGeomGetBody(o1);
@@ -205,6 +229,138 @@ static void nearCallback (void *, dGeomID o1, dGeomID o2)
 			dJointAttach(c, b1, b2);
 		}
 	}
+}
+
+int engagedistance(lua_State* L)
+{
+	lua_Number distance;
+
+	lua_rawgeti(L, -1, 1);
+	distance = lua_tonumber(L, -1);
+
+	switch(DataContext)
+	{
+		case NoContext: {
+			game.engagedistance = distance;
+		} break;
+		case ObjectContext: {
+			// Error Handling
+		} break;
+		case BodyContext: {
+			// Error Handling
+		} break;
+		case JointContext: {
+			// Error Handling
+		} break;
+	}
+
+	lua_Number result = 1;
+
+	lua_pushnumber(L, result);
+
+	return 1;
+}
+
+int engageheight(lua_State* L)
+{
+	lua_Number height;
+
+	lua_rawgeti(L, -1, 1);
+	height = lua_tonumber(L, -1);
+
+	switch(DataContext)
+	{
+		case NoContext: {
+			game.engageheight = height;
+		} break;
+		case ObjectContext: {
+			// Error Handling
+		} break;
+		case BodyContext: {
+			// Error Handling
+		} break;
+		case JointContext: {
+			// Error Handling
+		} break;
+	}
+
+	lua_Number result = 1;
+
+	lua_pushnumber(L, result);
+
+	return 1;
+}
+
+int engageplayerpos(lua_State* L)
+{
+	lua_Number pos[3];
+
+	lua_rawgeti(L, -1, 1);
+	pos[0] = lua_tonumber(L, -1);
+	lua_rawgeti(L, -2, 2);
+	pos[1] = lua_tonumber(L, -1);
+	lua_rawgeti(L, -3, 3);
+	pos[2] = lua_tonumber(L, -1);
+
+	switch(DataContext)
+	{
+		case NoContext: {
+			game.engageplayerpos[0] = pos[0];
+			game.engageplayerpos[1] = pos[1];
+			game.engageplayerpos[2] = pos[2];
+		} break;
+		case ObjectContext: {
+			// Error Handling
+		} break;
+		case BodyContext: {
+			// Error Handling
+		} break;
+		case JointContext: {
+			// Error Handling
+		} break;
+	}
+
+	lua_Number result = 1;
+
+	lua_pushnumber(L, result);
+
+	return 1;
+}
+
+int engageplayerrot(lua_State* L)
+{
+	lua_Number rot[3];
+
+	lua_rawgeti(L, -1, 1);
+	rot[0] = lua_tonumber(L, -1);
+	lua_rawgeti(L, -2, 2);
+	rot[1] = lua_tonumber(L, -1);
+	lua_rawgeti(L, -3, 3);
+	rot[2] = lua_tonumber(L, -1);
+
+	switch(DataContext)
+	{
+		case NoContext: {
+			game.engageplayerrot[0] = rot[0];
+			game.engageplayerrot[1] = rot[1];
+			game.engageplayerrot[2] = rot[2];
+		} break;
+		case ObjectContext: {
+			// Error Handling
+		} break;
+		case BodyContext: {
+			// Error Handling
+		} break;
+		case JointContext: {
+			// Error Handling
+		} break;
+	}
+
+	lua_Number result = 1;
+
+	lua_pushnumber(L, result);
+
+	return 1;
 }
 
 int gravity(lua_State* L)
@@ -450,10 +606,8 @@ int position(lua_State* L)
 		
 	lua_rawgeti(L, -1, 1);
 	position[0] = lua_tonumber(L, -1); 
-
 	lua_rawgeti(L, -2, 2);
 	position[1] = lua_tonumber(L, -1); 
-
 	lua_rawgeti(L, -3, 3);
 	position[2] = lua_tonumber(L, -1); 
 	
@@ -466,28 +620,44 @@ int position(lua_State* L)
 			Object[ObjectKey].position[0] = position[0];
 			Object[ObjectKey].position[1] = position[1];
 			Object[ObjectKey].position[2] = position[2];
-	
 			Object[ObjectKey].freeze.position[0] = position[0];
 			Object[ObjectKey].freeze.position[1] = position[1];
 			Object[ObjectKey].freeze.position[2] = position[2];
 		} break;
 		case BodyContext: {
-			Body[BodyKey].position[0] = position[0];
-			Body[BodyKey].position[1] = position[1];
-			Body[BodyKey].position[2] = position[2];
-	
-			Body[BodyKey].freeze.position[0] = position[0];
-			Body[BodyKey].freeze.position[1] = position[1];
-			Body[BodyKey].freeze.position[2] = position[2];
+			if (game.engageplayerpos) {
+				Body[BodyKey].position[0] = position[0] + game.engageplayerpos[0];
+				Body[BodyKey].position[1] = position[1] + game.engageplayerpos[1];
+				Body[BodyKey].position[2] = position[2] + game.engageplayerpos[2];
+				Body[BodyKey].freeze.position[0] = position[0] + game.engageplayerpos[0];
+				Body[BodyKey].freeze.position[1] = position[1] + game.engageplayerpos[1];
+				Body[BodyKey].freeze.position[2] = position[2] + game.engageplayerpos[2];
+
+			} else {
+				Body[BodyKey].position[0] = position[0];
+				Body[BodyKey].position[1] = position[1];
+				Body[BodyKey].position[2] = position[2];
+				Body[BodyKey].freeze.position[0] = position[0];
+				Body[BodyKey].freeze.position[1] = position[1];
+				Body[BodyKey].freeze.position[2] = position[2];
+			}
 		} break;
 		case JointContext: {
-			Joint[JointKey].position[0] = position[0];
-			Joint[JointKey].position[1] = position[1];
-			Joint[JointKey].position[2] = position[2];
-	
-			Joint[JointKey].freeze.position[0] = position[0];
-			Joint[JointKey].freeze.position[1] = position[1];
-			Joint[JointKey].freeze.position[2] = position[2];
+			if (game.engageplayerpos) {
+				Joint[JointKey].position[0] = position[0] + game.engageplayerpos[0];
+				Joint[JointKey].position[1] = position[1] + game.engageplayerpos[1];
+				Joint[JointKey].position[2] = position[2] + game.engageplayerpos[2];
+				Joint[JointKey].freeze.position[0] = position[0] + game.engageplayerpos[0];
+				Joint[JointKey].freeze.position[1] = position[1] + game.engageplayerpos[1];
+				Joint[JointKey].freeze.position[2] = position[2] + game.engageplayerpos[2];
+			} else {
+				Joint[JointKey].position[0] = position[0];
+				Joint[JointKey].position[1] = position[1];
+				Joint[JointKey].position[2] = position[2];
+				Joint[JointKey].freeze.position[0] = position[0];
+				Joint[JointKey].freeze.position[1] = position[1];
+				Joint[JointKey].freeze.position[2] = position[2];
+			}
 		} break;
 	}
 
@@ -991,10 +1161,16 @@ int connectionType(lua_State* L)
 	return 1;
 }
 
-void GameInit()
+void init_api()
 {
 	lua_State* L = luaL_newstate();
 	luaL_openlibs(L);
+
+	lua_pushcfunction(L, engageplayerpos);
+	lua_setglobal(L, "engageplayerpos");
+
+	lua_pushcfunction(L, engageplayerrot);
+	lua_setglobal(L, "engageplayerrot");
 
 	lua_pushcfunction(L, gravity);
 	lua_setglobal(L, "gravity");
@@ -1085,7 +1261,7 @@ void GameInit()
 
 void GameStart()
 {
-	GameInit();
+	init_api();
 
 	dMass mass;
 
@@ -1146,10 +1322,14 @@ void GameStart()
 		dGeomSetBody(o->second.dGeom, o->second.dBody);
 
 		if (o->second.isStatic) {
-			// I don't like how the engine makes statiic objects
 			dJointID fixed = dJointCreateFixed(game.world ,0);
 			dJointAttach(fixed, o->second.dBody, 0);
 			dJointSetFixed(fixed);
+			dGeomSetCategoryBits(o->second.dGeom, StaticObjectsCategoryBits);
+			dGeomSetCollideBits(o->second.dGeom, StaticObjectsCollideBits);
+		} else {
+			dGeomSetCategoryBits(o->second.dGeom, DynamicObjectsCategoryBits);
+			dGeomSetCollideBits(o->second.dGeom, DynamicObjectsCollideBits);
 		}
 
 		++o;
@@ -1197,7 +1377,11 @@ void GameStart()
 			dJointID fixed = dJointCreateFixed(game.world ,0);
 			dJointAttach(fixed, b->second.dBody, 0);
 			dJointSetFixed(fixed);
+		} else {
 		}
+
+		dGeomSetCategoryBits(b->second.dGeom, BodyCategoryBits);
+		dGeomSetCollideBits(b->second.dGeom, BodyCollideBits);
 
 		++b;
 	}
@@ -1381,20 +1565,7 @@ void GameStart()
 					j->second.position[0],
 					j->second.position[1],
 					j->second.position[2]);
-/*
-				Deprecated i suppose
-
-				dJointSetHinge2Axis1(
-					j->second.dJoint[0],
-					j->second.axis[0],
-					j->second.axis[1],
-					j->second.axis[2]);
-				dJointSetHinge2Axis2(
-					j->second.dJoint[0],
-					j->second.altAxis[0],
-					j->second.altAxis[1],
-					j->second.altAxis[2]);
-*/
+			
 				dJointSetHinge2Axes(j->second.dJoint[0], j->second.axis, j->second.altAxis);
 
 				dJointSetHinge2Param(
@@ -1439,6 +1610,9 @@ void GameStart()
 					Body[j->second.connections[1]].dBody);
 				dJointSetFixed(j->second.dJoint[1]);
 		}
+
+		dGeomSetCategoryBits(j->second.dGeom, JointCategoryBits);
+		dGeomSetCollideBits(j->second.dGeom, JointCollideBits);
 
 		++j;
 	}
@@ -2195,7 +2369,6 @@ void DrawGameFrame()
 
 void GameEnd()
 {
-	CloseWindow();
 	dJointGroupDestroy(game.contactgroup);
 	dSpaceDestroy(game.space);
 	dCloseODE();
@@ -2536,7 +2709,7 @@ int main()
 {
 	SetTraceLogLevel(LOG_ERROR);
 
-	InitWindow(1280, 720, "Game");
+	InitWindow(1280, 720, "Tobas");
 
 	Camera3D camera = { 0 };
 	camera.up = (Vector3){ 0.0f, 0.0f, 1.0f };
@@ -2548,6 +2721,7 @@ int main()
 
 	SetTargetFPS(60);
 	
+		
 	GameStart();
 
 	Ray ray = { 0 };
@@ -2705,6 +2879,7 @@ int main()
 	}
 	
 	GameEnd();
+	CloseWindow();
 
 	return 0;
 }
