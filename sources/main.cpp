@@ -208,6 +208,36 @@ static void nearCallback (void *, dGeomID o1, dGeomID o2)
 	}
 }
 
+int api_friction(lua_State* L)
+{
+	lua_Number friction;
+
+	lua_rawgeti(L, -1, 1);
+	friction = lua_tonumber(L, -1);
+
+	switch(DataContext)
+	{
+		case NoContext: {
+			game.friction = friction;
+		} break;
+		case objectContext: {
+			// Error Handling
+		} break;
+		case BodyContext: {
+			// Error Handling
+		} break;
+		case JointContext: {
+			// Error Handling
+		} break;
+	}
+
+	lua_Number result = 1;
+
+	lua_pushnumber(L, result);
+
+	return 1;
+}
+
 int engagedistance(lua_State* L)
 {
 	lua_Number distance;
@@ -1149,6 +1179,9 @@ void init_api()
 	lua_pushcfunction(L, engageplayerrot);
 	lua_setglobal(L, "engageplayerrot");
 
+	lua_pushcfunction(L, api_friction);
+	lua_setglobal(L, "friction");
+
 	lua_pushcfunction(L, gravity);
 	lua_setglobal(L, "gravity");
 
@@ -1662,39 +1695,6 @@ void UpdateFreeze()
 		j.freeze.angularVel[2] = angularVel[2];
 	}
 }
-/*
-void RelaxAll()
-{
-	GlobalPassiveState = false;
-
-	dReal s = 0.0f;
-
-	for (auto const& [joint_name, j] : joint) {
-		switch(j.connectionType) {
-			case Hinge: {
-				dJointSetHingeParam(j.dJoint[0], dParamFMax, s);
-				dJointSetHingeParam(j.dJoint[0], dParamVel, 0.0f);
-			} break;
-			case Slider: {
-				dJointSetSliderParam(j.dJoint[0], dParamFMax, s);
-				dJointSetSliderParam(j.dJoint[0], dParamVel, 0.0f);
-			} break;
-			case Universal: {
-				dJointSetUniversalParam(j.dJoint[0], dParamFMax, s);
-				dJointSetUniversalParam(j.dJoint[0], dParamVel, 0.0f);
-				dJointSetUniversalParam(j.dJoint[0], dParamFMax2, s);
-				dJointSetUniversalParam(j.dJoint[0], dParamVel2, 0.0f);
-			} break;
-			case Hinge2: {
-				dJointSetHinge2Param(j.dJoint[0], dParamFMax, s);
-				dJointSetHinge2Param(j.dJoint[0], dParamVel, 0.0f);
-				dJointSetHinge2Param(j.dJoint[0], dParamFMax2, s);
-				dJointSetHinge2Param(j.dJoint[0], dParamVel2, 0.0f);
-			} break;
-		}
-	}
-}
-*/
 
 void DrawSim()
 {
