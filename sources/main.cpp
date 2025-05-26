@@ -59,8 +59,8 @@ struct game {
 	dReal unfreeze_time;
 	dReal unfreeze_t;
 	dReal step;
-	int game_frame;
-	int turn_frame;
+	int gameframe;
+	int turnframes = 10;
 	bool freeze;
 	bool pause = false;
 } game;
@@ -206,6 +206,36 @@ static void nearCallback (void *, dGeomID o1, dGeomID o2)
 			dJointAttach(c, b1, b2);
 		}
 	}
+}
+
+int api_turnframes(lua_State* L)
+{
+	lua_Number turnframes;
+
+	lua_rawgeti(L, -1, 1);
+	turnframes = lua_tonumber(L, -1);
+
+	switch(DataContext)
+	{
+		case NoContext: {
+			game.turnframes = turnframes;
+		} break;
+		case objectContext: {
+			// Error Handling
+		} break;
+		case BodyContext: {
+			// Error Handling
+		} break;
+		case JointContext: {
+			// Error Handling
+		} break;
+	}
+
+	lua_Number result = 1;
+
+	lua_pushnumber(L, result);
+
+	return 1;
 }
 
 int api_friction(lua_State* L)
@@ -1172,6 +1202,9 @@ void init_api()
 {
 	lua_State* L = luaL_newstate();
 	luaL_openlibs(L);
+	
+	lua_pushcfunction(L, api_turnframes);
+	lua_setglobal(L, "turnframes");
 
 	lua_pushcfunction(L, engageplayerpos);
 	lua_setglobal(L, "engageplayerpos");
@@ -1278,8 +1311,7 @@ void GameStart()
 	dInitODE2(0);
 
 	game.step = 0.01f;
-	game.game_frame = 0;
-	game.turn_frame = 10;
+	game.gameframe = 0;
 	game.freeze = true;
 	game.freeze_time = 40;
 	game.freeze_t = 0;
@@ -2142,7 +2174,7 @@ void DrawGameFrame()
 
 		if (game.unfreeze_t < game.unfreeze_time) {
 			++game.unfreeze_t;
-			++game.game_frame;
+			++game.gameframe;
 		} else {
 			UpdateFreeze();
 		}
@@ -2569,7 +2601,7 @@ void GameReset()
 	RelaxAll();
 
 	game.freeze = true;
-	game.game_frame = 0;
+	game.gameframe = 0;
 	game.freeze_t = 0;
 	game.unfreeze_t = 0;
 
@@ -2667,7 +2699,7 @@ void StartFreeplay()
 	RelaxAll();
 
 	game.freeze = true;
-	game.game_frame = 0;
+	game.gameframe = 0;
 	game.freeze_t = 0;
 	game.unfreeze_t = 0;
 	
@@ -3135,7 +3167,7 @@ int main()
 				if (IsKeyDown(KEY_LEFT_SHIFT)) {
 					GameStep(1);
 				} else {
-					GameStep(game.turn_frame);
+					GameStep(game.turnframes);
 				}
 			}
 		}
@@ -3170,7 +3202,7 @@ int main()
 					rlPopMatrix();
 				}
 			EndMode3D();
-			DrawText(TextFormat("%d", game.game_frame), 640, 20, 32, BLACK);
+			DrawText(TextFormat("%d", game.gameframe), 640, 20, 32, BLACK);
 		EndDrawing();
 	}
 	
