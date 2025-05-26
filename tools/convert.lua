@@ -14,6 +14,10 @@ local context = ""
 for _, line in pairs(source) do
     if line:match("gravity ") then
         data.gravity = line:gsub(".*gravity ", "")
+    elseif line:match("turnframes ") then
+        data.turnframes = line:gsub(".*turnframes ", "");
+    elseif line:match("engageplayerrot ") then
+        data.engageplayerrot = line:gsub(".*engageplayerrot ", "");
     elseif line:match("engageplayerpos ") then
         data.engageplayerpos = line:gsub(".*engageplayerpos ", "");
     elseif line:match("player ") then
@@ -119,12 +123,13 @@ File.ClearContent()
 
 File.line("-- converted from " .. arg[1] .. " using convert.lua")
 data.engageplayerpos = data.engageplayerpos:explode(",")
+File.line("turnframes {" .. data.turnframes .. "}")
+File.line("gravity {" .. data.gravity:gsub(" ",", ") .. "}")
+File.line("friction {1000.00}")
 File.line("engageplayerpos {"
     .. data.engageplayerpos[1] .. ", "
     .. data.engageplayerpos[2] .. ", "
     .. data.engageplayerpos[3] .. "}")
-File.line("gravity {" .. data.gravity:gsub(" ",", ") .. "}")
-
 for body_name, body in pairs(data.body) do
     File.line("body \"" .. body_name .. "\"")
     if data.body[body_name].shape == "cylinder" then
