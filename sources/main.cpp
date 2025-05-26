@@ -9,56 +9,41 @@
 #include <ode/ode.h>
 #include <lua.hpp>
 
-enum GameContext
-{
+enum GameContext {
 	NoContext,
-	ObjectContext,
+	objectContext,
 	BodyContext,
 	JointContext
 } DataContext = NoContext;
 
-enum PhysicsShape
-{
+enum Shape {
 	Box,
 	Sphere,
 	Capsule,
-	Cylinder
+	Cylinder,
+	COMPOSITE,
 };
 
-enum PhysicsJoint
-{
+enum JointType {
 	Hinge,
-	Hinge2,
 	Slider,
-	Universal
+	Universal,
+	Hinge2,
 };
 
-enum JointState
-{
+enum JointState {
 	HOLD,
 	RELAX,
 	FORWARD,
 	BACKWARD,
-	ALT_HOLD,
-	ALT_RELAX,
-	ALT_FORWARD,
-	ALT_BACKWARD
 };
 
-struct FrameData
-{
-	const char* joint_name;
-	JointState joint_state;
-};
-
-struct plane
-{
+struct plane {
 	dGeomID dGeom;
 	bool state;
 };
 
-struct game
-{
+struct game {
 	dWorldID world;
 	dSpaceID space;
 	dJointGroupID contactgroup;
@@ -68,6 +53,7 @@ struct game
 	dReal engageplayerpos[3];
 	dReal engageplayerrot[3];
 	dReal gravity[3];
+	dReal friction = 1000.00;
 	dReal freeze_time;
 	dReal freeze_t;
 	dReal unfreeze_time;
@@ -75,27 +61,33 @@ struct game
 	dReal step;
 	int game_frame;
 	int turn_frame;
-	bool isFrozen;
+	bool freeze;
+	bool pause = false;
 } game;
 
-struct FreezeData
-{
+class FreezeData {
+	public:
 	dReal position[3];
 	dReal orientation[4];
 	dReal angularVel[3];
 	dReal linearVel[3];
 };
 
-struct Composite
-{
+class FrameData : public FreezeData {
+	public:
+	const char* joint_name;
+	JointState joint_state;
+};
+
+struct Composite {
 	std::string name;
 	dBodyID dBody;
 };
 
-struct ObjectData
-{
+class Object {
+	public:
 	std::string name;
-	enum PhysicsShape shape;
+	Shape shape;
 	dReal position[3];
 	dReal orientation[4];
 	dReal sides[3];
@@ -106,91 +98,77 @@ struct ObjectData
 	dGeomID dGeom;
 	Composite composite;
 	FreezeData freeze;
-	bool isStatic;
+	bool static_state;
 	bool isComposite;
 };
 
-struct BodyData
-{
-	std::string name;
-	enum PhysicsShape shape;
-	dReal radius;
-	dReal length;
-	dReal density;
-	dReal sides[3];
-	dReal position[3];
-	dReal orientation[4];
-	dBodyID dBody;
-	dGeomID dGeom;
-	Composite composite;
-	FreezeData freeze;
-	bool isStatic;
-	bool isComposite;
+class Body : public Object {
+
 };
 
-struct JointData
-{
-	std::string name;
-	enum PhysicsShape shape;
-	dReal radius;
-	dReal length;
-	dReal density;
-	dReal sides[3];
-	dReal position[3];
-	dReal orientation[4];
-	dBodyID dBody;
-	dGeomID dGeom;
-	dJointID dJoint[2];
-	bool isStatic;
-	bool isComposite;
-	dReal axis[3];
-	dReal altAxis[3];
-	dReal range[2];
-	dReal altRange[2];
-	dReal strength;
-	dReal altStrength;
-	dReal velocity;
-	dReal altVelocity;
+class Joint : public Object {
+	public:
 	std::string connections[2];
-	enum PhysicsJoint connectionType;
-	Composite composite;
-	FreezeData freeze;
+	JointType connectionType;
 	JointState state;
+	JointState state_alt;
+	dJointID dJoint[2];
+	dReal axis[3];
+	dReal axis_alt[3];
+	dReal range[2];
+	dReal range_alt[2];
+	dReal strength;
+	dReal strength_alt;
+	dReal velocity;
+	dReal velocity_alt;
 	bool passiveState;
 	bool activeState;
 	bool altPassiveState;
 	bool altActiveState;
 };
 
-bool PhysicsPaused = false;
+enum PlayerPassiveStates {
+	HOLD_ALL,
+	RELAX_ALL,
+	MIXED,
+}; 
 
+class Player {
+	public:
+	PlayerPassiveStates passive_states;
+	PlayerPassiveStates passive_states_alt;
+	Player() {
+		passive_states = RELAX_ALL;
+		passive_states_alt = RELAX_ALL;
+	};
+};
+
+Player player;
+
+int MAX_CONTACTS = 8;
 bool GlobalPassiveState = false;
-
-int MAX_CONTACTS = 4;
-
 std::string MSG;
-
 std::string SelectedJoint = "NONE";
 
-Color DynamicObjectColor = (Color){ 0, 255, 0, 255 };
-Color StaticObjectColor = (Color){ 51, 51, 51, 255 };
+Color DynamicobjectColor = (Color){ 0, 255, 0, 255 };
+Color StaticobjectColor = (Color){ 51, 51, 51, 255 };
 Color JointColor = (Color){ 155, 155, 155, 255 };
 Color BodyColor = (Color){ 255, 255, 255, 255 };
 Color GhostColor = (Color){ 51, 51, 51, 51 };
 
-std::map<std::string, ObjectData> Object;
-std::map<std::string, BodyData> Body;
-std::map<std::string, JointData> Joint;
+std::map<std::string, Object> object;
+std::map<std::string, Body> body;
+std::map<std::string, Joint> joint;
 
-std::string ObjectKey;
-std::string BodyKey;
-std::string JointKey;
+std::string object_key;
+std::string body_key;
+std::string joint_key;
 
-unsigned long StaticObjectsCategoryBits = 0b0001;
-unsigned long StaticObjectsCollideBits = 0b0000;
+unsigned long StaticobjectsCategoryBits = 0b0001;
+unsigned long StaticobjectsCollideBits = 0b0000;
 
-unsigned long DynamicObjectsCategoryBits = 0b0010;
-unsigned long DynamicObjectsCollideBits = 0b0001;
+unsigned long DynamicobjectsCategoryBits = 0b0010;
+unsigned long DynamicobjectsCollideBits = 0b0001;
 
 unsigned long BodyCategoryBits = 0b0100;
 unsigned long BodyCollideBits = 0b0001;
@@ -202,12 +180,11 @@ static void nearCallback (void *, dGeomID o1, dGeomID o2)
 {
 	unsigned long cat1 = dGeomGetCategoryBits(o1);
 	unsigned long col1 = dGeomGetCollideBits(o1);
+
 	unsigned long cat2 = dGeomGetCategoryBits(o2);
 	unsigned long col2 = dGeomGetCollideBits(o2);
 
- 	if ((cat1 & col2) || (cat2 & col1)) {
-
-	} else {
+ 	if (!((cat1 & col2) || (cat2 & col1))) {
 		return;
 	}
 
@@ -220,7 +197,7 @@ static void nearCallback (void *, dGeomID o1, dGeomID o2)
 
 	for (i = 0; i < MAX_CONTACTS; i++) {
 		contact[i].surface.mode = dContactApprox1;
-		contact[i].surface.mu = 5000.0f;
+		contact[i].surface.mu = game.friction;
 	}
 
 	if (int numc = dCollide(o1, o2, MAX_CONTACTS, &contact[0].geom, sizeof(dContact))) {
@@ -243,7 +220,7 @@ int engagedistance(lua_State* L)
 		case NoContext: {
 			game.engagedistance = distance;
 		} break;
-		case ObjectContext: {
+		case objectContext: {
 			// Error Handling
 		} break;
 		case BodyContext: {
@@ -273,7 +250,7 @@ int engageheight(lua_State* L)
 		case NoContext: {
 			game.engageheight = height;
 		} break;
-		case ObjectContext: {
+		case objectContext: {
 			// Error Handling
 		} break;
 		case BodyContext: {
@@ -309,7 +286,7 @@ int engageplayerpos(lua_State* L)
 			game.engageplayerpos[1] = pos[1];
 			game.engageplayerpos[2] = pos[2];
 		} break;
-		case ObjectContext: {
+		case objectContext: {
 			// Error Handling
 		} break;
 		case BodyContext: {
@@ -345,7 +322,7 @@ int engageplayerrot(lua_State* L)
 			game.engageplayerrot[1] = rot[1];
 			game.engageplayerrot[2] = rot[2];
 		} break;
-		case ObjectContext: {
+		case objectContext: {
 			// Error Handling
 		} break;
 		case BodyContext: {
@@ -383,7 +360,7 @@ int gravity(lua_State* L)
 			game.gravity[1] = gravity[1];
 			game.gravity[2] = gravity[2];
 		} break;
-		case ObjectContext: {
+		case objectContext: {
 			// Error Handling	
 		} break;
 		case BodyContext: {
@@ -408,7 +385,7 @@ int globalplane(lua_State* L)
 		case NoContext: {
 			game.globalplane.state = true;
 		} break;
-		case ObjectContext: {
+		case objectContext: {
 			// Error Handling	
 		} break;
 		case BodyContext: {
@@ -426,36 +403,36 @@ int globalplane(lua_State* L)
 	return 1;
 }
 
-int object(lua_State* L)
+int api_object(lua_State* L)
 {
-	DataContext = ObjectContext;
+	DataContext = objectContext;
 
 	std::string name = lua_tostring(L, -1);
 	
-	ObjectKey = name;
+	object_key = name;
 
-	Object[ObjectKey].name = name;
+	object[object_key].name = name;
 
-	Object[ObjectKey].orientation[0] = 1.00;
-	Object[ObjectKey].orientation[1] = 0.00;
-	Object[ObjectKey].orientation[2] = 0.00;
-	Object[ObjectKey].orientation[3] = 0.00;
+	object[object_key].orientation[0] = 1.00;
+	object[object_key].orientation[1] = 0.00;
+	object[object_key].orientation[2] = 0.00;
+	object[object_key].orientation[3] = 0.00;
 
-	Object[ObjectKey].freeze.orientation[0] = 1.00;
-	Object[ObjectKey].freeze.orientation[1] = 0.00;
-	Object[ObjectKey].freeze.orientation[2] = 0.00;
-	Object[ObjectKey].freeze.orientation[3] = 0.00;
+	object[object_key].freeze.orientation[0] = 1.00;
+	object[object_key].freeze.orientation[1] = 0.00;
+	object[object_key].freeze.orientation[2] = 0.00;
+	object[object_key].freeze.orientation[3] = 0.00;
 
-	Object[ObjectKey].freeze.linearVel[0] = 0.00;
-	Object[ObjectKey].freeze.linearVel[1] = 0.00;
-	Object[ObjectKey].freeze.linearVel[2] = 0.00;
+	object[object_key].freeze.linearVel[0] = 0.00;
+	object[object_key].freeze.linearVel[1] = 0.00;
+	object[object_key].freeze.linearVel[2] = 0.00;
 
-	Object[ObjectKey].freeze.angularVel[0] = 0.00;
-	Object[ObjectKey].freeze.angularVel[1] = 0.00;
-	Object[ObjectKey].freeze.angularVel[2] = 0.00;
+	object[object_key].freeze.angularVel[0] = 0.00;
+	object[object_key].freeze.angularVel[1] = 0.00;
+	object[object_key].freeze.angularVel[2] = 0.00;
 
-	Object[ObjectKey].isStatic = false;
-	Object[ObjectKey].isComposite = false;
+	object[object_key].static_state = false;
+	object[object_key].isComposite = false;
 
 	lua_Number result = 1;
 
@@ -464,36 +441,36 @@ int object(lua_State* L)
 	return 1;
 }
 
-int body(lua_State* L)
+int api_body(lua_State* L)
 {
 	DataContext = BodyContext;
 
 	std::string name = lua_tostring(L, -1);
 	
-	BodyKey = name;
+	body_key = name;
 
-	Body[BodyKey].name = name;
+	body[body_key].name = name;
 
-	Body[BodyKey].orientation[0] = 1.00;
-	Body[BodyKey].orientation[1] = 0.00;
-	Body[BodyKey].orientation[2] = 0.00;
-	Body[BodyKey].orientation[3] = 0.00;
+	body[body_key].orientation[0] = 1.00;
+	body[body_key].orientation[1] = 0.00;
+	body[body_key].orientation[2] = 0.00;
+	body[body_key].orientation[3] = 0.00;
 
-	Body[BodyKey].freeze.orientation[0] = 1.00;
-	Body[BodyKey].freeze.orientation[1] = 0.00;
-	Body[BodyKey].freeze.orientation[2] = 0.00;
-	Body[BodyKey].freeze.orientation[3] = 0.00;
+	body[body_key].freeze.orientation[0] = 1.00;
+	body[body_key].freeze.orientation[1] = 0.00;
+	body[body_key].freeze.orientation[2] = 0.00;
+	body[body_key].freeze.orientation[3] = 0.00;
 
-	Body[BodyKey].freeze.linearVel[0] = 0.00;
-	Body[BodyKey].freeze.linearVel[1] = 0.00;
-	Body[BodyKey].freeze.linearVel[2] = 0.00;
+	body[body_key].freeze.linearVel[0] = 0.00;
+	body[body_key].freeze.linearVel[1] = 0.00;
+	body[body_key].freeze.linearVel[2] = 0.00;
 
-	Body[BodyKey].freeze.angularVel[0] = 0.00;
-	Body[BodyKey].freeze.angularVel[1] = 0.00;
-	Body[BodyKey].freeze.angularVel[2] = 0.00;
+	body[body_key].freeze.angularVel[0] = 0.00;
+	body[body_key].freeze.angularVel[1] = 0.00;
+	body[body_key].freeze.angularVel[2] = 0.00;
 
-	Body[BodyKey].isStatic = false;
-	Body[BodyKey].isComposite = false;
+	body[body_key].static_state = false;
+	body[body_key].isComposite = false;
 
 	lua_Number result = 1;
 
@@ -502,39 +479,39 @@ int body(lua_State* L)
 	return 1;
 }
 
-int joint(lua_State* L)
+int api_joint(lua_State* L)
 {
 	DataContext = JointContext;
 
 	std::string name = lua_tostring(L, -1);
 
-	JointKey = name;
+	joint_key = name;
 
-	Joint[JointKey].name = name;
+	joint[joint_key].name = name;
 
-	Joint[JointKey].orientation[0] = 1.00;
-	Joint[JointKey].orientation[1] = 0.00;
-	Joint[JointKey].orientation[2] = 0.00;
-	Joint[JointKey].orientation[3] = 0.00;
+	joint[joint_key].orientation[0] = 1.00;
+	joint[joint_key].orientation[1] = 0.00;
+	joint[joint_key].orientation[2] = 0.00;
+	joint[joint_key].orientation[3] = 0.00;
 
-	Joint[JointKey].freeze.orientation[0] = 1.00;
-	Joint[JointKey].freeze.orientation[1] = 0.00;
-	Joint[JointKey].freeze.orientation[2] = 0.00;
-	Joint[JointKey].freeze.orientation[3] = 0.00;
+	joint[joint_key].freeze.orientation[0] = 1.00;
+	joint[joint_key].freeze.orientation[1] = 0.00;
+	joint[joint_key].freeze.orientation[2] = 0.00;
+	joint[joint_key].freeze.orientation[3] = 0.00;
 
-	Joint[JointKey].freeze.linearVel[0] = 0.00;
-	Joint[JointKey].freeze.linearVel[1] = 0.00;
-	Joint[JointKey].freeze.linearVel[2] = 0.00;
+	joint[joint_key].freeze.linearVel[0] = 0.00;
+	joint[joint_key].freeze.linearVel[1] = 0.00;
+	joint[joint_key].freeze.linearVel[2] = 0.00;
 
-	Joint[JointKey].freeze.angularVel[0] = 0.00;
-	Joint[JointKey].freeze.angularVel[1] = 0.00;
-	Joint[JointKey].freeze.angularVel[2] = 0.00;
+	joint[joint_key].freeze.angularVel[0] = 0.00;
+	joint[joint_key].freeze.angularVel[1] = 0.00;
+	joint[joint_key].freeze.angularVel[2] = 0.00;
 
-	Joint[JointKey].state = RELAX;
-	Joint[JointKey].passiveState = false;
-	Joint[JointKey].activeState = false;
-	Joint[JointKey].altPassiveState = false;
-	Joint[JointKey].altActiveState = false;
+	joint[joint_key].state = RELAX;
+	joint[joint_key].passiveState = false;
+	joint[joint_key].activeState = false;
+	joint[joint_key].altPassiveState = false;
+	joint[joint_key].altActiveState = false;
 
 	lua_Number result = 1;
 
@@ -552,41 +529,41 @@ int shape(lua_State* L)
 		case NoContext: {
 			// Error Handling
 		} break;
-		case ObjectContext: {
+		case objectContext: {
 			if ("box" == shape) {
-				Object[ObjectKey].shape = Box;
+				object[object_key].shape = Box;
 			} else if ("sphere" == shape) {
-					Object[ObjectKey].shape = Sphere;
+					object[object_key].shape = Sphere;
 			} else if ("capsule" == shape) {
-					Object[ObjectKey].shape = Capsule;
+					object[object_key].shape = Capsule;
 			} else if ("cylinder" == shape) {
-					Object[ObjectKey].shape = Cylinder;
+					object[object_key].shape = Cylinder;
 			} else  {
 				//Error Handling
 			}
 		} break;
 		case BodyContext: {
 			if ("box" == shape) {
-				Body[BodyKey].shape = Box;
+				body[body_key].shape = Box;
 			} else if ("sphere" == shape) {
-				Body[BodyKey].shape = Sphere;
+				body[body_key].shape = Sphere;
 			} else if ("capsule" == shape) {
-				Body[BodyKey].shape = Capsule;
+				body[body_key].shape = Capsule;
 			} else if ("cylinder" == shape) {
-				Body[BodyKey].shape = Cylinder;
+				body[body_key].shape = Cylinder;
 			} else  {
 				//Error Handling
 			}
 		} break;
 		case JointContext: {
 			if ("box"  == shape) {
-				Joint[JointKey].shape = Box;
+				joint[joint_key].shape = Box;
 			} else if ("sphere" == shape) {
-				Joint[JointKey].shape = Sphere;
+				joint[joint_key].shape = Sphere;
 			} else if ("capsule" == shape) {
-				Joint[JointKey].shape = Capsule;
+				joint[joint_key].shape = Capsule;
 			} else if ("cylinder" == shape) {
-				Joint[JointKey].shape = Cylinder;
+				joint[joint_key].shape = Cylinder;
 			} else  {
 				//Error Handling
 			}
@@ -616,47 +593,47 @@ int position(lua_State* L)
 		case NoContext: {
 			// Error Handling
 		} break;
-		case ObjectContext: {
-			Object[ObjectKey].position[0] = position[0];
-			Object[ObjectKey].position[1] = position[1];
-			Object[ObjectKey].position[2] = position[2];
-			Object[ObjectKey].freeze.position[0] = position[0];
-			Object[ObjectKey].freeze.position[1] = position[1];
-			Object[ObjectKey].freeze.position[2] = position[2];
+		case objectContext: {
+			object[object_key].position[0] = position[0];
+			object[object_key].position[1] = position[1];
+			object[object_key].position[2] = position[2];
+			object[object_key].freeze.position[0] = position[0];
+			object[object_key].freeze.position[1] = position[1];
+			object[object_key].freeze.position[2] = position[2];
 		} break;
 		case BodyContext: {
 			if (game.engageplayerpos) {
-				Body[BodyKey].position[0] = position[0] + game.engageplayerpos[0];
-				Body[BodyKey].position[1] = position[1] + game.engageplayerpos[1];
-				Body[BodyKey].position[2] = position[2] + game.engageplayerpos[2];
-				Body[BodyKey].freeze.position[0] = position[0] + game.engageplayerpos[0];
-				Body[BodyKey].freeze.position[1] = position[1] + game.engageplayerpos[1];
-				Body[BodyKey].freeze.position[2] = position[2] + game.engageplayerpos[2];
+				body[body_key].position[0] = position[0] + game.engageplayerpos[0];
+				body[body_key].position[1] = position[1] + game.engageplayerpos[1];
+				body[body_key].position[2] = position[2] + game.engageplayerpos[2];
+				body[body_key].freeze.position[0] = position[0] + game.engageplayerpos[0];
+				body[body_key].freeze.position[1] = position[1] + game.engageplayerpos[1];
+				body[body_key].freeze.position[2] = position[2] + game.engageplayerpos[2];
 
 			} else {
-				Body[BodyKey].position[0] = position[0];
-				Body[BodyKey].position[1] = position[1];
-				Body[BodyKey].position[2] = position[2];
-				Body[BodyKey].freeze.position[0] = position[0];
-				Body[BodyKey].freeze.position[1] = position[1];
-				Body[BodyKey].freeze.position[2] = position[2];
+				body[body_key].position[0] = position[0];
+				body[body_key].position[1] = position[1];
+				body[body_key].position[2] = position[2];
+				body[body_key].freeze.position[0] = position[0];
+				body[body_key].freeze.position[1] = position[1];
+				body[body_key].freeze.position[2] = position[2];
 			}
 		} break;
 		case JointContext: {
 			if (game.engageplayerpos) {
-				Joint[JointKey].position[0] = position[0] + game.engageplayerpos[0];
-				Joint[JointKey].position[1] = position[1] + game.engageplayerpos[1];
-				Joint[JointKey].position[2] = position[2] + game.engageplayerpos[2];
-				Joint[JointKey].freeze.position[0] = position[0] + game.engageplayerpos[0];
-				Joint[JointKey].freeze.position[1] = position[1] + game.engageplayerpos[1];
-				Joint[JointKey].freeze.position[2] = position[2] + game.engageplayerpos[2];
+				joint[joint_key].position[0] = position[0] + game.engageplayerpos[0];
+				joint[joint_key].position[1] = position[1] + game.engageplayerpos[1];
+				joint[joint_key].position[2] = position[2] + game.engageplayerpos[2];
+				joint[joint_key].freeze.position[0] = position[0] + game.engageplayerpos[0];
+				joint[joint_key].freeze.position[1] = position[1] + game.engageplayerpos[1];
+				joint[joint_key].freeze.position[2] = position[2] + game.engageplayerpos[2];
 			} else {
-				Joint[JointKey].position[0] = position[0];
-				Joint[JointKey].position[1] = position[1];
-				Joint[JointKey].position[2] = position[2];
-				Joint[JointKey].freeze.position[0] = position[0];
-				Joint[JointKey].freeze.position[1] = position[1];
-				Joint[JointKey].freeze.position[2] = position[2];
+				joint[joint_key].position[0] = position[0];
+				joint[joint_key].position[1] = position[1];
+				joint[joint_key].position[2] = position[2];
+				joint[joint_key].freeze.position[0] = position[0];
+				joint[joint_key].freeze.position[1] = position[1];
+				joint[joint_key].freeze.position[2] = position[2];
 			}
 		} break;
 	}
@@ -689,38 +666,38 @@ int orientation(lua_State* L)
 		case NoContext: {
 			// Error Handling
 		} break;
-		case ObjectContext: {
-			Object[ObjectKey].orientation[0] = orientation[0];
-			Object[ObjectKey].orientation[1] = orientation[1];
-			Object[ObjectKey].orientation[2] = orientation[2];
-			Object[ObjectKey].orientation[3] = orientation[3];
+		case objectContext: {
+			object[object_key].orientation[0] = orientation[0];
+			object[object_key].orientation[1] = orientation[1];
+			object[object_key].orientation[2] = orientation[2];
+			object[object_key].orientation[3] = orientation[3];
 
-			Object[ObjectKey].freeze.orientation[0] = orientation[0];
-			Object[ObjectKey].freeze.orientation[1] = orientation[1];
-			Object[ObjectKey].freeze.orientation[2] = orientation[2];
-			Object[ObjectKey].freeze.orientation[3] = orientation[3];
+			object[object_key].freeze.orientation[0] = orientation[0];
+			object[object_key].freeze.orientation[1] = orientation[1];
+			object[object_key].freeze.orientation[2] = orientation[2];
+			object[object_key].freeze.orientation[3] = orientation[3];
 		} break;
 		case BodyContext: {
-			Body[BodyKey].orientation[0] = orientation[0];
-			Body[BodyKey].orientation[1] = orientation[1];
-			Body[BodyKey].orientation[2] = orientation[2];
-			Body[BodyKey].orientation[3] = orientation[3];
+			body[body_key].orientation[0] = orientation[0];
+			body[body_key].orientation[1] = orientation[1];
+			body[body_key].orientation[2] = orientation[2];
+			body[body_key].orientation[3] = orientation[3];
 
-			Body[BodyKey].freeze.orientation[0] = orientation[0];
-			Body[BodyKey].freeze.orientation[1] = orientation[1];
-			Body[BodyKey].freeze.orientation[2] = orientation[2];
-			Body[BodyKey].freeze.orientation[3] = orientation[3];
+			body[body_key].freeze.orientation[0] = orientation[0];
+			body[body_key].freeze.orientation[1] = orientation[1];
+			body[body_key].freeze.orientation[2] = orientation[2];
+			body[body_key].freeze.orientation[3] = orientation[3];
 		} break;
 		case JointContext: {
-			Joint[JointKey].orientation[0] = orientation[0];
-			Joint[JointKey].orientation[1] = orientation[1];
-			Joint[JointKey].orientation[2] = orientation[2];
-			Joint[JointKey].orientation[3] = orientation[3];
+			joint[joint_key].orientation[0] = orientation[0];
+			joint[joint_key].orientation[1] = orientation[1];
+			joint[joint_key].orientation[2] = orientation[2];
+			joint[joint_key].orientation[3] = orientation[3];
 	
-			Joint[JointKey].freeze.orientation[0] = orientation[0];
-			Joint[JointKey].freeze.orientation[1] = orientation[1];
-			Joint[JointKey].freeze.orientation[2] = orientation[2];
-			Joint[JointKey].freeze.orientation[3] = orientation[3];
+			joint[joint_key].freeze.orientation[0] = orientation[0];
+			joint[joint_key].freeze.orientation[1] = orientation[1];
+			joint[joint_key].freeze.orientation[2] = orientation[2];
+			joint[joint_key].freeze.orientation[3] = orientation[3];
 		} break;
 	}
 
@@ -749,20 +726,20 @@ int sides(lua_State* L)
 		case NoContext: {
 			// Error Handling
 		} break;
-		case ObjectContext: {
-			Object[ObjectKey].sides[0] = sides[0];
-			Object[ObjectKey].sides[1] = sides[1];
-			Object[ObjectKey].sides[2] = sides[2];
+		case objectContext: {
+			object[object_key].sides[0] = sides[0];
+			object[object_key].sides[1] = sides[1];
+			object[object_key].sides[2] = sides[2];
 		} break;
 		case BodyContext: {
-			Body[BodyKey].sides[0] = sides[0];
-			Body[BodyKey].sides[1] = sides[1];
-			Body[BodyKey].sides[2] = sides[2];
+			body[body_key].sides[0] = sides[0];
+			body[body_key].sides[1] = sides[1];
+			body[body_key].sides[2] = sides[2];
 		} break;
 		case JointContext: {
-			Joint[JointKey].sides[0] = sides[0];
-			Joint[JointKey].sides[1] = sides[1];
-			Joint[JointKey].sides[2] = sides[2];
+			joint[joint_key].sides[0] = sides[0];
+			joint[joint_key].sides[1] = sides[1];
+			joint[joint_key].sides[2] = sides[2];
 		} break;
 	}
 
@@ -784,14 +761,14 @@ int density(lua_State* L)
 		case NoContext: {
 			// Error Handling
 		} break;
-		case ObjectContext: {
-			Object[ObjectKey].density = density;
+		case objectContext: {
+			object[object_key].density = density;
 		} break;
 		case BodyContext: {
-			Body[BodyKey].density = density;
+			body[body_key].density = density;
 		} break;
 		case JointContext: {
-			Joint[JointKey].density = density;
+			joint[joint_key].density = density;
 		} break;
 	}
 
@@ -802,21 +779,21 @@ int density(lua_State* L)
 	return 1;
 }
 
-int static_object(lua_State* L)
+int api_static_state(lua_State* L)
 {
 	switch(DataContext)
 	{
 		case NoContext: {
 			// Error Handling
 		} break;
-		case ObjectContext: {
-			Object[ObjectKey].isStatic = true;
+		case objectContext: {
+			object[object_key].static_state = true;
 		} break;
 		case BodyContext: {
-			Body[BodyKey].isStatic = true;
+			body[body_key].static_state = true;
 		} break;
 		case JointContext: {
-			Joint[JointKey].isStatic = true;
+			joint[joint_key].static_state = true;
 		} break;
 	}
 
@@ -838,14 +815,14 @@ int radius(lua_State* L)
 		case NoContext: {
 			// Error Handling
 		} break;
-		case ObjectContext: {
-			Object[ObjectKey].radius = radius;
+		case objectContext: {
+			object[object_key].radius = radius;
 		} break;
 		case BodyContext: {
-			Body[BodyKey].radius = radius;
+			body[body_key].radius = radius;
 		} break;
 		case JointContext: {
-			Joint[JointKey].radius = radius;
+			joint[joint_key].radius = radius;
 		} break;
 	}
 
@@ -867,14 +844,14 @@ int length(lua_State* L)
 		case NoContext: {
 			// Error Handling
 		} break;
-		case ObjectContext: {
-			Object[ObjectKey].length = length;
+		case objectContext: {
+			object[object_key].length = length;
 		} break;
 		case BodyContext: {
-			Body[BodyKey].length = length;
+			body[body_key].length = length;
 		} break;
 		case JointContext: {
-			Joint[JointKey].length = length;
+			joint[joint_key].length = length;
 		} break;
 	}
 
@@ -894,17 +871,17 @@ int composite(lua_State* L)
 		case NoContext: {
 			// Error Handling
 		} break;
-		case ObjectContext: {
-			Object[ObjectKey].isComposite = true;
-			Object[ObjectKey].composite.name = name;
+		case objectContext: {
+			object[object_key].isComposite = true;
+			object[object_key].composite.name = name;
 		} break;
 		case BodyContext: {
-			Body[BodyKey].isComposite = true;
-			Body[BodyKey].composite.name = name;
+			body[body_key].isComposite = true;
+			body[body_key].composite.name = name;
 		} break;
 		case JointContext: {
-			Joint[JointKey].isComposite = true;
-			Joint[JointKey].composite.name = name;
+			joint[joint_key].isComposite = true;
+			joint[joint_key].composite.name = name;
 		} break;
 	}
 
@@ -925,7 +902,7 @@ int strength(lua_State* L)
 	switch(DataContext)
 	{
 		case JointContext: {
-			Joint[JointKey].strength = strength;
+			joint[joint_key].strength = strength;
 		} break;
 	}
 
@@ -936,17 +913,17 @@ int strength(lua_State* L)
 	return 1;
 }
 
-int altStrength(lua_State* L)
+int strength_alt(lua_State* L)
 {
-	lua_Number altStrength;
+	lua_Number strength_alt;
 		
 	lua_rawgeti(L, -1, 1);
-	altStrength = lua_tonumber(L, -1); 
+	strength_alt = lua_tonumber(L, -1); 
 
 	switch(DataContext)
 	{
 		case JointContext: {
-			Joint[JointKey].altStrength = altStrength;
+			joint[joint_key].strength_alt = strength_alt;
 		} break;
 	}
 
@@ -968,7 +945,7 @@ int velocity(lua_State* L)
 	switch(DataContext)
 	{
 		case JointContext: {
-			Joint[JointKey].velocity = velocity;
+			joint[joint_key].velocity = velocity;
 		} break;
 	}
 
@@ -979,17 +956,17 @@ int velocity(lua_State* L)
 	return 1;
 }
 
-int altVelocity(lua_State* L)
+int velocity_alt(lua_State* L)
 {
-	lua_Number altVelocity;
+	lua_Number velocity_alt;
 		
 	lua_rawgeti(L, -1, 1);
-	altVelocity = lua_tonumber(L, -1); 
+	velocity_alt = lua_tonumber(L, -1); 
 
 	switch(DataContext)
 	{
 		case JointContext: {
-			Joint[JointKey].altVelocity = altVelocity;
+			joint[joint_key].velocity_alt = velocity_alt;
 		} break;
 	}
 
@@ -1016,9 +993,9 @@ int axis(lua_State* L)
 	switch(DataContext)
 	{
 		case JointContext: {
-			Joint[JointKey].axis[0] = axis[0];
-			Joint[JointKey].axis[1] = axis[1];
-			Joint[JointKey].axis[2] = axis[2];
+			joint[joint_key].axis[0] = axis[0];
+			joint[joint_key].axis[1] = axis[1];
+			joint[joint_key].axis[2] = axis[2];
 		} break;
 	}
 
@@ -1029,25 +1006,25 @@ int axis(lua_State* L)
 	return 1;
 }
 
-int altAxis(lua_State* L)
+int axis_alt(lua_State* L)
 {
-	lua_Number altAxis[3];
+	lua_Number axis_alt[3];
 		
 	lua_rawgeti(L, -1, 1);
-	altAxis[0] = lua_tonumber(L, -1); 
+	axis_alt[0] = lua_tonumber(L, -1); 
 
 	lua_rawgeti(L, -2, 2);
-	altAxis[1] = lua_tonumber(L, -1); 
+	axis_alt[1] = lua_tonumber(L, -1); 
 
 	lua_rawgeti(L, -3, 3);
-	altAxis[2] = lua_tonumber(L, -1); 
+	axis_alt[2] = lua_tonumber(L, -1); 
 
 	switch(DataContext)
 	{
 		case JointContext: {
-			Joint[JointKey].altAxis[0] = altAxis[0];
-			Joint[JointKey].altAxis[1] = altAxis[1];
-			Joint[JointKey].altAxis[2] = altAxis[2];
+			joint[joint_key].axis_alt[0] = axis_alt[0];
+			joint[joint_key].axis_alt[1] = axis_alt[1];
+			joint[joint_key].axis_alt[2] = axis_alt[2];
 		} break;
 	}
 
@@ -1071,8 +1048,8 @@ int range(lua_State* L)
 	switch(DataContext)
 	{
 		case JointContext: {
-			Joint[JointKey].range[0] = range[0];
-			Joint[JointKey].range[1] = range[1];
+			joint[joint_key].range[0] = range[0];
+			joint[joint_key].range[1] = range[1];
 		} break;
 	}
 
@@ -1083,21 +1060,21 @@ int range(lua_State* L)
 	return 1;
 }
 
-int altRange(lua_State* L)
+int range_alt(lua_State* L)
 {
-	lua_Number altRange[2];
+	lua_Number range_alt[2];
 		
 	lua_rawgeti(L, -1, 1);
-	altRange[0] = lua_tonumber(L, -1); 
+	range_alt[0] = lua_tonumber(L, -1); 
 
 	lua_rawgeti(L, -2, 2);
-	altRange[1] = lua_tonumber(L, -1); 
+	range_alt[1] = lua_tonumber(L, -1); 
 
 	switch(DataContext)
 	{
 		case JointContext: {
-			Joint[JointKey].altRange[0] = altRange[0];
-			Joint[JointKey].altRange[1] = altRange[1];
+			joint[joint_key].range_alt[0] = range_alt[0];
+			joint[joint_key].range_alt[1] = range_alt[1];
 		} break;
 	}
 
@@ -1121,8 +1098,8 @@ int connections(lua_State* L)
 	switch(DataContext)
 	{
 		case JointContext: {
-			Joint[JointKey].connections[0] = connections[0];
-			Joint[JointKey].connections[1] = connections[1];
+			joint[joint_key].connections[0] = connections[0];
+			joint[joint_key].connections[1] = connections[1];
 		} break;
 	}
 
@@ -1141,13 +1118,13 @@ int connectionType(lua_State* L)
 	{
 		case JointContext: {
 			if ("hinge" == connectionType) {
-				Joint[JointKey].connectionType = Hinge;
+				joint[joint_key].connectionType = Hinge;
 			} else if ("slider" == connectionType) {
-				Joint[JointKey].connectionType = Slider;
+				joint[joint_key].connectionType = Slider;
 			} else if ("universal" == connectionType) {
-				Joint[JointKey].connectionType = Universal;
+				joint[joint_key].connectionType = Universal;
 			} else if ("hinge2" == connectionType) {
-				Joint[JointKey].connectionType = Hinge2;
+				joint[joint_key].connectionType = Hinge2;
 			} else {
 			// Error Handling
 			}
@@ -1178,13 +1155,13 @@ void init_api()
 	lua_pushcfunction(L, globalplane);
 	lua_setglobal(L, "globalplane");
 
-	lua_pushcfunction(L, object);
+	lua_pushcfunction(L, api_object);
 	lua_setglobal(L, "object");
 
-	lua_pushcfunction(L, body);
+	lua_pushcfunction(L, api_body);
 	lua_setglobal(L, "body");
 
-	lua_pushcfunction(L, joint);
+	lua_pushcfunction(L, api_joint);
 	lua_setglobal(L, "joint");
 
 	lua_pushcfunction(L, shape);
@@ -1202,7 +1179,7 @@ void init_api()
 	lua_pushcfunction(L, density);
 	lua_setglobal(L, "density");
 
-	lua_pushcfunction(L, static_object);
+	lua_pushcfunction(L, api_static_state);
 	lua_setglobal(L, "static");
 
 	lua_pushcfunction(L, radius);
@@ -1217,32 +1194,32 @@ void init_api()
 	lua_pushcfunction(L, strength);
 	lua_setglobal(L, "strength");
 
-	lua_pushcfunction(L, altStrength);
-	lua_setglobal(L, "altStrength");
+	lua_pushcfunction(L, strength_alt);
+	lua_setglobal(L, "strength_alt");
 
 	lua_pushcfunction(L, velocity);
 	lua_setglobal(L, "velocity");
 
-	lua_pushcfunction(L, altVelocity);
-	lua_setglobal(L, "altVelocity");
+	lua_pushcfunction(L, velocity_alt);
+	lua_setglobal(L, "velocity_alt");
 
 	lua_pushcfunction(L, axis);
 	lua_setglobal(L, "axis");
 
-	lua_pushcfunction(L, altAxis);
-	lua_setglobal(L, "altAxis");
+	lua_pushcfunction(L, axis_alt);
+	lua_setglobal(L, "axis_alt");
 
 	lua_pushcfunction(L, axis);
 	lua_setglobal(L, "axis");
 
-	lua_pushcfunction(L, altAxis);
-	lua_setglobal(L, "altAxis");
+	lua_pushcfunction(L, axis_alt);
+	lua_setglobal(L, "axis_alt");
 
 	lua_pushcfunction(L, range);
 	lua_setglobal(L, "range");
 
-	lua_pushcfunction(L, altRange);
-	lua_setglobal(L, "altRange");
+	lua_pushcfunction(L, range_alt);
+	lua_setglobal(L, "range_alt");
 
 	lua_pushcfunction(L, connections);
 	lua_setglobal(L, "connections");
@@ -1270,7 +1247,7 @@ void GameStart()
 	game.step = 0.01f;
 	game.game_frame = 0;
 	game.turn_frame = 10;
-	game.isFrozen = true;
+	game.freeze = true;
 	game.freeze_time = 40;
 	game.freeze_t = 0;
 	game.unfreeze_time = 1;
@@ -1284,987 +1261,804 @@ void GameStart()
 
   	dWorldSetGravity(game.world, game.gravity[0], game.gravity[1], game.gravity[2]);
 	
-	std::map<std::string, ObjectData>::iterator o = Object.begin();
-
-	while (o != Object.end()) {
-		o->second.dBody = dBodyCreate(game.world);
+	//std::map<std::string, Object>::iterator o = object.begin();
+	//while (o != object.end()) {
+	for (auto& [object_name, o] : object) {
+		o.dBody = dBodyCreate(game.world);
 		dBodySetPosition(
-			o->second.dBody,
-			o->second.position[0],
-			o->second.position[1],
-			o->second.position[2]
+			o.dBody,
+			o.position[0],
+			o.position[1],
+			o.position[2]
 		);
 
-		dBodySetQuaternion(o->second.dBody, o->second.orientation);
+		dBodySetQuaternion(o.dBody, o.orientation);
 		
-		switch(o->second.shape)
+		switch(o.shape)
 		{
 			case Box: {
-				o->second.dGeom = dCreateBox(game.space, o->second.sides[0], o->second.sides[1], o->second.sides[2]);
-				dMassSetBox(&mass, o->second.density, o->second.sides[0], o->second.sides[1], o->second.sides[2]);
+				o.dGeom = dCreateBox(game.space, o.sides[0], o.sides[1], o.sides[2]);
+				dMassSetBox(&mass, o.density, o.sides[0], o.sides[1], o.sides[2]);
 			} break;
 			case Sphere: {
-				o->second.dGeom = dCreateSphere(game.space, o->second.radius);
-				dMassSetSphere(&mass, o->second.density, o->second.radius);
+				o.dGeom = dCreateSphere(game.space, o.radius);
+				dMassSetSphere(&mass, o.density, o.radius);
 			} break;
 			case Capsule: {
-				o->second.dGeom = dCreateCapsule(game.space, o->second.radius, o->second.length);
-				dMassSetCapsule(&mass, o->second.density, 1, o->second.length, o->second.radius);
+				o.dGeom = dCreateCapsule(game.space, o.radius, o.length);
+				dMassSetCapsule(&mass, o.density, 1, o.length, o.radius);
 			} break;
 			case Cylinder: {
-				o->second.dGeom = dCreateCylinder(game.space, o->second.radius, o->second.length);
-				dMassSetCylinder(&mass, o->second.density, 1, o->second.length, o->second.radius);
+				o.dGeom = dCreateCylinder(game.space, o.radius, o.length);
+				dMassSetCylinder(&mass, o.density, 1, o.length, o.radius);
 			} break;
 		}
 
 		dMassAdjust(&mass, 0.5);
-		dBodySetMass(o->second.dBody, &mass);
-		dGeomSetBody(o->second.dGeom, o->second.dBody);
+		dBodySetMass(o.dBody, &mass);
+		dGeomSetBody(o.dGeom, o.dBody);
 
-		if (o->second.isStatic) {
+		if (o.static_state) {
 			dJointID fixed = dJointCreateFixed(game.world ,0);
-			dJointAttach(fixed, o->second.dBody, 0);
+			dJointAttach(fixed, o.dBody, 0);
 			dJointSetFixed(fixed);
-			dGeomSetCategoryBits(o->second.dGeom, StaticObjectsCategoryBits);
-			dGeomSetCollideBits(o->second.dGeom, StaticObjectsCollideBits);
+			dGeomSetCategoryBits(o.dGeom, StaticobjectsCategoryBits);
+			dGeomSetCollideBits(o.dGeom, StaticobjectsCollideBits);
 		} else {
-			dGeomSetCategoryBits(o->second.dGeom, DynamicObjectsCategoryBits);
-			dGeomSetCollideBits(o->second.dGeom, DynamicObjectsCollideBits);
+			dGeomSetCategoryBits(o.dGeom, DynamicobjectsCategoryBits);
+			dGeomSetCollideBits(o.dGeom, DynamicobjectsCollideBits);
 		}
-
-		++o;
 	}
 
-	std::map<std::string, BodyData>::iterator b = Body.begin();
-
-	while (b != Body.end()) {
-		b->second.dBody = dBodyCreate(game.world);
+	for (auto& [body_name, b] : body) {
+		b.dBody = dBodyCreate(game.world);
 		dBodySetPosition(
-			b->second.dBody,
-			b->second.position[0],
-			b->second.position[1],
-			b->second.position[2]
+			b.dBody,
+			b.position[0],
+			b.position[1],
+			b.position[2]
 		);
 
-		dBodySetQuaternion(b->second.dBody, b->second.orientation);
+		dBodySetQuaternion(b.dBody, b.orientation);
 
-		switch(b->second.shape)
+		switch(b.shape)
 		{
 			case Box: {
-				b->second.dGeom = dCreateBox(game.space, b->second.sides[0], b->second.sides[1], b->second.sides[2]);
-				dMassSetBox(&mass, b->second.density, b->second.sides[0], b->second.sides[1], b->second.sides[2]);
+				b.dGeom = dCreateBox(game.space, b.sides[0], b.sides[1], b.sides[2]);
+				dMassSetBox(&mass, b.density, b.sides[0], b.sides[1], b.sides[2]);
 			} break;
 			case Sphere: {
-				b->second.dGeom = dCreateSphere(game.space, b->second.radius);
-				dMassSetSphere(&mass, b->second.density, b->second.radius);
+				b.dGeom = dCreateSphere(game.space, b.radius);
+				dMassSetSphere(&mass, b.density, b.radius);
 			} break;
 			case Capsule: {
-				b->second.dGeom = dCreateCapsule(game.space, b->second.radius, b->second.length);
-				dMassSetCapsule(&mass, b->second.density, 1, b->second.radius, b->second.length);
+				b.dGeom = dCreateCapsule(game.space, b.radius, b.length);
+				dMassSetCapsule(&mass, b.density, 1, b.radius, b.length);
 			} break;
 			case Cylinder: {
-				b->second.dGeom = dCreateCylinder(game.space, b->second.radius, b->second.length);
-				dMassSetCylinder(&mass, b->second.density, 1, b->second.radius, b->second.length);
+				b.dGeom = dCreateCylinder(game.space, b.radius, b.length);
+				dMassSetCylinder(&mass, b.density, 1, b.radius, b.length);
 			} break;
 		}
 
 		dMassAdjust(&mass, 0.5);
-		dBodySetMass(b->second.dBody, &mass);
-		dGeomSetBody(b->second.dGeom, b->second.dBody);
+		dBodySetMass(b.dBody, &mass);
+		dGeomSetBody(b.dGeom, b.dBody);
 
-		if (b->second.isStatic) {
-			// I don't like how the engine makes statiic objects
+		if (b.static_state) {
 			dJointID fixed = dJointCreateFixed(game.world ,0);
-			dJointAttach(fixed, b->second.dBody, 0);
+			dJointAttach(fixed, b.dBody, 0);
 			dJointSetFixed(fixed);
 		} else {
 		}
 
-		dGeomSetCategoryBits(b->second.dGeom, BodyCategoryBits);
-		dGeomSetCollideBits(b->second.dGeom, BodyCollideBits);
-
-		++b;
+		dGeomSetCategoryBits(b.dGeom, BodyCategoryBits);
+		dGeomSetCollideBits(b.dGeom, BodyCollideBits);
 	}
 
-	std::map<std::string, JointData>::iterator j = Joint.begin();
-
-	while (j != Joint.end()) {
-		j->second.dBody = dBodyCreate(game.world);
+	for (auto& [joint_name, j] : joint) {
+		j.dBody = dBodyCreate(game.world);
 		dBodySetPosition(
-			j->second.dBody,
-			j->second.position[0],
-			j->second.position[1],
-			j->second.position[2]
+			j.dBody,
+			j.position[0],
+			j.position[1],
+			j.position[2]
 		);
 
-		dBodySetQuaternion(j->second.dBody, j->second.orientation);
+		dBodySetQuaternion(j.dBody, j.orientation);
 
-		switch(j->second.shape)
+		switch(j.shape)
 		{
 			case Box: {
-				j->second.dGeom = dCreateBox(game.space, j->second.sides[0], j->second.sides[1], j->second.sides[2]);
-				dMassSetBox(&mass, j->second.density, j->second.sides[0], j->second.sides[1], j->second.sides[2]);
+				j.dGeom = dCreateBox(game.space, j.sides[0], j.sides[1], j.sides[2]);
+				dMassSetBox(&mass, j.density, j.sides[0], j.sides[1], j.sides[2]);
 			} break;
 			case Sphere: {
-				j->second.dGeom = dCreateSphere(game.space, j->second.radius);
-				dMassSetSphere(&mass, j->second.density, j->second.radius);
+				j.dGeom = dCreateSphere(game.space, j.radius);
+				dMassSetSphere(&mass, j.density, j.radius);
 			} break;
 			case Capsule: {
-				j->second.dGeom = dCreateCapsule(game.space, j->second.radius, j->second.length);
-				dMassSetCapsule(&mass, j->second.density, 1, j->second.radius, j->second.length);
+				j.dGeom = dCreateCapsule(game.space, j.radius, j.length);
+				dMassSetCapsule(&mass, j.density, 1, j.radius, j.length);
 			} break;
 			case Cylinder: {
-				j->second.dGeom = dCreateCylinder(game.space, j->second.radius, j->second.length);
-				dMassSetCylinder(&mass, j->second.density, 1, j->second.radius, j->second.length);
+				j.dGeom = dCreateCylinder(game.space, j.radius, j.length);
+				dMassSetCylinder(&mass, j.density, 1, j.radius, j.length);
 			} break;
 		}
 
 		dMassAdjust(&mass, 0.5);
-		dBodySetMass(j->second.dBody, &mass);
-		dGeomSetBody(j->second.dGeom, j->second.dBody);
+		dBodySetMass(j.dBody, &mass);
+		dGeomSetBody(j.dGeom, j.dBody);
 
-		if (j->second.isStatic) {
-			// I don't like how the engine makes statiic objects
+		if (j.static_state) {
 			dJointID fixed = dJointCreateFixed(game.world ,0);
-			dJointAttach(fixed, j->second.dBody, 0);
+			dJointAttach(fixed, j.dBody, 0);
 			dJointSetFixed(fixed);
 		}
-		switch(j->second.connectionType)
+		switch(j.connectionType)
 		{
 			case Hinge: {
-				j->second.dJoint[0] = dJointCreateHinge(game.world, 0);
+				j.dJoint[0] = dJointCreateHinge(game.world, 0);
 				dJointAttach(
-					j->second.dJoint[0],
-					Body[j->second.connections[0]].dBody,
-					j->second.dBody);
+					j.dJoint[0],
+					body[j.connections[0]].dBody,
+					j.dBody);
 				dJointSetHingeAnchor(
-					j->second.dJoint[0],
-					j->second.position[0],
-					j->second.position[1],
-					j->second.position[2]);
+					j.dJoint[0],
+					j.position[0],
+					j.position[1],
+					j.position[2]);
 				dJointSetHingeAxis(
-					j->second.dJoint[0],
-					j->second.axis[0],
-					j->second.axis[1],
-					j->second.axis[2]);
+					j.dJoint[0],
+					j.axis[0],
+					j.axis[1],
+					j.axis[2]);
 		
 				dJointSetHingeParam(
-					j->second.dJoint[0],
+					j.dJoint[0],
 					dParamHiStop,
-					j->second.range[0]);
+					j.range[0]);
 				dJointSetHingeParam(
-					j->second.dJoint[0],
+					j.dJoint[0],
 					dParamLoStop,
-					j->second.range[1]);
+					j.range[1]);
 		
-				j->second.dJoint[1] = dJointCreateFixed(game.world, 0);
+				j.dJoint[1] = dJointCreateFixed(game.world, 0);
 				dJointAttach(
-					j->second.dJoint[1],
-					j->second.dBody,
-					Body[j->second.connections[1]].dBody);
-				dJointSetFixed(j->second.dJoint[1]);
+					j.dJoint[1],
+					j.dBody,
+					body[j.connections[1]].dBody);
+				dJointSetFixed(j.dJoint[1]);
 			} break;
 			case Slider: {
-				j->second.dJoint[0] = dJointCreateSlider(game.world, 0);
+				j.dJoint[0] = dJointCreateSlider(game.world, 0);
 				dJointAttach(
-					j->second.dJoint[0],
-					Body[j->second.connections[0]].dBody,
-					j->second.dBody);
+					j.dJoint[0],
+					body[j.connections[0]].dBody,
+					j.dBody);
 				dJointSetSliderAxis(
-					j->second.dJoint[0],
-					j->second.axis[0],
-					j->second.axis[1],
-					j->second.axis[2]);
+					j.dJoint[0],
+					j.axis[0],
+					j.axis[1],
+					j.axis[2]);
 		
 				dJointSetSliderParam(
-					j->second.dJoint[0],
+					j.dJoint[0],
 					dParamHiStop,
-					j->second.range[0]);
+					j.range[0]);
 				dJointSetSliderParam(
-					j->second.dJoint[0],
+					j.dJoint[0],
 					dParamLoStop,
-					j->second.range[1]);
+					j.range[1]);
 		
-				j->second.dJoint[1] = dJointCreateFixed(game.world, 0);
+				j.dJoint[1] = dJointCreateFixed(game.world, 0);
 				dJointAttach(
-					j->second.dJoint[1],
-					j->second.dBody,
-					Body[j->second.connections[1]].dBody);
-				dJointSetFixed(j->second.dJoint[1]);
+					j.dJoint[1],
+					j.dBody,
+					body[j.connections[1]].dBody);
+				dJointSetFixed(j.dJoint[1]);
 			} break;
 			case Universal: {
-				j->second.dJoint[0] = dJointCreateUniversal(game.world, 0);
+				j.dJoint[0] = dJointCreateUniversal(game.world, 0);
 				dJointAttach(
-					j->second.dJoint[0],
-					Body[j->second.connections[0]].dBody,
-					j->second.dBody);
+					j.dJoint[0],
+					body[j.connections[0]].dBody,
+					j.dBody);
 				dJointSetUniversalAnchor(
-					j->second.dJoint[0],
-					j->second.position[0],
-					j->second.position[1],
-					j->second.position[2]);
+					j.dJoint[0],
+					j.position[0],
+					j.position[1],
+					j.position[2]);
 
 				dJointSetUniversalAnchor(
-					j->second.dJoint[0],
-					j->second.position[0],
-					j->second.position[1],
-					j->second.position[2]);
+					j.dJoint[0],
+					j.position[0],
+					j.position[1],
+					j.position[2]);
 
 				dJointSetUniversalAxis1(
-					j->second.dJoint[0],
-					j->second.axis[0],
-					j->second.axis[1],
-					j->second.axis[2]);
+					j.dJoint[0],
+					j.axis[0],
+					j.axis[1],
+					j.axis[2]);
 				dJointSetUniversalAxis2(
-					j->second.dJoint[0],
-					j->second.altAxis[0],
-					j->second.altAxis[1],
-					j->second.altAxis[2]);
+					j.dJoint[0],
+					j.axis_alt[0],
+					j.axis_alt[1],
+					j.axis_alt[2]);
 		
 				dJointSetUniversalParam(
-					j->second.dJoint[0],
+					j.dJoint[0],
 					dParamHiStop,
-					j->second.range[0]);
+					j.range[0]);
 
 				dJointSetUniversalParam(
-					j->second.dJoint[0],
+					j.dJoint[0],
 					dParamHiStop2,
-					j->second.altRange[0]);
+					j.range_alt[0]);
 
 				dJointSetUniversalParam(
-					j->second.dJoint[0],
+					j.dJoint[0],
 					dParamLoStop,
-					j->second.range[1]);
+					j.range[1]);
 
 				dJointSetUniversalParam(
-					j->second.dJoint[0],
+					j.dJoint[0],
 					dParamLoStop2,
-					j->second.altRange[1]);
+					j.range_alt[1]);
 		
-				j->second.dJoint[1] = dJointCreateFixed(game.world, 0);
+				j.dJoint[1] = dJointCreateFixed(game.world, 0);
 				dJointAttach(
-					j->second.dJoint[1],
-					j->second.dBody,
-					Body[j->second.connections[1]].dBody);
-				dJointSetFixed(j->second.dJoint[1]);
+					j.dJoint[1],
+					j.dBody,
+					body[j.connections[1]].dBody);
+				dJointSetFixed(j.dJoint[1]);
 			} break;
 			case Hinge2: {
-				j->second.dJoint[0] = dJointCreateHinge2(game.world, 0);
+				j.dJoint[0] = dJointCreateHinge2(game.world, 0);
 				dJointAttach(
-					j->second.dJoint[0],
-					Body[j->second.connections[0]].dBody,
-					j->second.dBody);
+					j.dJoint[0],
+					body[j.connections[0]].dBody,
+					j.dBody);
 				dJointSetHinge2Anchor(
-					j->second.dJoint[0],
-					j->second.position[0],
-					j->second.position[1],
-					j->second.position[2]);
+					j.dJoint[0],
+					j.position[0],
+					j.position[1],
+					j.position[2]);
 
 				dJointSetHinge2Anchor(
-					j->second.dJoint[0],
-					j->second.position[0],
-					j->second.position[1],
-					j->second.position[2]);
+					j.dJoint[0],
+					j.position[0],
+					j.position[1],
+					j.position[2]);
 			
-				dJointSetHinge2Axes(j->second.dJoint[0], j->second.axis, j->second.altAxis);
+				dJointSetHinge2Axes(j.dJoint[0], j.axis, j.axis_alt);
 
 				dJointSetHinge2Param(
-					j->second.dJoint[0],
+					j.dJoint[0],
 					dParamHiStop,
-					j->second.range[0]);
+					j.range[0]);
 
 				dJointSetHinge2Param(
-					j->second.dJoint[0],
+					j.dJoint[0],
 					dParamHiStop2,
-					j->second.altRange[0]);
+					j.range_alt[0]);
 
 				dJointSetHinge2Param(
-					j->second.dJoint[0],
+					j.dJoint[0],
 					dParamLoStop,
-					j->second.range[1]);
+					j.range[1]);
 
 				dJointSetHinge2Param(
-					j->second.dJoint[0],
+					j.dJoint[0],
 					dParamLoStop2,
-					j->second.altRange[1]);
+					j.range_alt[1]);
 		
-				j->second.dJoint[1] = dJointCreateFixed(game.world, 0);
+				j.dJoint[1] = dJointCreateFixed(game.world, 0);
 				dJointAttach(
-					j->second.dJoint[1],
-					j->second.dBody,
-					Body[j->second.connections[1]].dBody);
-				dJointSetFixed(j->second.dJoint[1]);
+					j.dJoint[1],
+					j.dBody,
+					body[j.connections[1]].dBody);
+				dJointSetFixed(j.dJoint[1]);
 			} break;
 			default:
-				j->second.dJoint[0] = dJointCreateFixed(game.world, 0);
+				j.dJoint[0] = dJointCreateFixed(game.world, 0);
 				dJointAttach(
-					j->second.dJoint[0],
-					Body[j->second.connections[0]].dBody,
-					j->second.dBody);
-				dJointSetFixed(j->second.dJoint[0]);
+					j.dJoint[0],
+					body[j.connections[0]].dBody,
+					j.dBody);
+				dJointSetFixed(j.dJoint[0]);
 
-				j->second.dJoint[1] = dJointCreateFixed(game.world, 0);
+				j.dJoint[1] = dJointCreateFixed(game.world, 0);
 				dJointAttach(
-					j->second.dJoint[1],
-					j->second.dBody,
-					Body[j->second.connections[1]].dBody);
-				dJointSetFixed(j->second.dJoint[1]);
+					j.dJoint[1],
+					j.dBody,
+					body[j.connections[1]].dBody);
+				dJointSetFixed(j.dJoint[1]);
 		}
 
-		dGeomSetCategoryBits(j->second.dGeom, JointCategoryBits);
-		dGeomSetCollideBits(j->second.dGeom, JointCollideBits);
-
-		++j;
+		dGeomSetCategoryBits(j.dGeom, JointCategoryBits);
+		dGeomSetCollideBits(j.dGeom, JointCollideBits);
 	}
 }
 
 void UpdateFreeze()
 {
-	game.isFrozen = true;
+	game.freeze = true;
 	game.unfreeze_t = 0;
 
-	std::map<std::string, ObjectData>::iterator o = Object.begin();
+	//std::map<std::string, Object>::iterator o = object.begin();
+	//while (o != object.end()) {
+	for (auto& [obejct_name, o] : object) {
+		const dReal *position = dBodyGetPosition(o.dBody);
+		const dReal *orientation = dBodyGetQuaternion(o.dBody);
+		const dReal *linearVel = dBodyGetLinearVel(o.dBody);
+		const dReal *angularVel = dBodyGetAngularVel(o.dBody);
 
-	while (o != Object.end()) {
-		const dReal *position = dBodyGetPosition(o->second.dBody);
-		const dReal *orientation = dBodyGetQuaternion(o->second.dBody);
-		const dReal *linearVel = dBodyGetLinearVel(o->second.dBody);
-		const dReal *angularVel = dBodyGetAngularVel(o->second.dBody);
+		o.freeze.position[0] = position[0];
+		o.freeze.position[1] = position[1];
+		o.freeze.position[2] = position[2];
 
-		o->second.freeze.position[0] = position[0];
-		o->second.freeze.position[1] = position[1];
-		o->second.freeze.position[2] = position[2];
+		o.freeze.orientation[0] = orientation[0];
+		o.freeze.orientation[1] = orientation[1];
+		o.freeze.orientation[2] = orientation[2];
+		o.freeze.orientation[3] = orientation[3];
 
-		o->second.freeze.orientation[0] = orientation[0];
-		o->second.freeze.orientation[1] = orientation[1];
-		o->second.freeze.orientation[2] = orientation[2];
-		o->second.freeze.orientation[3] = orientation[3];
+		o.freeze.linearVel[0] = linearVel[0];
+		o.freeze.linearVel[1] = linearVel[1];
+		o.freeze.linearVel[2] = linearVel[2];
 
-		o->second.freeze.linearVel[0] = linearVel[0];
-		o->second.freeze.linearVel[1] = linearVel[1];
-		o->second.freeze.linearVel[2] = linearVel[2];
-
-		o->second.freeze.angularVel[0] = angularVel[0];
-		o->second.freeze.angularVel[1] = angularVel[1];
-		o->second.freeze.angularVel[2] = angularVel[2];
-
-		++o;
+		o.freeze.angularVel[0] = angularVel[0];
+		o.freeze.angularVel[1] = angularVel[1];
+		o.freeze.angularVel[2] = angularVel[2];
 	}
 
-	std::map<std::string, BodyData>::iterator b = Body.begin();
+	for (auto& [body_name, b] : body) {
+		const dReal *position = dBodyGetPosition(b.dBody);
+		const dReal *orientation = dBodyGetQuaternion(b.dBody);
+		const dReal *linearVel = dBodyGetLinearVel(b.dBody);
+		const dReal *angularVel = dBodyGetAngularVel(b.dBody);
 
-	while (b != Body.end()) {
-		const dReal *position = dBodyGetPosition(b->second.dBody);
-		const dReal *orientation = dBodyGetQuaternion(b->second.dBody);
-		const dReal *linearVel = dBodyGetLinearVel(b->second.dBody);
-		const dReal *angularVel = dBodyGetAngularVel(b->second.dBody);
+		b.freeze.position[0] = position[0];
+		b.freeze.position[1] = position[1];
+		b.freeze.position[2] = position[2];
 
-		b->second.freeze.position[0] = position[0];
-		b->second.freeze.position[1] = position[1];
-		b->second.freeze.position[2] = position[2];
+		b.freeze.orientation[0] = orientation[0];
+		b.freeze.orientation[1] = orientation[1];
+		b.freeze.orientation[2] = orientation[2];
+		b.freeze.orientation[3] = orientation[3];
 
-		b->second.freeze.orientation[0] = orientation[0];
-		b->second.freeze.orientation[1] = orientation[1];
-		b->second.freeze.orientation[2] = orientation[2];
-		b->second.freeze.orientation[3] = orientation[3];
+		b.freeze.linearVel[0] = linearVel[0];
+		b.freeze.linearVel[1] = linearVel[1];
+		b.freeze.linearVel[2] = linearVel[2];
 
-		b->second.freeze.linearVel[0] = linearVel[0];
-		b->second.freeze.linearVel[1] = linearVel[1];
-		b->second.freeze.linearVel[2] = linearVel[2];
-
-		b->second.freeze.angularVel[0] = angularVel[0];
-		b->second.freeze.angularVel[1] = angularVel[1];
-		b->second.freeze.angularVel[2] = angularVel[2];
-
-		++b;
+		b.freeze.angularVel[0] = angularVel[0];
+		b.freeze.angularVel[1] = angularVel[1];
+		b.freeze.angularVel[2] = angularVel[2];
 	}
+	
+	for (auto& [joint_name, j] : joint) {
+		const dReal *position = dBodyGetPosition(j.dBody);
+		const dReal *orientation = dBodyGetQuaternion(j.dBody);
+		const dReal *linearVel = dBodyGetLinearVel(j.dBody);
+		const dReal *angularVel = dBodyGetAngularVel(j.dBody);
 
-	std::map<std::string, JointData>::iterator j = Joint.begin();
+		j.freeze.position[0] = position[0];
+		j.freeze.position[1] = position[1];
+		j.freeze.position[2] = position[2];
 
-	while (j != Joint.end()) {
-		const dReal *position = dBodyGetPosition(j->second.dBody);
-		const dReal *orientation = dBodyGetQuaternion(j->second.dBody);
-		const dReal *linearVel = dBodyGetLinearVel(j->second.dBody);
-		const dReal *angularVel = dBodyGetAngularVel(j->second.dBody);
+		j.freeze.orientation[0] = orientation[0];
+		j.freeze.orientation[1] = orientation[1];
+		j.freeze.orientation[2] = orientation[2];
+		j.freeze.orientation[3] = orientation[3];
 
-		j->second.freeze.position[0] = position[0];
-		j->second.freeze.position[1] = position[1];
-		j->second.freeze.position[2] = position[2];
+		j.freeze.linearVel[0] = linearVel[0];
+		j.freeze.linearVel[1] = linearVel[1];
+		j.freeze.linearVel[2] = linearVel[2];
 
-		j->second.freeze.orientation[0] = orientation[0];
-		j->second.freeze.orientation[1] = orientation[1];
-		j->second.freeze.orientation[2] = orientation[2];
-		j->second.freeze.orientation[3] = orientation[3];
-
-		j->second.freeze.linearVel[0] = linearVel[0];
-		j->second.freeze.linearVel[1] = linearVel[1];
-		j->second.freeze.linearVel[2] = linearVel[2];
-
-		j->second.freeze.angularVel[0] = angularVel[0];
-		j->second.freeze.angularVel[1] = angularVel[1];
-		j->second.freeze.angularVel[2] = angularVel[2];
-
-		++j;
+		j.freeze.angularVel[0] = angularVel[0];
+		j.freeze.angularVel[1] = angularVel[1];
+		j.freeze.angularVel[2] = angularVel[2];
 	}
 }
-
+/*
 void RelaxAll()
 {
 	GlobalPassiveState = false;
 
 	dReal s = 0.0f;
 
-	std::map<std::string, JointData>::iterator j = Joint.begin();
-
-	while (j != Joint.end()) {
-		switch(j->second.connectionType) {
+	for (auto const& [joint_name, j] : joint) {
+		switch(j.connectionType) {
 			case Hinge: {
-				dJointSetHingeParam(j->second.dJoint[0], dParamFMax, s);
-				dJointSetHingeParam(j->second.dJoint[0], dParamVel, 0.0f);
+				dJointSetHingeParam(j.dJoint[0], dParamFMax, s);
+				dJointSetHingeParam(j.dJoint[0], dParamVel, 0.0f);
 			} break;
 			case Slider: {
-				dJointSetSliderParam(j->second.dJoint[0], dParamFMax, s);
-				dJointSetSliderParam(j->second.dJoint[0], dParamVel, 0.0f);
+				dJointSetSliderParam(j.dJoint[0], dParamFMax, s);
+				dJointSetSliderParam(j.dJoint[0], dParamVel, 0.0f);
 			} break;
 			case Universal: {
-				dJointSetUniversalParam(j->second.dJoint[0], dParamFMax, s);
-				dJointSetUniversalParam(j->second.dJoint[0], dParamVel, 0.0f);
-				dJointSetUniversalParam(j->second.dJoint[0], dParamFMax2, s);
-				dJointSetUniversalParam(j->second.dJoint[0], dParamVel2, 0.0f);
+				dJointSetUniversalParam(j.dJoint[0], dParamFMax, s);
+				dJointSetUniversalParam(j.dJoint[0], dParamVel, 0.0f);
+				dJointSetUniversalParam(j.dJoint[0], dParamFMax2, s);
+				dJointSetUniversalParam(j.dJoint[0], dParamVel2, 0.0f);
 			} break;
 			case Hinge2: {
-				dJointSetHinge2Param(j->second.dJoint[0], dParamFMax, s);
-				dJointSetHinge2Param(j->second.dJoint[0], dParamVel, 0.0f);
-				dJointSetHinge2Param(j->second.dJoint[0], dParamFMax2, s);
-				dJointSetHinge2Param(j->second.dJoint[0], dParamVel2, 0.0f);
+				dJointSetHinge2Param(j.dJoint[0], dParamFMax, s);
+				dJointSetHinge2Param(j.dJoint[0], dParamVel, 0.0f);
+				dJointSetHinge2Param(j.dJoint[0], dParamFMax2, s);
+				dJointSetHinge2Param(j.dJoint[0], dParamVel2, 0.0f);
 			} break;
 		}
-		++j;
 	}
 }
-
-void GameReset()
-{	
-	RelaxAll();
-
-	game.isFrozen = true;
-	game.game_frame = 0;
-	game.freeze_t = 0;
-	game.unfreeze_t = 0;
-
-	std::map<std::string, ObjectData>::iterator o = Object.begin();
-
-	while (o != Object.end()) {
-		dBodySetPosition(
-			o->second.dBody,
-			o->second.position[0],
-			o->second.position[1],
-			o->second.position[2]);
-		dBodySetQuaternion(o->second.dBody, o->second.orientation);
-		dBodySetLinearVel(o->second.dBody, 0.00, 0.00, 0.00);
-		dBodySetAngularVel(o->second.dBody, 0.00, 0.00, 0.00);
-
-		o->second.freeze.position[0] = o->second.position[0];
-		o->second.freeze.position[1] = o->second.position[1];
-		o->second.freeze.position[2] = o->second.position[2];
-
-		o->second.freeze.orientation[0] = o->second.orientation[0];
-		o->second.freeze.orientation[1] = o->second.orientation[1];
-		o->second.freeze.orientation[2] = o->second.orientation[2];
-		o->second.freeze.orientation[3] = o->second.orientation[3];
-
-		o->second.freeze.linearVel[0] = 0.00;
-		o->second.freeze.linearVel[1] = 0.00;
-		o->second.freeze.linearVel[2] = 0.00;
-
-		o->second.freeze.angularVel[0] = 0.00;
-		o->second.freeze.angularVel[1] = 0.00;
-		o->second.freeze.angularVel[2] = 0.00;
-
-		++o;
-	}
-
-	std::map<std::string, BodyData>::iterator b = Body.begin();
-
-	while (b != Body.end()) {
-		dBodySetPosition(
-			b->second.dBody,
-			b->second.position[0],
-			b->second.position[1],
-			b->second.position[2]);
-		dBodySetQuaternion(b->second.dBody, b->second.orientation);
-		dBodySetLinearVel(b->second.dBody, 0.00, 0.00, 0.00);
-		dBodySetAngularVel(b->second.dBody, 0.00, 0.00, 0.00);
-
-		b->second.freeze.position[0] = b->second.position[0];
-		b->second.freeze.position[1] = b->second.position[1];
-		b->second.freeze.position[2] = b->second.position[2];
-
-		b->second.freeze.orientation[0] = b->second.orientation[0];
-		b->second.freeze.orientation[1] = b->second.orientation[1];
-		b->second.freeze.orientation[2] = b->second.orientation[2];
-		b->second.freeze.orientation[3] = b->second.orientation[3];
-
-		b->second.freeze.linearVel[0] = 0.00;
-		b->second.freeze.linearVel[1] = 0.00;
-		b->second.freeze.linearVel[2] = 0.00;
-
-		b->second.freeze.angularVel[0] = 0.00;
-		b->second.freeze.angularVel[1] = 0.00;
-		b->second.freeze.angularVel[2] = 0.00;
-
-		++b;
-	}
-	
-	std::map<std::string, JointData>::iterator j = Joint.begin();
-
-	while (j != Joint.end()) {
-		dBodySetPosition(
-			j->second.dBody,
-			j->second.position[0],
-			j->second.position[1],
-			j->second.position[2]);
-		dBodySetQuaternion(j->second.dBody, j->second.orientation);
-		dBodySetLinearVel(j->second.dBody, 0.00, 0.00, 0.00);
-		dBodySetAngularVel(j->second.dBody, 0.00, 0.00, 0.00);
-
-		j->second.freeze.position[0] = j->second.position[0];
-		j->second.freeze.position[1] = j->second.position[1];
-		j->second.freeze.position[2] = j->second.position[2];
-
-		j->second.freeze.orientation[0] = j->second.orientation[0];
-		j->second.freeze.orientation[1] = j->second.orientation[1];
-		j->second.freeze.orientation[2] = j->second.orientation[2];
-		j->second.freeze.orientation[3] = j->second.orientation[3];
-
-		j->second.freeze.linearVel[0] = 0.00;
-		j->second.freeze.linearVel[1] = 0.00;
-		j->second.freeze.linearVel[2] = 0.00;
-
-		j->second.freeze.angularVel[0] = 0.00;
-		j->second.freeze.angularVel[1] = 0.00;
-		j->second.freeze.angularVel[2] = 0.00;
-
-		++j;
-	}
-
-	UpdateFreeze();
-}
+*/
 
 void DrawSim()
 {
-		std::map<std::string, ObjectData>::iterator o = Object.begin();
-		while (o != Object.end()) {	
+		for (auto const& [object_name, o] : object) {
 			dQuaternion dQ;
-			dRtoQ(dBodyGetRotation(o->second.dBody), dQ);
+			dRtoQ(dBodyGetRotation(o.dBody), dQ);
 
 			float angle;
 			Vector3 axis;
 			Quaternion q = { dQ[1], dQ[2], dQ[3], dQ[0] };
 			QuaternionToAxisAngle(q, &axis, &angle);
-			const dReal *pos = dBodyGetPosition(o->second.dBody);
+			const dReal *pos = dBodyGetPosition(o.dBody);
 			rlPushMatrix();
 			rlTranslatef(pos[0], pos[1], pos[2]);
 			rlRotatef(RAD2DEG * angle, axis.x, axis.y, axis.z);
 
-			switch(o->second.shape)
+			switch(o.shape)
 			{
 				case Box: {
-					if (o->second.isStatic)
-						DrawCube((Vector3){ 0.0f, 0.0f, 0.0f }, o->second.sides[0], o->second.sides[1], o->second.sides[2], StaticObjectColor);
+					if (o.static_state)
+						DrawCube((Vector3){ 0.0f, 0.0f, 0.0f }, o.sides[0], o.sides[1], o.sides[2], StaticobjectColor);
 					else
-						DrawCube((Vector3){ 0.0f, 0.0f, 0.0f }, o->second.sides[0], o->second.sides[1], o->second.sides[2], DynamicObjectColor);
-					DrawCubeWires((Vector3){ 0.0f, 0.0f, 0.0f }, o->second.sides[0], o->second.sides[1], o->second.sides[2], BLACK);
+						DrawCube((Vector3){ 0.0f, 0.0f, 0.0f }, o.sides[0], o.sides[1], o.sides[2], DynamicobjectColor);
+					DrawCubeWires((Vector3){ 0.0f, 0.0f, 0.0f }, o.sides[0], o.sides[1], o.sides[2], BLACK);
 				} break;
 				case Sphere: {
-					if (o->second.isStatic)
-						DrawSphere((Vector3){ 0.0f, 0.0f, 0.0f }, o->second.radius, StaticObjectColor);
+					if (o.static_state)
+						DrawSphere((Vector3){ 0.0f, 0.0f, 0.0f }, o.radius, StaticobjectColor);
 					else
-						DrawSphere((Vector3){ 0.0f, 0.0f, 0.0f }, o->second.radius, DynamicObjectColor);
-					DrawSphereWires((Vector3){ 0.0f, 0.0f, 0.0f }, o->second.radius, 16, 16, BLACK);
+						DrawSphere((Vector3){ 0.0f, 0.0f, 0.0f }, o.radius, DynamicobjectColor);
+					DrawSphereWires((Vector3){ 0.0f, 0.0f, 0.0f }, o.radius, 16, 16, BLACK);
 				} break;
 				case Capsule: {
-					if (o->second.isStatic)
-						DrawCapsule((Vector3){ 0.0f, 0.0f, -(o->second.length/2) }, (Vector3){ 0.0f, 0.0f, (o->second.length/2) }, o->second.radius, 16, 16, StaticObjectColor);
+					if (o.static_state)
+						DrawCapsule((Vector3){ 0.0f, 0.0f, -(o.length/2) }, (Vector3){ 0.0f, 0.0f, (o.length/2) }, o.radius, 16, 16, StaticobjectColor);
 					else
-						DrawCapsule((Vector3){ 0.0f, 0.0f, -(o->second.length/2) }, (Vector3){ 0.0f, 0.0f, (o->second.length/2) }, o->second.radius, 16, 16, DynamicObjectColor);
-					DrawCapsuleWires((Vector3){ 0.0f, 0.0f, -(o->second.length/2) }, (Vector3){ 0.0f, 0.0f, (o->second.length/2) }, o->second.radius, 16, 16, BLACK);
+						DrawCapsule((Vector3){ 0.0f, 0.0f, -(o.length/2) }, (Vector3){ 0.0f, 0.0f, (o.length/2) }, o.radius, 16, 16, DynamicobjectColor);
+					DrawCapsuleWires((Vector3){ 0.0f, 0.0f, -(o.length/2) }, (Vector3){ 0.0f, 0.0f, (o.length/2) }, o.radius, 16, 16, BLACK);
 				} break;
 				case Cylinder: {
-					if (o->second.isStatic)
-						DrawCylinderEx((Vector3){ 0.0f, 0.0f, -(o->second.length/2) }, (Vector3){ 0.0f, 0.0f, (o->second.length/2) }, o->second.radius, o->second.radius, 16, StaticObjectColor);
+					if (o.static_state)
+						DrawCylinderEx((Vector3){ 0.0f, 0.0f, -(o.length/2) }, (Vector3){ 0.0f, 0.0f, (o.length/2) }, o.radius, o.radius, 16, StaticobjectColor);
 					else
-						DrawCylinderEx((Vector3){ 0.0f, 0.0f, -(o->second.length/2) }, (Vector3){ 0.0f, 0.0f, (o->second.length/2) }, o->second.radius, o->second.radius, 16, DynamicObjectColor);
-					DrawCylinderWiresEx((Vector3){ 0.0f, 0.0f, -(o->second.length/2) }, (Vector3){ 0.0f, 0.0f, (o->second.length/2) }, o->second.radius, o->second.radius, 16, BLACK);
+						DrawCylinderEx((Vector3){ 0.0f, 0.0f, -(o.length/2) }, (Vector3){ 0.0f, 0.0f, (o.length/2) }, o.radius, o.radius, 16, DynamicobjectColor);
+					DrawCylinderWiresEx((Vector3){ 0.0f, 0.0f, -(o.length/2) }, (Vector3){ 0.0f, 0.0f, (o.length/2) }, o.radius, o.radius, 16, BLACK);
 				} break;
 			}
 
 			rlPopMatrix();
-
-			++o;
 		}
-		
-		std::map<std::string, BodyData>::iterator b = Body.begin();
-		while (b != Body.end()) {	
+	for (auto const& [body_name, b] : body)	 {
 			dQuaternion dQ;
-			dRtoQ(dBodyGetRotation(b->second.dBody), dQ);
-
+			dRtoQ(dBodyGetRotation(b.dBody), dQ);
 			float angle;
 			Vector3 axis;
 			Quaternion q = { dQ[1], dQ[2], dQ[3], dQ[0] };
 			QuaternionToAxisAngle(q, &axis, &angle);
-			const dReal *pos = dBodyGetPosition(b->second.dBody);
+			const dReal *pos = dBodyGetPosition(b.dBody);
 			rlPushMatrix();
 			rlTranslatef(pos[0], pos[1], pos[2]);
 			rlRotatef(RAD2DEG * angle, axis.x, axis.y, axis.z);
 
-			switch(b->second.shape)
-			{
-				case Box: {
-					DrawCube((Vector3){ 0.0f, 0.0f, 0.0f }, b->second.sides[0], b->second.sides[1], b->second.sides[2], BodyColor);
-					DrawCubeWires((Vector3){ 0.0f, 0.0f, 0.0f }, b->second.sides[0], b->second.sides[1], b->second.sides[2], BLACK);
-				} break;
-				case Sphere: {
-					DrawSphere((Vector3){ 0.0f, 0.0f, 0.0f }, b->second.radius, BodyColor);
-					DrawSphereWires((Vector3){ 0.0f, 0.0f, 0.0f }, b->second.radius, 16, 16, BLACK);
-				} break;
-				case Capsule: {
-					DrawCapsule((Vector3){ 0.0f, 0.0f, -(b->second.length/2) }, (Vector3){ 0.0f, 0.0f, (b->second.length/2) }, b->second.radius, 16, 16, BodyColor);
-					DrawCapsuleWires((Vector3){ 0.0f, 0.0f, -(b->second.length/2) }, (Vector3){ 0.0f, 0.0f, (b->second.length/2) }, b->second.radius, 16, 16, BLACK);
-				} break;
-				case Cylinder: {
-					DrawCylinderEx((Vector3){ 0.0f, 0.0f, -(o->second.length/2) }, (Vector3){ 0.0f, 0.0f, (o->second.length/2) }, o->second.radius, o->second.radius, 16, BodyColor);
-					DrawCylinderWiresEx((Vector3){ 0.0f, 0.0f, -(o->second.length/2) }, (Vector3){ 0.0f, 0.0f, (o->second.length/2) }, o->second.radius, o->second.radius, 16, BLACK);
-				} break;
-			}
-
-			rlPopMatrix();
-
-			++b;
+			switch(b.shape) {
+			case Box: {
+				DrawCube((Vector3){ 0.0f, 0.0f, 0.0f }, b.sides[0], b.sides[1], b.sides[2], BodyColor);
+				DrawCubeWires((Vector3){ 0.0f, 0.0f, 0.0f }, b.sides[0], b.sides[1], b.sides[2], BLACK);
+			} break;
+			case Sphere: {
+				DrawSphere((Vector3){ 0.0f, 0.0f, 0.0f }, b.radius, BodyColor);
+				DrawSphereWires((Vector3){ 0.0f, 0.0f, 0.0f }, b.radius, 16, 16, BLACK);
+			} break;
+			case Capsule: {
+				DrawCapsule((Vector3){ 0.0f, 0.0f, -(b.length/2) }, (Vector3){ 0.0f, 0.0f, (b.length/2) }, b.radius, 16, 16, BodyColor);
+				DrawCapsuleWires((Vector3){ 0.0f, 0.0f, -(b.length/2) }, (Vector3){ 0.0f, 0.0f, (b.length/2) }, b.radius, 16, 16, BLACK);
+			} break;
+			case Cylinder: {
+				DrawCylinderEx((Vector3){ 0.0f, 0.0f, -(b.length/2) }, (Vector3){ 0.0f, 0.0f, (b.length/2) }, b.radius, b.radius, 16, BodyColor);
+				DrawCylinderWiresEx((Vector3){ 0.0f, 0.0f, -(b.length/2) }, (Vector3){ 0.0f, 0.0f, (b.length/2) }, b.radius, b.radius, 16, BLACK);
+			} break;
 		}
+		rlPopMatrix();
+	}
 
-		std::map<std::string, JointData>::iterator j = Joint.begin();
-		while (j != Joint.end()) {	
-			dQuaternion dQ;
-			dRtoQ(dBodyGetRotation(j->second.dBody), dQ);
+	for (auto const& [joint_name, j] : joint) {
+		dQuaternion dQ;
+		dRtoQ(dBodyGetRotation(j.dBody), dQ);
 
-			float angle;
-			Vector3 axis;
-			Quaternion q = { dQ[1], dQ[2], dQ[3], dQ[0] };
-			QuaternionToAxisAngle(q, &axis, &angle);
-			const dReal *pos = dBodyGetPosition(j->second.dBody);
-			rlPushMatrix();
-			rlTranslatef(pos[0], pos[1], pos[2]);
-			rlRotatef(RAD2DEG * angle, axis.x, axis.y, axis.z);
+		float angle;
+		Vector3 axis;
+		Quaternion q = { dQ[1], dQ[2], dQ[3], dQ[0] };
+		QuaternionToAxisAngle(q, &axis, &angle);
+		const dReal *pos = dBodyGetPosition(j.dBody);
+		rlPushMatrix();
+		rlTranslatef(pos[0], pos[1], pos[2]);
+		rlRotatef(RAD2DEG * angle, axis.x, axis.y, axis.z);
 
-			switch(j->second.shape)
-			{
-				case Box: {
-					DrawCube((Vector3){ 0.0f, 0.0f, 0.0f }, j->second.sides[0], j->second.sides[1], j->second.sides[2], JointColor);
-					DrawCubeWires((Vector3){ 0.0f, 0.0f, 0.0f }, j->second.sides[0], j->second.sides[1], j->second.sides[2], BLACK);
-				} break;
-				case Sphere: {
-					DrawSphere((Vector3){ 0.0f, 0.0f, 0.0f }, j->second.radius, JointColor);
-					DrawSphereWires((Vector3){ 0.0f, 0.0f, 0.0f }, j->second.radius, 16, 16, BLACK);
-				} break;
-				case Capsule: {
-					DrawCapsule((Vector3){ 0.0f, 0.0f, -(j->second.length/2) }, (Vector3){ 0.0f, 0.0f, (j->second.length/2) }, j->second.radius, 16, 16, JointColor);
-					DrawCapsuleWires((Vector3){ 0.0f, 0.0f, -(j->second.length/2) }, (Vector3){ 0.0f, 0.0f, (j->second.length/2) }, j->second.radius, 16, 16, BLACK);
-				} break;
-				case Cylinder: {
-					DrawCylinderEx((Vector3){ 0.0f, 0.0f, -(o->second.length/2) }, (Vector3){ 0.0f, 0.0f, (o->second.length/2) }, o->second.radius, o->second.radius, 16, JointColor);
-					DrawCylinderWiresEx((Vector3){ 0.0f, 0.0f, -(o->second.length/2) }, (Vector3){ 0.0f, 0.0f, (o->second.length/2) }, o->second.radius, o->second.radius, 16, BLACK);
-				} break;
-			}
-
-			rlPopMatrix();
-
-			++j;
+		switch(j.shape) {
+			case Box: {
+				DrawCube((Vector3){ 0.0f, 0.0f, 0.0f }, j.sides[0], j.sides[1], j.sides[2], JointColor);
+				DrawCubeWires((Vector3){ 0.0f, 0.0f, 0.0f }, j.sides[0], j.sides[1], j.sides[2], BLACK);
+			} break;
+			case Sphere: {
+				DrawSphere((Vector3){ 0.0f, 0.0f, 0.0f }, j.radius, JointColor);
+				DrawSphereWires((Vector3){ 0.0f, 0.0f, 0.0f }, j.radius, 16, 16, BLACK);
+			} break;
+			case Capsule: {
+				DrawCapsule((Vector3){ 0.0f, 0.0f, -(j.length/2) }, (Vector3){ 0.0f, 0.0f, (j.length/2) }, j.radius, 16, 16, JointColor);
+				DrawCapsuleWires((Vector3){ 0.0f, 0.0f, -(j.length/2) }, (Vector3){ 0.0f, 0.0f, (j.length/2) }, j.radius, 16, 16, BLACK);
+			} break;
+			case Cylinder: {
+				DrawCylinderEx((Vector3){ 0.0f, 0.0f, -(j.length/2) }, (Vector3){ 0.0f, 0.0f, (j.length/2) }, j.radius, j.radius, 16, JointColor);
+				DrawCylinderWiresEx((Vector3){ 0.0f, 0.0f, -(j.length/2) }, (Vector3){ 0.0f, 0.0f, (j.length/2) }, j.radius, j.radius, 16, BLACK);
+			} break;
 		}
+		rlPopMatrix();
+	}
 }
 
 void DrawGhost()
 {
-	std::map<std::string, ObjectData>::iterator o = Object.begin();
-	while (o != Object.end()) {	
-			dQuaternion dQ;
-			dRtoQ(dBodyGetRotation(o->second.dBody), dQ);
+	for (auto const& [object_name, o] : object) {
+		dQuaternion dQ;
+		dRtoQ(dBodyGetRotation(o.dBody), dQ);
 
-			float angle;
-			Vector3 axis;
-			Quaternion q = { dQ[1], dQ[2], dQ[3], dQ[0] };
-			QuaternionToAxisAngle(q, &axis, &angle);
-			const dReal *pos = dBodyGetPosition(o->second.dBody);
-			rlPushMatrix();
-			rlTranslatef(pos[0], pos[1], pos[2]);
-			rlRotatef(RAD2DEG * angle, axis.x, axis.y, axis.z);
+		float angle;
+		Vector3 axis;
+		Quaternion q = { dQ[1], dQ[2], dQ[3], dQ[0] };
+		QuaternionToAxisAngle(q, &axis, &angle);
+		const dReal *pos = dBodyGetPosition(o.dBody);
+		rlPushMatrix();
+		rlTranslatef(pos[0], pos[1], pos[2]);
+		rlRotatef(RAD2DEG * angle, axis.x, axis.y, axis.z);
 
-			switch(o->second.shape)
-			{
-				case Box: {
-					DrawCube((Vector3){ 0.0f, 0.0f, 0.0f }, o->second.sides[0], o->second.sides[1], o->second.sides[2], GhostColor);
-					DrawCubeWires((Vector3){ 0.0f, 0.0f, 0.0f }, o->second.sides[0], o->second.sides[1], o->second.sides[2], BLACK);
-				} break;
-				case Sphere: {
-					DrawSphere((Vector3){ 0.0f, 0.0f, 0.0f }, o->second.radius, GhostColor);
-					DrawSphereWires((Vector3){ 0.0f, 0.0f, 0.0f }, o->second.radius, 16, 16, BLACK);
-				} break;
-				case Capsule: {
-					DrawCapsule((Vector3){ 0.0f, 0.0f, -(o->second.length/2) }, (Vector3){ 0.0f, 0.0f, (o->second.length/2) }, o->second.radius, 16, 16, GhostColor);
-					DrawCapsuleWires((Vector3){ 0.0f, 0.0f, -(o->second.length/2) }, (Vector3){ 0.0f, 0.0f, (o->second.length/2) }, o->second.radius, 16, 16, BLACK);
-				} break;
-				case Cylinder: {
-					DrawCylinderEx((Vector3){ 0.0f, 0.0f, -(o->second.length/2) }, (Vector3){ 0.0f, 0.0f, (o->second.length/2) }, o->second.radius, o->second.radius, 16, GhostColor);
-					DrawCylinderWiresEx((Vector3){ 0.0f, 0.0f, -(o->second.length/2) }, (Vector3){ 0.0f, 0.0f, (o->second.length/2) }, o->second.radius, o->second.radius, 16, BLACK);
-				} break;
-			}
-
-			rlPopMatrix();
-
-			++o;
+		switch(o.shape) {
+			case Box: {
+				DrawCube((Vector3){ 0.0f, 0.0f, 0.0f }, o.sides[0], o.sides[1], o.sides[2], GhostColor);
+				DrawCubeWires((Vector3){ 0.0f, 0.0f, 0.0f }, o.sides[0], o.sides[1], o.sides[2], BLACK);
+			} break;
+			case Sphere: {
+				DrawSphere((Vector3){ 0.0f, 0.0f, 0.0f }, o.radius, GhostColor);
+				DrawSphereWires((Vector3){ 0.0f, 0.0f, 0.0f }, o.radius, 16, 16, BLACK);
+			} break;
+			case Capsule: {
+				DrawCapsule((Vector3){ 0.0f, 0.0f, -(o.length/2) }, (Vector3){ 0.0f, 0.0f, (o.length/2) }, o.radius, 16, 16, GhostColor);
+				DrawCapsuleWires((Vector3){ 0.0f, 0.0f, -(o.length/2) }, (Vector3){ 0.0f, 0.0f, (o.length/2) }, o.radius, 16, 16, BLACK);
+			} break;
+			case Cylinder: {
+				DrawCylinderEx((Vector3){ 0.0f, 0.0f, -(o.length/2) }, (Vector3){ 0.0f, 0.0f, (o.length/2) }, o.radius, o.radius, 16, GhostColor);
+				DrawCylinderWiresEx((Vector3){ 0.0f, 0.0f, -(o.length/2) }, (Vector3){ 0.0f, 0.0f, (o.length/2) }, o.radius, o.radius, 16, BLACK);
+			} break;
 		}
+		rlPopMatrix();
+	}
 		
-		std::map<std::string, BodyData>::iterator b = Body.begin();
-		while (b != Body.end()) {	
-			dQuaternion dQ;
-			dRtoQ(dBodyGetRotation(b->second.dBody), dQ);
+	for (auto const& [body_name, b] : body) {
+		dQuaternion dQ;
+		dRtoQ(dBodyGetRotation(b.dBody), dQ);
 
-			float angle;
-			Vector3 axis;
-			Quaternion q = { dQ[1], dQ[2], dQ[3], dQ[0] };
-			QuaternionToAxisAngle(q, &axis, &angle);
-			const dReal *pos = dBodyGetPosition(b->second.dBody);
-			rlPushMatrix();
-			rlTranslatef(pos[0], pos[1], pos[2]);
-			rlRotatef(RAD2DEG * angle, axis.x, axis.y, axis.z);
+		float angle;
+		Vector3 axis;
+		Quaternion q = { dQ[1], dQ[2], dQ[3], dQ[0] };
+		QuaternionToAxisAngle(q, &axis, &angle);
+		const dReal *pos = dBodyGetPosition(b.dBody);
+		rlPushMatrix();
+		rlTranslatef(pos[0], pos[1], pos[2]);
+		rlRotatef(RAD2DEG * angle, axis.x, axis.y, axis.z);
 
-			switch(b->second.shape)
-			{
-				case Box: {
-					DrawCube((Vector3){ 0.0f, 0.0f, 0.0f }, b->second.sides[0], b->second.sides[1], b->second.sides[2], GhostColor);
-					DrawCubeWires((Vector3){ 0.0f, 0.0f, 0.0f }, b->second.sides[0], b->second.sides[1], b->second.sides[2], BLACK);
-				} break;
-				case Sphere: {
-					DrawSphere((Vector3){ 0.0f, 0.0f, 0.0f }, b->second.radius, GhostColor);
-					DrawSphereWires((Vector3){ 0.0f, 0.0f, 0.0f }, b->second.radius, 16, 16, BLACK);
-				} break;
-				case Capsule: {
-					DrawCapsule((Vector3){ 0.0f, 0.0f, -(b->second.length/2) }, (Vector3){ 0.0f, 0.0f, (b->second.length/2) }, b->second.radius, 16, 16, GhostColor);
-					DrawCapsuleWires((Vector3){ 0.0f, 0.0f, -(b->second.length/2) }, (Vector3){ 0.0f, 0.0f, (b->second.length/2) }, b->second.radius, 16, 16, BLACK);
-				} break;
-				case Cylinder: {
-					DrawCylinderEx((Vector3){ 0.0f, 0.0f, -(o->second.length/2) }, (Vector3){ 0.0f, 0.0f, (o->second.length/2) }, o->second.radius, o->second.radius, 16, GhostColor);
-					DrawCylinderWiresEx((Vector3){ 0.0f, 0.0f, -(o->second.length/2) }, (Vector3){ 0.0f, 0.0f, (o->second.length/2) }, o->second.radius, o->second.radius, 16, BLACK);
-				} break;
-			}
-
-			rlPopMatrix();
-
-			++b;
+		switch(b.shape) {
+			case Box: {
+				DrawCube((Vector3){ 0.0f, 0.0f, 0.0f }, b.sides[0], b.sides[1], b.sides[2], GhostColor);
+				DrawCubeWires((Vector3){ 0.0f, 0.0f, 0.0f }, b.sides[0], b.sides[1], b.sides[2], BLACK);
+			} break;
+			case Sphere: {
+				DrawSphere((Vector3){ 0.0f, 0.0f, 0.0f }, b.radius, GhostColor);
+				DrawSphereWires((Vector3){ 0.0f, 0.0f, 0.0f }, b.radius, 16, 16, BLACK);
+			} break;
+			case Capsule: {
+					DrawCapsule((Vector3){ 0.0f, 0.0f, -(b.length/2) }, (Vector3){ 0.0f, 0.0f, (b.length/2) }, b.radius, 16, 16, GhostColor);
+					DrawCapsuleWires((Vector3){ 0.0f, 0.0f, -(b.length/2) }, (Vector3){ 0.0f, 0.0f, (b.length/2) }, b.radius, 16, 16, BLACK);
+			} break;
+			case Cylinder: {
+				DrawCylinderEx((Vector3){ 0.0f, 0.0f, -(b.length/2) }, (Vector3){ 0.0f, 0.0f, (b.length/2) }, b.radius, b.radius, 16, GhostColor);
+				DrawCylinderWiresEx((Vector3){ 0.0f, 0.0f, -(b.length/2) }, (Vector3){ 0.0f, 0.0f, (b.length/2) }, b.radius, b.radius, 16, BLACK);
+			} break;
 		}
+		rlPopMatrix();
+	}
 
-		std::map<std::string, JointData>::iterator j = Joint.begin();
-		while (j != Joint.end()) {	
-			dQuaternion dQ;
-			dRtoQ(dBodyGetRotation(j->second.dBody), dQ);
+	for (auto const& [joint_name, j] : joint) {
+		dQuaternion dQ;
+		dRtoQ(dBodyGetRotation(j.dBody), dQ);
 
-			float angle;
-			Vector3 axis;
-			Quaternion q = { dQ[1], dQ[2], dQ[3], dQ[0] };
-			QuaternionToAxisAngle(q, &axis, &angle);
-			const dReal *pos = dBodyGetPosition(j->second.dBody);
-			rlPushMatrix();
-			rlTranslatef(pos[0], pos[1], pos[2]);
-			rlRotatef(RAD2DEG * angle, axis.x, axis.y, axis.z);
+		float angle;
+		Vector3 axis;
+		Quaternion q = { dQ[1], dQ[2], dQ[3], dQ[0] };
+		QuaternionToAxisAngle(q, &axis, &angle);
+		const dReal *pos = dBodyGetPosition(j.dBody);
+		rlPushMatrix();
+		rlTranslatef(pos[0], pos[1], pos[2]);
+		rlRotatef(RAD2DEG * angle, axis.x, axis.y, axis.z);
 
-			switch(j->second.shape)
-			{
-				case Box: {
-					DrawCube((Vector3){ 0.0f, 0.0f, 0.0f }, j->second.sides[0], j->second.sides[1], j->second.sides[2], GhostColor);
-					DrawCubeWires((Vector3){ 0.0f, 0.0f, 0.0f }, j->second.sides[0], j->second.sides[1], j->second.sides[2], BLACK);
-				} break;
-				case Sphere: {
-					DrawSphere((Vector3){ 0.0f, 0.0f, 0.0f }, j->second.radius, GhostColor);
-					DrawSphereWires((Vector3){ 0.0f, 0.0f, 0.0f }, j->second.radius, 16, 16, BLACK);
-				} break;
-				case Capsule: {
-					// WTF is with the capsules hitbox
-					DrawCapsule((Vector3){ 0.0f, 0.0f, -(j->second.length/2) }, (Vector3){ 0.0f, 0.0f, (j->second.length/2) }, j->second.radius, 16, 16, GhostColor);
-					DrawCapsuleWires((Vector3){ 0.0f, 0.0f, -(j->second.length/2) }, (Vector3){ 0.0f, 0.0f, (j->second.length/2) }, j->second.radius, 16, 16, BLACK);
-				} break;
-				case Cylinder: {
-					DrawCylinderEx((Vector3){ 0.0f, 0.0f, -(o->second.length/2) }, (Vector3){ 0.0f, 0.0f, (o->second.length/2) }, o->second.radius, o->second.radius, 16, GhostColor);
-					DrawCylinderWiresEx((Vector3){ 0.0f, 0.0f, -(o->second.length/2) }, (Vector3){ 0.0f, 0.0f, (o->second.length/2) }, o->second.radius, o->second.radius, 16, BLACK);
-				} break;
-			}
-
-			rlPopMatrix();
-
-			++j;
+		switch(j.shape)
+		{
+			case Box: {
+				DrawCube((Vector3){ 0.0f, 0.0f, 0.0f }, j.sides[0], j.sides[1], j.sides[2], GhostColor);
+				DrawCubeWires((Vector3){ 0.0f, 0.0f, 0.0f }, j.sides[0], j.sides[1], j.sides[2], BLACK);
+			} break;
+			case Sphere: {
+				DrawSphere((Vector3){ 0.0f, 0.0f, 0.0f }, j.radius, GhostColor);
+				DrawSphereWires((Vector3){ 0.0f, 0.0f, 0.0f }, j.radius, 16, 16, BLACK);
+			} break;
+			case Capsule: {
+				// WTF is with the capsules hitbox
+				DrawCapsule((Vector3){ 0.0f, 0.0f, -(j.length/2) }, (Vector3){ 0.0f, 0.0f, (j.length/2) }, j.radius, 16, 16, GhostColor);
+				DrawCapsuleWires((Vector3){ 0.0f, 0.0f, -(j.length/2) }, (Vector3){ 0.0f, 0.0f, (j.length/2) }, j.radius, 16, 16, BLACK);
+			} break;
+			case Cylinder: {
+				DrawCylinderEx((Vector3){ 0.0f, 0.0f, -(j.length/2) }, (Vector3){ 0.0f, 0.0f, (j.length/2) }, j.radius, j.radius, 16, GhostColor);
+				DrawCylinderWiresEx((Vector3){ 0.0f, 0.0f, -(j.length/2) }, (Vector3){ 0.0f, 0.0f, (j.length/2) }, j.radius, j.radius, 16, BLACK);
+			} break;
 		}
+		rlPopMatrix();
+	}
 }
 
 void DrawFreeze()
 {
-	std::map<std::string, ObjectData>::iterator o = Object.begin();
-	while (o != Object.end()) {	
-			//dQuaternion dQ;
-			//dRtoQ(dBodyGetRotation(o->second.dBody), dQ);
+	for (auto const& [object_name, o] : object) {
+		float angle;
+		Vector3 axis;
+		Quaternion q = {
+			o.freeze.orientation[1],
+			o.freeze.orientation[2],
+			o.freeze.orientation[3],
+			o.freeze.orientation[0]
+		};
+		QuaternionToAxisAngle(q, &axis, &angle);
+		rlPushMatrix();
+		rlTranslatef(
+			o.freeze.position[0],
+			o.freeze.position[1],
+			o.freeze.position[2]
+		);
+		rlRotatef(RAD2DEG * angle, axis.x, axis.y, axis.z);
 
-			float angle;
-			Vector3 axis;
-			Quaternion q = {
-				o->second.freeze.orientation[1],
-				o->second.freeze.orientation[2],
-				o->second.freeze.orientation[3],
-				o->second.freeze.orientation[0]
-			};
-			QuaternionToAxisAngle(q, &axis, &angle);
-			//const dReal *pos = dBodyGetPosition(o->second.dBody);
-			rlPushMatrix();
-			rlTranslatef(
-				o->second.freeze.position[0],
-				o->second.freeze.position[1],
-				o->second.freeze.position[2]
-			);
-			rlRotatef(RAD2DEG * angle, axis.x, axis.y, axis.z);
-
-			switch(o->second.shape)
-			{
-				case Box: {
-					if (o->second.isStatic)
-						DrawCube((Vector3){ 0.0f, 0.0f, 0.0f }, o->second.sides[0], o->second.sides[1], o->second.sides[2], StaticObjectColor);
-					else
-						DrawCube((Vector3){ 0.0f, 0.0f, 0.0f }, o->second.sides[0], o->second.sides[1], o->second.sides[2], DynamicObjectColor);
-					DrawCubeWires((Vector3){ 0.0f, 0.0f, 0.0f }, o->second.sides[0], o->second.sides[1], o->second.sides[2], BLACK);
+		switch(o.shape) {
+			case Box: {
+				if (o.static_state) {
+					DrawCube((Vector3){ 0.0f, 0.0f, 0.0f }, o.sides[0], o.sides[1], o.sides[2], StaticobjectColor);
+				} else {
+					DrawCube((Vector3){ 0.0f, 0.0f, 0.0f }, o.sides[0], o.sides[1], o.sides[2], DynamicobjectColor);
+				}
+				DrawCubeWires((Vector3){ 0.0f, 0.0f, 0.0f }, o.sides[0], o.sides[1], o.sides[2], BLACK);
 				} break;
-				case Sphere: {
-					if (o->second.isStatic)
-						DrawSphere((Vector3){ 0.0f, 0.0f, 0.0f }, o->second.radius, StaticObjectColor);
-					else
-						DrawSphere((Vector3){ 0.0f, 0.0f, 0.0f }, o->second.radius, DynamicObjectColor);
-					DrawSphereWires((Vector3){ 0.0f, 0.0f, 0.0f }, o->second.radius, 16, 16, BLACK);
+			case Sphere: {
+				if (o.static_state) {
+					DrawSphere((Vector3){ 0.0f, 0.0f, 0.0f }, o.radius, StaticobjectColor);
+				} else {
+					DrawSphere((Vector3){ 0.0f, 0.0f, 0.0f }, o.radius, DynamicobjectColor);
+				}
+				DrawSphereWires((Vector3){ 0.0f, 0.0f, 0.0f }, o.radius, 16, 16, BLACK);
 				} break;
-				case Capsule: {
-					if (o->second.isStatic)
-						DrawCapsule((Vector3){ 0.0f, 0.0f, -(o->second.length/2) }, (Vector3){ 0.0f, 0.0f, (o->second.length/2) }, o->second.radius, 16, 16, StaticObjectColor);
-					else
-						DrawCapsule((Vector3){ 0.0f, 0.0f, -(o->second.length/2) }, (Vector3){ 0.0f, 0.0f, (o->second.length/2) }, o->second.radius, 16, 16, DynamicObjectColor);
-					DrawCapsuleWires((Vector3){ 0.0f, 0.0f, -(o->second.length/2) }, (Vector3){ 0.0f, 0.0f, (o->second.length/2) }, o->second.radius, 16, 16, BLACK);
+			case Capsule: {
+				if (o.static_state) {
+					DrawCapsule((Vector3){ 0.0f, 0.0f, -(o.length/2) }, (Vector3){ 0.0f, 0.0f, (o.length/2) }, o.radius, 16, 16, StaticobjectColor);
+				} else {
+					DrawCapsule((Vector3){ 0.0f, 0.0f, -(o.length/2) }, (Vector3){ 0.0f, 0.0f, (o.length/2) }, o.radius, 16, 16, DynamicobjectColor);
+				}
+				DrawCapsuleWires((Vector3){ 0.0f, 0.0f, -(o.length/2) }, (Vector3){ 0.0f, 0.0f, (o.length/2) }, o.radius, 16, 16, BLACK);
 				} break;
-				case Cylinder: {
-					if (o->second.isStatic)
-						DrawCylinderEx((Vector3){ 0.0f, 0.0f, -(o->second.length/2) }, (Vector3){ 0.0f, 0.0f, (o->second.length/2) }, o->second.radius, o->second.radius, 16, StaticObjectColor);
-					else
-						DrawCylinderEx((Vector3){ 0.0f, 0.0f, -(o->second.length/2) }, (Vector3){ 0.0f, 0.0f, (o->second.length/2) }, o->second.radius, o->second.radius, 16, DynamicObjectColor);
-					DrawCylinderWiresEx((Vector3){ 0.0f, 0.0f, -(o->second.length/2) }, (Vector3){ 0.0f, 0.0f, (o->second.length/2) }, o->second.radius, o->second.radius, 16, BLACK);
+			case Cylinder: {
+				if (o.static_state) {
+					DrawCylinderEx((Vector3){ 0.0f, 0.0f, -(o.length/2) }, (Vector3){ 0.0f, 0.0f, (o.length/2) }, o.radius, o.radius, 16, StaticobjectColor);
+				} else {
+					DrawCylinderEx((Vector3){ 0.0f, 0.0f, -(o.length/2) }, (Vector3){ 0.0f, 0.0f, (o.length/2) }, o.radius, o.radius, 16, DynamicobjectColor);
+				}
+				DrawCylinderWiresEx((Vector3){ 0.0f, 0.0f, -(o.length/2) }, (Vector3){ 0.0f, 0.0f, (o.length/2) }, o.radius, o.radius, 16, BLACK);
 				} break;
 			}
-
 			rlPopMatrix();
-
-			++o;
 		}
 		
-		std::map<std::string, BodyData>::iterator b = Body.begin();
-		while (b != Body.end()) {	
-			//dQuaternion dQ;
-			//dRtoQ(dBodyGetRotation(b->second.dBody), dQ);
+	for (auto const& [body_name, b] : body) {
+		float angle;
+		Vector3 axis;
+		Quaternion q = {
+			b.freeze.orientation[1],
+			b.freeze.orientation[2],
+			b.freeze.orientation[3],
+			b.freeze.orientation[0]
+		};
+		QuaternionToAxisAngle(q, &axis, &angle);
+		rlPushMatrix();
+		rlTranslatef(
+			b.freeze.position[0],
+			b.freeze.position[1],
+			b.freeze.position[2]
+		);
+		rlRotatef(RAD2DEG * angle, axis.x, axis.y, axis.z);
 
-			float angle;
-			Vector3 axis;
-			Quaternion q = {
-				b->second.freeze.orientation[1],
-				b->second.freeze.orientation[2],
-				b->second.freeze.orientation[3],
-				b->second.freeze.orientation[0]
-			};
-			QuaternionToAxisAngle(q, &axis, &angle);
-			//const dReal *pos = dBodyGetPosition(b->second.dBody);
-			rlPushMatrix();
-			rlTranslatef(
-				b->second.freeze.position[0],
-				b->second.freeze.position[1],
-				b->second.freeze.position[2]
-			);
-			rlRotatef(RAD2DEG * angle, axis.x, axis.y, axis.z);
-
-			switch(b->second.shape)
-			{
-				case Box: {
-					DrawCube((Vector3){ 0.0f, 0.0f, 0.0f }, b->second.sides[0], b->second.sides[1], b->second.sides[2], BodyColor);
-					DrawCubeWires((Vector3){ 0.0f, 0.0f, 0.0f }, b->second.sides[0], b->second.sides[1], b->second.sides[2], BLACK);
-				} break;
-				case Sphere: {
-					DrawSphere((Vector3){ 0.0f, 0.0f, 0.0f }, b->second.radius, BodyColor);
-					DrawSphereWires((Vector3){ 0.0f, 0.0f, 0.0f }, b->second.radius, 16, 16, BLACK);
-				} break;
-				case Capsule: {
-					DrawCapsule((Vector3){ 0.0f, 0.0f, -(b->second.length/2) }, (Vector3){ 0.0f, 0.0f, (b->second.length/2) }, b->second.radius, 16, 16, BodyColor);
-					DrawCapsuleWires((Vector3){ 0.0f, 0.0f, -(b->second.length/2) }, (Vector3){ 0.0f, 0.0f, (b->second.length/2) }, b->second.radius, 16, 16, BLACK);
-				} break;
-				case Cylinder: {
-					DrawCylinderEx((Vector3){ 0.0f, 0.0f, -(o->second.length/2) }, (Vector3){ 0.0f, 0.0f, (o->second.length/2) }, o->second.radius, o->second.radius, 16, BodyColor);
-					DrawCylinderWiresEx((Vector3){ 0.0f, 0.0f, -(o->second.length/2) }, (Vector3){ 0.0f, 0.0f, (o->second.length/2) }, o->second.radius, o->second.radius, 16, BLACK);
-				} break;
-			}
-
-			rlPopMatrix();
-
-			++b;
+		switch (b.shape) {
+			case Box: {
+				DrawCube((Vector3){ 0.0f, 0.0f, 0.0f }, b.sides[0], b.sides[1], b.sides[2], BodyColor);
+				DrawCubeWires((Vector3){ 0.0f, 0.0f, 0.0f }, b.sides[0], b.sides[1], b.sides[2], BLACK);
+			} break;
+			case Sphere: {
+				DrawSphere((Vector3){ 0.0f, 0.0f, 0.0f }, b.radius, BodyColor);
+				DrawSphereWires((Vector3){ 0.0f, 0.0f, 0.0f }, b.radius, 16, 16, BLACK);
+			} break;
+			case Capsule: {
+				DrawCapsule((Vector3){ 0.0f, 0.0f, -(b.length/2) }, (Vector3){ 0.0f, 0.0f, (b.length/2) }, b.radius, 16, 16, BodyColor);
+				DrawCapsuleWires((Vector3){ 0.0f, 0.0f, -(b.length/2) }, (Vector3){ 0.0f, 0.0f, (b.length/2) }, b.radius, 16, 16, BLACK);
+			} break;
+			case Cylinder: {
+				DrawCylinderEx((Vector3){ 0.0f, 0.0f, -(b.length/2) }, (Vector3){ 0.0f, 0.0f, (b.length/2) }, b.radius, b.radius, 16, BodyColor);
+				DrawCylinderWiresEx((Vector3){ 0.0f, 0.0f, -(b.length/2) }, (Vector3){ 0.0f, 0.0f, (b.length/2) }, b.radius, b.radius, 16, BLACK);
+			} break;
 		}
+		rlPopMatrix();
+	}
 
-		std::map<std::string, JointData>::iterator j = Joint.begin();
-		while (j != Joint.end()) {	
-			//dQuaternion dQ;
-			//dRtoQ(dBodyGetRotation(j->second.dBody), dQ);
+	for (auto const& [joint_name, j] : joint) {
+		float angle;
+		Vector3 axis;
+		Quaternion q = {
+			j.freeze.orientation[1],
+			j.freeze.orientation[2],
+			j.freeze.orientation[3],
+			j.freeze.orientation[0]
+		};
+		QuaternionToAxisAngle(q, &axis, &angle);
+		rlPushMatrix();
+		rlTranslatef(
+			j.freeze.position[0],
+			j.freeze.position[1],
+			j.freeze.position[2]
+		);
+		rlRotatef(RAD2DEG * angle, axis.x, axis.y, axis.z);
 
-			float angle;
-			Vector3 axis;
-			Quaternion q = {
-				j->second.freeze.orientation[1],
-				j->second.freeze.orientation[2],
-				j->second.freeze.orientation[3],
-				j->second.freeze.orientation[0]
-			};
-			QuaternionToAxisAngle(q, &axis, &angle);
-			//const dReal *pos = dBodyGetPosition(j->second.dBody);
-			rlPushMatrix();
-			rlTranslatef(
-				j->second.freeze.position[0],
-				j->second.freeze.position[1],
-				j->second.freeze.position[2]
-			);
-			rlRotatef(RAD2DEG * angle, axis.x, axis.y, axis.z);
-
-			switch(j->second.shape)
-			{
-				case Box: {
-					DrawCube((Vector3){ 0.0f, 0.0f, 0.0f }, j->second.sides[0], j->second.sides[1], j->second.sides[2], JointColor);
-					DrawCubeWires((Vector3){ 0.0f, 0.0f, 0.0f }, j->second.sides[0], j->second.sides[1], j->second.sides[2], BLACK);
-				} break;
-				case Sphere: {
-					if (j->second.name == SelectedJoint)
-						DrawSphere((Vector3){ 0.0f, 0.0f, 0.0f }, j->second.radius, RED);
-					else
-						DrawSphere((Vector3){ 0.0f, 0.0f, 0.0f }, j->second.radius, JointColor);
-					DrawSphereWires((Vector3){ 0.0f, 0.0f, 0.0f }, j->second.radius, 16, 16, BLACK);
-				} break;
-				case Capsule: {
-					// WTF is with the capsules hitbox
-					DrawCapsule((Vector3){ 0.0f, 0.0f, -(j->second.length/2) }, (Vector3){ 0.0f, 0.0f, (j->second.length/2) }, j->second.radius, 16, 16, JointColor);
-					DrawCapsuleWires((Vector3){ 0.0f, 0.0f, -(j->second.length/2) }, (Vector3){ 0.0f, 0.0f, (j->second.length/2) }, j->second.radius, 16, 16, BLACK);
-				} break;
-				case Cylinder: {
-					DrawCylinderEx((Vector3){ 0.0f, 0.0f, -(o->second.length/2) }, (Vector3){ 0.0f, 0.0f, (o->second.length/2) }, o->second.radius, o->second.radius, 16, JointColor);
-					DrawCylinderWiresEx((Vector3){ 0.0f, 0.0f, -(o->second.length/2) }, (Vector3){ 0.0f, 0.0f, (o->second.length/2) }, o->second.radius, o->second.radius, 16, BLACK);
-				} break;
-			}
-
-			rlPopMatrix();
-
-			++j;
+		switch(j.shape)
+		{
+			case Box: {
+				DrawCube((Vector3){ 0.0f, 0.0f, 0.0f }, j.sides[0], j.sides[1], j.sides[2], JointColor);
+				DrawCubeWires((Vector3){ 0.0f, 0.0f, 0.0f }, j.sides[0], j.sides[1], j.sides[2], BLACK);
+			} break;
+			case Sphere: {
+				if (j.name == SelectedJoint)
+					DrawSphere((Vector3){ 0.0f, 0.0f, 0.0f }, j.radius, RED);
+				else
+					DrawSphere((Vector3){ 0.0f, 0.0f, 0.0f }, j.radius, JointColor);
+				DrawSphereWires((Vector3){ 0.0f, 0.0f, 0.0f }, j.radius, 16, 16, BLACK);
+			} break;
+			case Capsule: {
+				// WTF is with the capsules hitbox
+				DrawCapsule((Vector3){ 0.0f, 0.0f, -(j.length/2) }, (Vector3){ 0.0f, 0.0f, (j.length/2) }, j.radius, 16, 16, JointColor);
+				DrawCapsuleWires((Vector3){ 0.0f, 0.0f, -(j.length/2) }, (Vector3){ 0.0f, 0.0f, (j.length/2) }, j.radius, 16, 16, BLACK);
+			} break;
+			case Cylinder: {
+				DrawCylinderEx((Vector3){ 0.0f, 0.0f, -(j.length/2) }, (Vector3){ 0.0f, 0.0f, (j.length/2) }, j.radius, j.radius, 16, JointColor);
+				DrawCylinderWiresEx((Vector3){ 0.0f, 0.0f, -(j.length/2) }, (Vector3){ 0.0f, 0.0f, (j.length/2) }, j.radius, j.radius, 16, BLACK);
+			} break;
 		}
+		rlPopMatrix();
+	}
 }
 
 
@@ -2272,79 +2066,67 @@ void ReFreeze()
 {
 	game.freeze_t = 0;
 
-	std::map<std::string, ObjectData>::iterator o = Object.begin();
-
-	while (o != Object.end()) {
+	for (auto const& [object_name, o] : object) {
 		dBodySetPosition(
-			o->second.dBody,
-			o->second.freeze.position[0],
-			o->second.freeze.position[1],
-			o->second.freeze.position[2]);
-		dBodySetQuaternion(o->second.dBody, o->second.freeze.orientation);
+			o.dBody,
+			o.freeze.position[0],
+			o.freeze.position[1],
+			o.freeze.position[2]);
+		dBodySetQuaternion(o.dBody, o.freeze.orientation);
 		dBodySetLinearVel(
-			o->second.dBody,
-			o->second.freeze.linearVel[0],
-			o->second.freeze.linearVel[1],
-			o->second.freeze.linearVel[2]);
+			o.dBody,
+			o.freeze.linearVel[0],
+			o.freeze.linearVel[1],
+			o.freeze.linearVel[2]);
 		dBodySetAngularVel(
-			o->second.dBody,
-			o->second.freeze.angularVel[0],
-			o->second.freeze.angularVel[1],
-			o->second.freeze.angularVel[2]);
-
-		++o;
+			o.dBody,
+			o.freeze.angularVel[0],
+			o.freeze.angularVel[1],
+			o.freeze.angularVel[2]);
 	}
 
-	std::map<std::string, BodyData>::iterator b = Body.begin();
-
-	while (b != Body.end()) {
+	for (auto const& [body_name, b] : body) {
 		dBodySetPosition(
-			b->second.dBody,
-			b->second.freeze.position[0],
-			b->second.freeze.position[1],
-			b->second.freeze.position[2]);
-		dBodySetQuaternion(b->second.dBody, b->second.freeze.orientation);
+			b.dBody,
+			b.freeze.position[0],
+			b.freeze.position[1],
+			b.freeze.position[2]);
+		dBodySetQuaternion(b.dBody, b.freeze.orientation);
 		dBodySetLinearVel(
-			b->second.dBody,
-			b->second.freeze.linearVel[0],
-			b->second.freeze.linearVel[1],
-			b->second.freeze.linearVel[2]);
+			b.dBody,
+			b.freeze.linearVel[0],
+			b.freeze.linearVel[1],
+			b.freeze.linearVel[2]);
 		dBodySetAngularVel(
-			b->second.dBody,
-			b->second.freeze.angularVel[0],
-			b->second.freeze.angularVel[1],
-			b->second.freeze.angularVel[2]);
-
-		++b;
+			b.dBody,
+			b.freeze.angularVel[0],
+			b.freeze.angularVel[1],
+			b.freeze.angularVel[2]);
 	}
 
-	std::map<std::string, JointData>::iterator j = Joint.begin();
-
-	while (j != Joint.end()) {
+	for (auto const& [joint_name, j] : joint) {
 		dBodySetPosition(
-			j->second.dBody,
-			j->second.freeze.position[0],
-			j->second.freeze.position[1],
-			j->second.freeze.position[2]);
-		dBodySetQuaternion(j->second.dBody, j->second.freeze.orientation);
+			j.dBody,
+			j.freeze.position[0],
+			j.freeze.position[1],
+			j.freeze.position[2]);
+		dBodySetQuaternion(j.dBody, j.freeze.orientation);
 		dBodySetLinearVel(
-			j->second.dBody,
-			j->second.freeze.linearVel[0],
-			j->second.freeze.linearVel[1],
-			j->second.freeze.linearVel[2]);
+			j.dBody,
+			j.freeze.linearVel[0],
+			j.freeze.linearVel[1],
+			j.freeze.linearVel[2]);
 		dBodySetAngularVel(
-			j->second.dBody,
-			j->second.freeze.angularVel[0],
-			j->second.freeze.angularVel[1],
-			j->second.freeze.angularVel[2]);
-
-		++j;
+			j.dBody,
+			j.freeze.angularVel[0],
+			j.freeze.angularVel[1],
+			j.freeze.angularVel[2]);
 	}
 }
 
 void DrawGameFrame()
 {
-	if (game.isFrozen)
+	if (game.freeze)
 	{
 		DrawFreeze();
 		DrawGhost();
@@ -2377,10 +2159,524 @@ void GameEnd()
 void GameStep(int frame_count)
 {
 	game.unfreeze_time = frame_count;
-	game.isFrozen = false;
+	game.freeze = false;
 	ReFreeze();
 }
 
+/*
+ * TODO: implement this per player
+void TriggerPlayerPassiveStates(std::string player)
+{
+
+}
+*/
+
+void TriggerPlayerPassiveStates(PlayerPassiveStates state)
+{
+	dReal strength = 0.00;
+	for (auto const& [joint_name, j] : joint) {
+		if (state != HOLD_ALL) {
+			strength = j.strength;
+		}
+		switch(j.connectionType) {
+			case Hinge: {
+				dJointSetHingeParam(j.dJoint[0], dParamFMax, strength);
+				dJointSetHingeParam(j.dJoint[0], dParamVel, 0.0f);
+			} break;
+			case Slider: {
+				dJointSetSliderParam(j.dJoint[0], dParamFMax, strength);
+				dJointSetSliderParam(j.dJoint[0], dParamVel, 0.0f);
+			} break;
+			case Universal: {
+				dJointSetUniversalParam(j.dJoint[0], dParamFMax, strength);
+				dJointSetUniversalParam(j.dJoint[0], dParamVel, 0.0f);
+			} break;
+			case Hinge2: {
+				dJointSetHinge2Param(j.dJoint[0], dParamFMax, strength);
+				dJointSetHinge2Param(j.dJoint[0], dParamVel, 0.0f);
+			} break;
+		}
+	}
+}
+
+/*
+ * TODO: implement this per player
+void TriggerPlayerPassiveStatesAlt(std::string player)
+{
+
+}
+*/
+
+void TriggerPlayerPassiveStatesAlt(PlayerPassiveStates state)
+{
+	dReal strength = 0.00;
+	for (auto const& [joint_name, j] : joint) {
+		if (state != HOLD_ALL) {
+			strength = j.strength_alt;
+		}
+		switch(j.connectionType) {
+			case Hinge: {
+			} break;
+			case Slider: {
+			} break;
+			case Universal: {
+				dJointSetUniversalParam(j.dJoint[0], dParamFMax2, strength);
+				dJointSetUniversalParam(j.dJoint[0], dParamVel2, 0.0f);
+			} break;
+			case Hinge2: {
+				dJointSetHinge2Param(j.dJoint[0], dParamFMax2, strength);
+				dJointSetHinge2Param(j.dJoint[0], dParamVel2, 0.0f);
+			} break;
+		}
+	}
+}
+
+/*
+ * TODO: implement this per player
+void TogglePlayerPassiveStates(std::string player)
+{
+
+}
+*/
+
+void TogglePlayerPassiveStates()
+{
+	ReFreeze();
+	
+	if (player.passive_states == RELAX_ALL) {
+		TriggerPlayerPassiveStates(HOLD_ALL);
+		player.passive_states = HOLD_ALL;
+	} else {
+		TriggerPlayerPassiveStates(RELAX_ALL);
+		player.passive_states = RELAX_ALL;
+	}
+}
+
+/*
+ * TODO: implement this per player
+void TogglePlayerPassiveStatesAlt(std::string player)
+{
+
+}
+*/
+
+void TogglePlayerPassiveStatesAlt()
+{
+	ReFreeze();
+
+	if (player.passive_states_alt == RELAX_ALL) {
+		TriggerPlayerPassiveStatesAlt(HOLD_ALL);
+		player.passive_states_alt = HOLD_ALL;
+	} else {
+		TriggerPlayerPassiveStatesAlt(RELAX_ALL);
+		player.passive_states_alt = RELAX_ALL;
+	}
+}
+
+/*
+ * TODO: implement this per player
+void RelaxAll(std::string player)
+{
+
+}
+*/
+
+void RelaxAll()
+{
+	ReFreeze();
+	TriggerPlayerPassiveStatesAlt(RELAX_ALL);
+}
+
+void RelaxAllAlt()
+{
+	ReFreeze();
+	TriggerPlayerPassiveStatesAlt(RELAX_ALL);
+}
+
+void TriggerActiveStateAlt(std::string joint_name, dReal direction)
+{
+	switch(joint[joint_name].connectionType) {
+		case Hinge: {
+		} break;
+		case Slider: {
+		} break;
+		case Universal: {
+			dJointSetUniversalParam(joint[joint_name].dJoint[0], dParamFMax2, joint[joint_name].strength_alt);
+			dJointSetUniversalParam(joint[joint_name].dJoint[0], dParamVel2, direction * joint[joint_name].velocity_alt);
+		} break;
+		case Hinge2: {
+			dJointSetHinge2Param(joint[joint_name].dJoint[0], dParamFMax2, joint[joint_name].strength_alt);
+			dJointSetHinge2Param(joint[joint_name].dJoint[0], dParamVel2, direction * joint[joint_name].velocity_alt);
+		} break;
+	}
+}
+
+void TriggerPassiveStateAlt(std::string joint_name, dReal strength)
+{
+	switch(joint[joint_name].connectionType)
+	{
+		case Hinge: {
+		} break;
+		case Slider: {
+		} break;
+		case Universal: {
+			dJointSetUniversalParam(joint[joint_name].dJoint[0], dParamFMax2, strength);
+			dJointSetUniversalParam(joint[joint_name].dJoint[0], dParamVel2, 0.0f);
+		} break;
+		case Hinge2: {
+			dJointSetHinge2Param(joint[joint_name].dJoint[0], dParamFMax2, strength);
+			dJointSetHinge2Param(joint[joint_name].dJoint[0], dParamVel2, 0.0f);
+		} break;
+	}
+}
+void TriggerActiveState(std::string joint_name, dReal direction)
+{
+	switch(joint[joint_name].connectionType) {
+		case Hinge: {
+			dJointSetHingeParam(joint[joint_name].dJoint[0], dParamFMax, joint[joint_name].strength);
+			dJointSetHingeParam(joint[joint_name].dJoint[0], dParamVel, direction * joint[joint_name].velocity);
+		} break;
+		case Slider: {
+			dJointSetSliderParam(joint[joint_name].dJoint[0], dParamFMax, joint[joint_name].strength);
+			dJointSetSliderParam(joint[joint_name].dJoint[0], dParamVel, direction * joint[joint_name].velocity);
+		} break;
+		case Universal: {
+			dJointSetUniversalParam(joint[joint_name].dJoint[0], dParamFMax, joint[joint_name].strength);
+			dJointSetUniversalParam(joint[joint_name].dJoint[0], dParamVel, direction * joint[joint_name].velocity);
+		} break;
+		case Hinge2: {
+			dJointSetHinge2Param(joint[joint_name].dJoint[0], dParamFMax, joint[joint_name].strength);
+			dJointSetHinge2Param(joint[joint_name].dJoint[0], dParamVel, direction * joint[joint_name].velocity);
+		} break;
+	}
+}
+
+void TriggerPassiveState(std::string joint_name, dReal strength)
+{
+	switch(joint[joint_name].connectionType) {
+		case Hinge: {
+			dJointSetHingeParam(joint[joint_name].dJoint[0], dParamFMax, strength);
+			dJointSetHingeParam(joint[joint_name].dJoint[0], dParamVel, 0.0f);
+		} break;
+		case Slider: {
+			dJointSetSliderParam(joint[joint_name].dJoint[0], dParamFMax, strength);
+			dJointSetSliderParam(joint[joint_name].dJoint[0], dParamVel, 0.0f);
+		} break;
+		case Universal: {
+			dJointSetUniversalParam(joint[joint_name].dJoint[0], dParamFMax, strength);
+			dJointSetUniversalParam(joint[joint_name].dJoint[0], dParamVel, 0.0f);
+		} break;
+		case Hinge2: {
+			dJointSetHinge2Param(joint[joint_name].dJoint[0], dParamFMax, strength);
+			dJointSetHinge2Param(joint[joint_name].dJoint[0], dParamVel, 0.0f);
+		} break;
+	}
+}
+
+void TogglePassiveState(std::string joint_name)
+{
+	if (joint_name == "NONE") return;
+
+	ReFreeze();
+
+	if (joint[joint_name].state == RELAX) {
+		joint[joint_name].state = HOLD;
+		TriggerPassiveState(joint_name, joint[joint_name].strength);
+	} else {
+		joint[joint_name].state = RELAX;
+		TriggerPassiveState(joint_name, 0);
+	}
+}
+
+void TogglePassiveStateAlt(std::string joint_name)
+{
+	if (joint_name == "NONE") return;
+
+	ReFreeze();
+
+	if (joint[joint_name].state_alt == RELAX) {
+		joint[joint_name].state_alt = HOLD;
+		TriggerPassiveStateAlt(joint_name, joint[joint_name].strength);
+	} else {
+		joint[joint_name].state_alt = RELAX;
+		TriggerPassiveStateAlt(joint_name, 0);
+	}
+}
+
+void ToggleActiveState(std::string joint_name)
+{
+	if (joint_name == "NONE") return;
+
+	ReFreeze();
+	
+	if (joint[joint_name].state == FORWARD) {
+		joint[joint_name].state = BACKWARD;
+		TriggerActiveState(joint_name, -1);
+	} else {
+		joint[joint_name].state = FORWARD;
+		TriggerActiveState(joint_name, 1);
+	}
+}
+
+void ToggleActiveStateAlt(std::string joint_name)
+{
+	if (joint_name == "NONE") return;
+
+	ReFreeze();
+	
+	if (joint[joint_name].state_alt == FORWARD) {
+		joint[joint_name].state_alt = BACKWARD;
+		TriggerActiveStateAlt(joint_name, -1);
+	} else {
+		joint[joint_name].state_alt = FORWARD;
+		TriggerActiveStateAlt(joint_name, 1);
+	}
+}
+
+
+void StateCycle(std::string joint_name)
+{
+	if (joint_name == "NONE") return;
+
+	ReFreeze();
+	
+	if (joint[joint_name].state == FORWARD) {
+		joint[joint_name].state = BACKWARD;
+		TriggerActiveState(joint_name, -1);
+	} else if (joint[joint_name].state == BACKWARD) {
+		joint[joint_name].state = HOLD;
+		TriggerPassiveState(joint_name, joint[joint_name].strength);
+	} else if (joint[joint_name].state == HOLD) {
+		joint[joint_name].state = RELAX;
+		TriggerPassiveState(joint_name, 0);
+	} else {
+		joint[joint_name].state = FORWARD;
+		TriggerActiveState(joint_name, 1);
+	}
+}
+
+
+void StateCycleAlt(std::string joint_name)
+{
+	if (joint_name == "NONE") return;
+
+	ReFreeze();
+	
+	if (joint[joint_name].state_alt == FORWARD) {
+		joint[joint_name].state_alt = BACKWARD;
+		TriggerActiveStateAlt(joint_name, -1);
+	} else if (joint[joint_name].state_alt == BACKWARD) {
+		joint[joint_name].state_alt = HOLD;
+		TriggerPassiveStateAlt(joint_name, joint[joint_name].strength_alt);
+	} else if (joint[joint_name].state_alt == HOLD) {
+		joint[joint_name].state_alt = RELAX;
+		TriggerPassiveStateAlt(joint_name, 0);
+	} else {
+		joint[joint_name].state_alt = FORWARD;
+		TriggerActiveStateAlt(joint_name, 1);
+	}
+}
+
+void Restart()
+{
+	for (auto& [object_name, o] : object) {
+		dBodySetPosition(
+			o.dBody,
+			o.position[0],
+			o.position[1],
+			o.position[2]);
+		dBodySetQuaternion(o.dBody, o.orientation);
+		dBodySetLinearVel(o.dBody, 0.00, 0.00, 0.00);
+		dBodySetAngularVel(o.dBody, 0.00, 0.00, 0.00);
+
+		o.freeze.position[0] = o.position[0];
+		o.freeze.position[1] = o.position[1];
+		o.freeze.position[2] = o.position[2];
+
+		o.freeze.orientation[0] = o.orientation[0];
+		o.freeze.orientation[1] = o.orientation[1];
+		o.freeze.orientation[2] = o.orientation[2];
+		o.freeze.orientation[3] = o.orientation[3];
+
+		o.freeze.linearVel[0] = 0.00;
+		o.freeze.linearVel[1] = 0.00;
+		o.freeze.linearVel[2] = 0.00;
+
+		o.freeze.angularVel[0] = 0.00;
+		o.freeze.angularVel[1] = 0.00;
+		o.freeze.angularVel[2] = 0.00;
+	}
+	
+	for (auto& [body_name, b] : body) {
+		dBodySetPosition(
+			b.dBody,
+			b.position[0],
+			b.position[1],
+			b.position[2]);
+		dBodySetQuaternion(b.dBody, b.orientation);
+		dBodySetLinearVel(b.dBody, 0.00, 0.00, 0.00);
+		dBodySetAngularVel(b.dBody, 0.00, 0.00, 0.00);
+
+		b.freeze.position[0] = b.position[0];
+		b.freeze.position[1] = b.position[1];
+		b.freeze.position[2] = b.position[2];
+
+		b.freeze.orientation[0] = b.orientation[0];
+		b.freeze.orientation[1] = b.orientation[1];
+		b.freeze.orientation[2] = b.orientation[2];
+		b.freeze.orientation[3] = b.orientation[3];
+
+		b.freeze.linearVel[0] = 0.00;
+		b.freeze.linearVel[1] = 0.00;
+		b.freeze.linearVel[2] = 0.00;
+
+		b.freeze.angularVel[0] = 0.00;
+		b.freeze.angularVel[1] = 0.00;
+		b.freeze.angularVel[2] = 0.00;
+	}
+	
+	for (auto& [joint_name, j] : joint) {
+		dBodySetPosition(
+			j.dBody,
+			j.position[0],
+			j.position[1],
+			j.position[2]);
+		dBodySetQuaternion(j.dBody, j.orientation);
+		dBodySetLinearVel(j.dBody, 0.00, 0.00, 0.00);
+		dBodySetAngularVel(j.dBody, 0.00, 0.00, 0.00);
+
+		j.freeze.position[0] = j.position[0];
+		j.freeze.position[1] = j.position[1];
+		j.freeze.position[2] = j.position[2];
+
+		j.freeze.orientation[0] = j.orientation[0];
+		j.freeze.orientation[1] = j.orientation[1];
+		j.freeze.orientation[2] = j.orientation[2];
+		j.freeze.orientation[3] = j.orientation[3];
+
+		j.freeze.linearVel[0] = 0.00;
+		j.freeze.linearVel[1] = 0.00;
+		j.freeze.linearVel[2] = 0.00;
+
+		j.freeze.angularVel[0] = 0.00;
+		j.freeze.angularVel[1] = 0.00;
+		j.freeze.angularVel[2] = 0.00;
+	}
+}
+
+void GameReset()
+{	
+	RelaxAll();
+
+	game.freeze = true;
+	game.game_frame = 0;
+	game.freeze_t = 0;
+	game.unfreeze_t = 0;
+
+	for (auto& [obejct_name, o] : object) {
+		dBodySetPosition(
+			o.dBody,
+			o.position[0],
+			o.position[1],
+			o.position[2]);
+		dBodySetQuaternion(o.dBody, o.orientation);
+		dBodySetLinearVel(o.dBody, 0.00, 0.00, 0.00);
+		dBodySetAngularVel(o.dBody, 0.00, 0.00, 0.00);
+
+		o.freeze.position[0] = o.position[0];
+		o.freeze.position[1] = o.position[1];
+		o.freeze.position[2] = o.position[2];
+
+		o.freeze.orientation[0] = o.orientation[0];
+		o.freeze.orientation[1] = o.orientation[1];
+		o.freeze.orientation[2] = o.orientation[2];
+		o.freeze.orientation[3] = o.orientation[3];
+
+		o.freeze.linearVel[0] = 0.00;
+		o.freeze.linearVel[1] = 0.00;
+		o.freeze.linearVel[2] = 0.00;
+
+		o.freeze.angularVel[0] = 0.00;
+		o.freeze.angularVel[1] = 0.00;
+		o.freeze.angularVel[2] = 0.00;
+	}
+	
+	for (auto& [body_name, b] : body) {
+		dBodySetPosition(
+			b.dBody,
+			b.position[0],
+			b.position[1],
+			b.position[2]);
+		dBodySetQuaternion(b.dBody, b.orientation);
+		dBodySetLinearVel(b.dBody, 0.00, 0.00, 0.00);
+		dBodySetAngularVel(b.dBody, 0.00, 0.00, 0.00);
+
+		b.freeze.position[0] = b.position[0];
+		b.freeze.position[1] = b.position[1];
+		b.freeze.position[2] = b.position[2];
+
+		b.freeze.orientation[0] = b.orientation[0];
+		b.freeze.orientation[1] = b.orientation[1];
+		b.freeze.orientation[2] = b.orientation[2];
+		b.freeze.orientation[3] = b.orientation[3];
+
+		b.freeze.linearVel[0] = 0.00;
+		b.freeze.linearVel[1] = 0.00;
+		b.freeze.linearVel[2] = 0.00;
+
+		b.freeze.angularVel[0] = 0.00;
+		b.freeze.angularVel[1] = 0.00;
+		b.freeze.angularVel[2] = 0.00;
+	}
+	
+	for (auto& [joint_name, j] : joint) {
+		dBodySetPosition(
+			j.dBody,
+			j.position[0],
+			j.position[1],
+			j.position[2]);
+		dBodySetQuaternion(j.dBody, j.orientation);
+		dBodySetLinearVel(j.dBody, 0.00, 0.00, 0.00);
+		dBodySetAngularVel(j.dBody, 0.00, 0.00, 0.00);
+
+		j.freeze.position[0] = j.position[0];
+		j.freeze.position[1] = j.position[1];
+		j.freeze.position[2] = j.position[2];
+
+		j.freeze.orientation[0] = j.orientation[0];
+		j.freeze.orientation[1] = j.orientation[1];
+		j.freeze.orientation[2] = j.orientation[2];
+		j.freeze.orientation[3] = j.orientation[3];
+
+		j.freeze.linearVel[0] = 0.00;
+		j.freeze.linearVel[1] = 0.00;
+		j.freeze.linearVel[2] = 0.00;
+
+		j.freeze.angularVel[0] = 0.00;
+		j.freeze.angularVel[1] = 0.00;
+		j.freeze.angularVel[2] = 0.00;
+	}
+
+	UpdateFreeze();
+}
+
+void StartFreeplay()
+{	
+	//gamemode = FREEPLAY;
+
+	RelaxAll();
+
+	game.freeze = true;
+	game.game_frame = 0;
+	game.freeze_t = 0;
+	game.unfreeze_t = 0;
+	
+	Restart();
+
+	UpdateFreeze();
+}
+
+/*
 void GlobalPassiveStateToggle()
 {
 	ReFreeze();
@@ -2389,33 +2685,30 @@ void GlobalPassiveStateToggle()
 
 	dReal s = 0.0f;
 
-	std::map<std::string, JointData>::iterator j = Joint.begin();
-
-	while (j != Joint.end()) {
-		if (GlobalPassiveState) s = j->second.strength;
-		switch(j->second.connectionType) {
+	for (auto const& [joint_name, j] : joint) {
+		if (GlobalPassiveState) s = j.strength;
+		switch(j.connectionType) {
 			case Hinge: {
-				dJointSetHingeParam(j->second.dJoint[0], dParamFMax, s);
-				dJointSetHingeParam(j->second.dJoint[0], dParamVel, 0.0f);
+				dJointSetHingeParam(j.dJoint[0], dParamFMax, s);
+				dJointSetHingeParam(j.dJoint[0], dParamVel, 0.0f);
 			} break;
 			case Slider: {
-				dJointSetSliderParam(j->second.dJoint[0], dParamFMax, s);
-				dJointSetSliderParam(j->second.dJoint[0], dParamVel, 0.0f);
+				dJointSetSliderParam(j.dJoint[0], dParamFMax, s);
+				dJointSetSliderParam(j.dJoint[0], dParamVel, 0.0f);
 			} break;
 			case Universal: {
-				dJointSetUniversalParam(j->second.dJoint[0], dParamFMax, s);
-				dJointSetUniversalParam(j->second.dJoint[0], dParamVel, 0.0f);
-				dJointSetUniversalParam(j->second.dJoint[0], dParamFMax2, s);
-				dJointSetUniversalParam(j->second.dJoint[0], dParamVel2, 0.0f);
+				dJointSetUniversalParam(j.dJoint[0], dParamFMax, s);
+				dJointSetUniversalParam(j.dJoint[0], dParamVel, 0.0f);
+				dJointSetUniversalParam(j.dJoint[0], dParamFMax2, s);
+				dJointSetUniversalParam(j.dJoint[0], dParamVel2, 0.0f);
 			} break;
 			case Hinge2: {
-				dJointSetHinge2Param(j->second.dJoint[0], dParamFMax, s);
-				dJointSetHinge2Param(j->second.dJoint[0], dParamVel, 0.0f);
-				dJointSetHinge2Param(j->second.dJoint[0], dParamFMax2, s);
-				dJointSetHinge2Param(j->second.dJoint[0], dParamVel2, 0.0f);
+				dJointSetHinge2Param(j.dJoint[0], dParamFMax, s);
+				dJointSetHinge2Param(j.dJoint[0], dParamVel, 0.0f);
+				dJointSetHinge2Param(j.dJoint[0], dParamFMax2, s);
+				dJointSetHinge2Param(j.dJoint[0], dParamVel2, 0.0f);
 			} break;
 		}
-		++j;
 	}
 }
 
@@ -2425,28 +2718,28 @@ void PassiveStateToggle()
 
 	ReFreeze();
 
-	Joint[SelectedJoint].passiveState = Joint[SelectedJoint].passiveState == false;
+	joint[SelectedJoint].passiveState = joint[SelectedJoint].passiveState == false;
 	
-	dReal s = Joint[SelectedJoint].strength;
+	dReal s = joint[SelectedJoint].strength;
 
-	if (!Joint[SelectedJoint].passiveState) s = 0.0f;
+	if (!joint[SelectedJoint].passiveState) s = 0.0f;
 
-	switch(Joint[SelectedJoint].connectionType) {
+	switch(joint[SelectedJoint].connectionType) {
 		case Hinge: {
-			dJointSetHingeParam(Joint[SelectedJoint].dJoint[0], dParamFMax, s);
-			dJointSetHingeParam(Joint[SelectedJoint].dJoint[0], dParamVel, 0.0f);
+			dJointSetHingeParam(joint[SelectedJoint].dJoint[0], dParamFMax, s);
+			dJointSetHingeParam(joint[SelectedJoint].dJoint[0], dParamVel, 0.0f);
 		} break;
 		case Slider: {
-			dJointSetSliderParam(Joint[SelectedJoint].dJoint[0], dParamFMax, s);
-			dJointSetSliderParam(Joint[SelectedJoint].dJoint[0], dParamVel, 0.0f);
+			dJointSetSliderParam(joint[SelectedJoint].dJoint[0], dParamFMax, s);
+			dJointSetSliderParam(joint[SelectedJoint].dJoint[0], dParamVel, 0.0f);
 		} break;
 		case Universal: {
-			dJointSetUniversalParam(Joint[SelectedJoint].dJoint[0], dParamFMax, s);
-			dJointSetUniversalParam(Joint[SelectedJoint].dJoint[0], dParamVel, 0.0f);
+			dJointSetUniversalParam(joint[SelectedJoint].dJoint[0], dParamFMax, s);
+			dJointSetUniversalParam(joint[SelectedJoint].dJoint[0], dParamVel, 0.0f);
 		} break;
 		case Hinge2: {
-			dJointSetHinge2Param(Joint[SelectedJoint].dJoint[0], dParamFMax, s);
-			dJointSetHinge2Param(Joint[SelectedJoint].dJoint[0], dParamVel, 0.0f);
+			dJointSetHinge2Param(joint[SelectedJoint].dJoint[0], dParamFMax, s);
+			dJointSetHinge2Param(joint[SelectedJoint].dJoint[0], dParamVel, 0.0f);
 		} break;
 	}
 }
@@ -2457,25 +2750,25 @@ void AltPassiveStateToggle()
 
 	ReFreeze();
 
-	Joint[SelectedJoint].altPassiveState = Joint[SelectedJoint].altPassiveState == false;
+	joint[SelectedJoint].altPassiveState = joint[SelectedJoint].altPassiveState == false;
 	
-	dReal s = Joint[SelectedJoint].altStrength;
+	dReal s = joint[SelectedJoint].strength_alt;
 
-	if (!Joint[SelectedJoint].altPassiveState) s = 0.0f;
+	if (!joint[SelectedJoint].altPassiveState) s = 0.0f;
 
-	switch(Joint[SelectedJoint].connectionType)
+	switch(joint[SelectedJoint].connectionType)
 	{
 		case Hinge: {
 		} break;
 		case Slider: {
 		} break;
 		case Universal: {
-			dJointSetUniversalParam(Joint[SelectedJoint].dJoint[0], dParamFMax2, s);
-			dJointSetUniversalParam(Joint[SelectedJoint].dJoint[0], dParamVel2, 0.0f);
+			dJointSetUniversalParam(joint[SelectedJoint].dJoint[0], dParamFMax2, s);
+			dJointSetUniversalParam(joint[SelectedJoint].dJoint[0], dParamVel2, 0.0f);
 		} break;
 		case Hinge2: {
-			dJointSetHinge2Param(Joint[SelectedJoint].dJoint[0], dParamFMax2, s);
-			dJointSetHinge2Param(Joint[SelectedJoint].dJoint[0], dParamVel2, 0.0f);
+			dJointSetHinge2Param(joint[SelectedJoint].dJoint[0], dParamFMax2, s);
+			dJointSetHinge2Param(joint[SelectedJoint].dJoint[0], dParamVel2, 0.0f);
 		} break;
 	}
 }
@@ -2486,28 +2779,28 @@ void ActiveStateToggle()
 
 	ReFreeze();
 
-	Joint[SelectedJoint].activeState = Joint[SelectedJoint].activeState == false;
+	joint[SelectedJoint].activeState = joint[SelectedJoint].activeState == false;
 
 	dReal dir = 1.0f;
 
-	if (!Joint[SelectedJoint].activeState) dir = -1.0f;
+	if (!joint[SelectedJoint].activeState) dir = -1.0f;
 	
-	switch(Joint[SelectedJoint].connectionType) {
+	switch(joint[SelectedJoint].connectionType) {
 		case Hinge: {
-			dJointSetHingeParam(Joint[SelectedJoint].dJoint[0], dParamFMax, Joint[SelectedJoint].strength);
-			dJointSetHingeParam(Joint[SelectedJoint].dJoint[0], dParamVel, dir * Joint[SelectedJoint].velocity);
+			dJointSetHingeParam(joint[SelectedJoint].dJoint[0], dParamFMax, joint[SelectedJoint].strength);
+			dJointSetHingeParam(joint[SelectedJoint].dJoint[0], dParamVel, dir * joint[SelectedJoint].velocity);
 		} break;
 		case Slider: {
-			dJointSetSliderParam(Joint[SelectedJoint].dJoint[0], dParamFMax, Joint[SelectedJoint].strength);
-			dJointSetSliderParam(Joint[SelectedJoint].dJoint[0], dParamVel, dir * Joint[SelectedJoint].velocity);
+			dJointSetSliderParam(joint[SelectedJoint].dJoint[0], dParamFMax, joint[SelectedJoint].strength);
+			dJointSetSliderParam(joint[SelectedJoint].dJoint[0], dParamVel, dir * joint[SelectedJoint].velocity);
 		} break;
 		case Universal: {
-			dJointSetUniversalParam(Joint[SelectedJoint].dJoint[0], dParamFMax, Joint[SelectedJoint].strength);
-			dJointSetUniversalParam(Joint[SelectedJoint].dJoint[0], dParamVel, dir * Joint[SelectedJoint].velocity);
+			dJointSetUniversalParam(joint[SelectedJoint].dJoint[0], dParamFMax, joint[SelectedJoint].strength);
+			dJointSetUniversalParam(joint[SelectedJoint].dJoint[0], dParamVel, dir * joint[SelectedJoint].velocity);
 		} break;
 		case Hinge2: {
-			dJointSetHinge2Param(Joint[SelectedJoint].dJoint[0], dParamFMax, Joint[SelectedJoint].strength);
-			dJointSetHinge2Param(Joint[SelectedJoint].dJoint[0], dParamVel, dir * Joint[SelectedJoint].velocity);
+			dJointSetHinge2Param(joint[SelectedJoint].dJoint[0], dParamFMax, joint[SelectedJoint].strength);
+			dJointSetHinge2Param(joint[SelectedJoint].dJoint[0], dParamVel, dir * joint[SelectedJoint].velocity);
 		} break;
 	}
 }
@@ -2518,27 +2811,28 @@ void AltActiveStateToggle()
 
 	ReFreeze();
 	
-	Joint[SelectedJoint].altActiveState = Joint[SelectedJoint].altActiveState == false;
+	joint[SelectedJoint].altActiveState = joint[SelectedJoint].altActiveState == false;
 
 	dReal dir = 1.0f;
 	
-	if (!Joint[SelectedJoint].altActiveState) dir = -1.0f;
+	if (!joint[SelectedJoint].altActiveState) dir = -1.0f;
 	
-	switch(Joint[SelectedJoint].connectionType) {
+	switch(joint[SelectedJoint].connectionType) {
 		case Hinge: {
 		} break;
 		case Slider: {
 		} break;
 		case Universal: {
-			dJointSetUniversalParam(Joint[SelectedJoint].dJoint[0], dParamFMax2, Joint[SelectedJoint].altStrength);
-			dJointSetUniversalParam(Joint[SelectedJoint].dJoint[0], dParamVel2, dir * Joint[SelectedJoint].altVelocity);
+			dJointSetUniversalParam(joint[SelectedJoint].dJoint[0], dParamFMax2, joint[SelectedJoint].strength_alt);
+			dJointSetUniversalParam(joint[SelectedJoint].dJoint[0], dParamVel2, dir * joint[SelectedJoint].velocity_alt);
 		} break;
 		case Hinge2: {
-			dJointSetHinge2Param(Joint[SelectedJoint].dJoint[0], dParamFMax2, Joint[SelectedJoint].altStrength);
-			dJointSetHinge2Param(Joint[SelectedJoint].dJoint[0], dParamVel2, dir * Joint[SelectedJoint].altVelocity);
+			dJointSetHinge2Param(joint[SelectedJoint].dJoint[0], dParamFMax2, joint[SelectedJoint].strength_alt);
+			dJointSetHinge2Param(joint[SelectedJoint].dJoint[0], dParamVel2, dir * joint[SelectedJoint].velocity_alt);
 		} break;
 	}
 }
+*/
 
 void CameraRotateZClockwise(Camera3D *camera, Vector3 *CameraZoom, Vector3 *CameraOffset)
 {
@@ -2700,9 +2994,56 @@ void CameraZoomOut(Camera3D *camera, Vector3 *CameraZoom, Vector3 *CameraOffset)
 	CameraOffset->z = 1.1f * CameraOffset->z;
 }
 
-void ReplaySave()
+void UpdatePlaycam(Camera3D *camera, Vector3 *CameraOffset)
 {
-	//FrameData Frames[game.game_frame/game.turn_frame]
+	int size = body.size(); 
+	if (size > 0) {
+		float x = 0.00;
+		float y = 0.00;
+		float z = 0.00;
+	
+		for (auto const [body_name, b] : body) {
+			if (game.freeze) {
+				x = x + b.freeze.position[0];
+				y = y + b.freeze.position[1];
+				z = z + b.freeze.position[2];
+			} else {
+				const dReal *position = dBodyGetPosition(b.dBody);
+				x = x + position[0];
+				y = y + position[1];
+				z = z + position[2];
+			}
+		}
+
+		camera->target = (Vector3){ x/size, y/size, z/size };
+		camera->position = (Vector3){
+			CameraOffset->x + x/size,
+			CameraOffset->y + y/size,
+			CameraOffset->z + z/size,
+		};
+	}
+}
+
+void SelectJoint (Camera3D Camera, Ray MouseRay, RayCollision MouseCollision)
+{
+	MouseRay = GetMouseRay(GetMousePosition(), Camera);
+	for (auto const& [joint_name, j] : joint) {
+		MouseCollision = GetRayCollisionSphere(MouseRay,
+			(Vector3){
+				j.freeze.position[0],
+				j.freeze.position[1],
+				j.freeze.position[2],
+			},
+			j.radius
+		);
+
+		if (MouseCollision.hit) {
+			SelectedJoint = j.name;
+			break;
+		} else {
+			SelectedJoint = "NONE";
+		}
+	}
 }
 
 int main()
@@ -2716,60 +3057,20 @@ int main()
 	camera.fovy = 45.0f;
 	camera.projection = CAMERA_PERSPECTIVE;
 
-	Vector3 CameraZoom = (Vector3){ 0.0f, 0.0f, 0.0f };
 	Vector3 CameraOffset = (Vector3){ 0.0f, -5.0f, 0.0f };
+	Vector3 CameraZoom = (Vector3){ 0.0f, 0.0f, 0.0f };
 
 	SetTargetFPS(60);
 	
-		
 	GameStart();
 
-	Ray ray = { 0 };
-	RayCollision c = { 0 };
+	Ray MouseRay = { 0 };
+	RayCollision MouseCollision = { 0 };
 
 	while (!WindowShouldClose()) {
-		float x = 0.0f;
-		float y = 0.0f;
-		float z = 0.0f;
+		UpdatePlaycam(&camera, &CameraOffset);
 
-		if (game.isFrozen) {
-			std::map<std::string, BodyData>::iterator b = Body.begin();
-
-			while (b != Body.end()) {
-				x = x + b->second.freeze.position[0];
-				y = y + b->second.freeze.position[1];
-				z = z + b->second.freeze.position[2];
-				++b;
-			}
-			x = x/Body.size();
-			y = y/Body.size();
-			z = z/Body.size();
-			camera.target = (Vector3){ x, y, z };
-			camera.position = (Vector3){
-				x + CameraOffset.x,
-				y + CameraOffset.y,
-				z + CameraOffset.z
-			};
-		} else {
-			std::map<std::string, BodyData>::iterator b = Body.begin();
-
-			while (b != Body.end()) {
-				const dReal *position = dBodyGetPosition(b->second.dBody);
-				x = x + position[0];
-				y = y + position[1];
-				z = z + position[2];
-				++b;
-			}
-			x = x/Body.size();
-			y = y/Body.size();
-			z = z/Body.size();
-			camera.target = (Vector3){ x, y, z };
-			camera.position = (Vector3){
-				x + CameraOffset.x,
-				y + CameraOffset.y,
-				z + CameraOffset.z
-			};
-		}
+		SelectJoint(camera, MouseRay, MouseCollision);
 		
 		if (IsKeyDown(KEY_LEFT_SHIFT)) {
 			if (IsKeyDown(KEY_W))
@@ -2797,62 +3098,57 @@ int main()
 				CameraRotateZCClockwise(&camera, &CameraZoom, &CameraOffset);
 		}
 
-		if (IsKeyPressed(KEY_P))
-			PhysicsPaused = PhysicsPaused == false;
-
-		if (IsKeyPressed(KEY_R))
-			GameReset();
-		
-		if (IsKeyDown(KEY_LEFT_SHIFT)) {
-			if (IsKeyPressed(KEY_Z))
-				AltActiveStateToggle();
-
-			if (IsKeyPressed(KEY_X))
-				AltPassiveStateToggle();
-		} else {
-			if (IsKeyPressed(KEY_Z))
-				ActiveStateToggle();
-
-			if (IsKeyPressed(KEY_X))
-				PassiveStateToggle();
-		}
-
-		if (IsKeyPressed(KEY_C))
-			GlobalPassiveStateToggle();
-
-		if (IsKeyDown(KEY_LEFT_SHIFT)) {
-			if (IsKeyPressed(KEY_SPACE))
-				if (game.isFrozen) GameStep(1);
-		} else {
-			if (IsKeyPressed(KEY_SPACE))
-				if (game.isFrozen) GameStep(game.turn_frame);
-		}
-
-		//TODO: Fix joint selection
-		ray = GetMouseRay(GetMousePosition(), camera);
-		
-		std::map<std::string, JointData>::iterator j = Joint.begin();
-
-		while (j != Joint.end()) {
-		  c = GetRayCollisionSphere(ray,
-				(Vector3){
-					j->second.freeze.position[0],
-					j->second.freeze.position[1],
-					j->second.freeze.position[2]
-				},
-				j->second.radius);
-
-			if (!c.hit)
-				SelectedJoint = "NONE";
-			else {
-				SelectedJoint = j->second.name;
-				break;
+		if (IsKeyPressed(KEY_Z)) {
+			if (IsKeyDown(KEY_LEFT_SHIFT)) {
+				ToggleActiveStateAlt(SelectedJoint);
+			} else {
+				ToggleActiveState(SelectedJoint);
 			}
-
-			++j;
 		}
 
-		if (!PhysicsPaused) {
+		if (IsKeyPressed(KEY_X)) {
+			if (IsKeyDown(KEY_LEFT_SHIFT)) {
+				TogglePassiveStateAlt(SelectedJoint);
+			} else {
+				TogglePassiveState(SelectedJoint);
+			}
+		}
+
+		if (IsKeyPressed(KEY_C)) {
+			if (IsKeyDown(KEY_LEFT_SHIFT)) {
+				TogglePlayerPassiveStatesAlt();
+			} else {
+				TogglePlayerPassiveStates();
+			}
+		}
+
+		if (IsMouseButtonPressed(0)) {
+			if (IsKeyDown(KEY_LEFT_SHIFT)) {
+				StateCycleAlt(SelectedJoint);
+			} else {
+				StateCycle(SelectedJoint);
+			}
+		}
+
+		if (game.freeze) {
+			if (IsKeyPressed(KEY_SPACE)) {
+				if (IsKeyDown(KEY_LEFT_SHIFT)) {
+					GameStep(1);
+				} else {
+					GameStep(game.turn_frame);
+				}
+			}
+		}
+
+		if (IsKeyPressed(KEY_R)) {
+			GameReset();
+		}
+
+		if (IsKeyPressed(KEY_P)) {
+			game.pause = game.pause == false;
+		}
+
+		if (!game.pause) {
 			dSpaceCollide(game.space, 0, &nearCallback);
 			dWorldStep(game.world, game.step);
 			dJointGroupEmpty(game.contactgroup);
