@@ -5,3 +5,5 @@
 * (Any Lua >= 5.1 should work fine technically)
 # Building
 basically you need to compile each library by following their instructions.
+# Downloads
+check the [releases](https://github.com/xMajedz/tobas/releases) page for updates 
