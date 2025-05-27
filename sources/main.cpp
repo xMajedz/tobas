@@ -1,4 +1,5 @@
 #include <iostream>
+#include <fstream>
 #include <string>
 #include <map>
 
@@ -32,22 +33,22 @@ enum JointType {
 };
 
 enum JointState {
-	HOLD,
 	RELAX,
+	HOLD,
 	FORWARD,
 	BACKWARD,
 };
 
-struct plane {
-	dGeomID dGeom;
-	bool state;
+enum Gamemode {
+	FREEPLAY,
+	REPLAY,
 };
 
 struct game {
 	dWorldID world;
 	dSpaceID space;
 	dJointGroupID contactgroup;
-	plane globalplane;
+	dGeomID floor;
 	dReal engagedistance;
 	dReal engageheight;
 	dReal engageplayerpos[3];
@@ -58,9 +59,12 @@ struct game {
 	dReal freeze_t;
 	dReal unfreeze_time;
 	dReal unfreeze_t;
-	dReal step;
+	dReal step = 0.01;
 	int gameframe;
 	int turnframes = 10;
+	int max_contacts = 8;
+	Gamemode gamemode = FREEPLAY;
+	std::string selected_joint = "NONE";
 	bool freeze;
 	bool pause = false;
 } game;
@@ -71,12 +75,6 @@ class FreezeData {
 	dReal orientation[4];
 	dReal angularVel[3];
 	dReal linearVel[3];
-};
-
-class FrameData : public FreezeData {
-	public:
-	const char* joint_name;
-	JointState joint_state;
 };
 
 struct Composite {
@@ -121,10 +119,11 @@ class Joint : public Object {
 	dReal strength_alt;
 	dReal velocity;
 	dReal velocity_alt;
-	bool passiveState;
-	bool activeState;
-	bool altPassiveState;
-	bool altActiveState;
+};
+
+class FrameData : public FreezeData {
+	public:
+	std::map<std::string, Joint> joint;
 };
 
 enum PlayerPassiveStates {
@@ -145,10 +144,7 @@ class Player {
 
 Player player;
 
-int MAX_CONTACTS = 8;
-bool GlobalPassiveState = false;
 std::string MSG;
-std::string SelectedJoint = "NONE";
 
 Color DynamicobjectColor = (Color){ 0, 255, 0, 255 };
 Color StaticobjectColor = (Color){ 51, 51, 51, 255 };
@@ -193,14 +189,14 @@ static void nearCallback (void *, dGeomID o1, dGeomID o2)
 	dBodyID b1 = dGeomGetBody(o1);
 	dBodyID b2 = dGeomGetBody(o2);
 
-	dContact contact[MAX_CONTACTS];
+	dContact contact[game.max_contacts];
 
-	for (i = 0; i < MAX_CONTACTS; i++) {
+	for (i = 0; i < game.max_contacts; i++) {
 		contact[i].surface.mode = dContactApprox1;
 		contact[i].surface.mu = game.friction;
 	}
 
-	if (int numc = dCollide(o1, o2, MAX_CONTACTS, &contact[0].geom, sizeof(dContact))) {
+	if (int numc = dCollide(o1, o2, game.max_contacts, &contact[0].geom, sizeof(dContact))) {
 		for (i = 0; i < numc; i++) {
 			dJointID c = dJointCreateContact(game.world, game.contactgroup, contact + i);
 			dJointAttach(c, b1, b2);
@@ -443,7 +439,7 @@ int globalplane(lua_State* L)
 	switch(DataContext)
 	{
 		case NoContext: {
-			game.globalplane.state = true;
+			// Error Handling	
 		} break;
 		case objectContext: {
 			// Error Handling	
@@ -568,10 +564,7 @@ int api_joint(lua_State* L)
 	joint[joint_key].freeze.angularVel[2] = 0.00;
 
 	joint[joint_key].state = RELAX;
-	joint[joint_key].passiveState = false;
-	joint[joint_key].activeState = false;
-	joint[joint_key].altPassiveState = false;
-	joint[joint_key].altActiveState = false;
+	joint[joint_key].state_alt = RELAX;
 
 	lua_Number result = 1;
 
@@ -1310,24 +1303,23 @@ void GameStart()
 
 	dInitODE2(0);
 
-	game.step = 0.01f;
 	game.gameframe = 0;
 	game.freeze = true;
 	game.freeze_time = 40;
 	game.freeze_t = 0;
-	game.unfreeze_time = 1;
+	game.unfreeze_time = 0;
 	game.unfreeze_t = 0;
 
 	game.world = dWorldCreate();
 	game.space = dHashSpaceCreate(0);
   	game.contactgroup = dJointGroupCreate(0);
-	if (game.globalplane.state == true)
-		game.globalplane.dGeom = dCreatePlane(game.space, 0, 0, 1, 0);
+	game.floor = dCreatePlane(game.space, 0, 0, 1, 0);
+
+	dGeomSetCategoryBits(game.floor, StaticobjectsCategoryBits);
+	dGeomSetCollideBits(game.floor, StaticobjectsCollideBits);
 
   	dWorldSetGravity(game.world, game.gravity[0], game.gravity[1], game.gravity[2]);
 	
-	//std::map<std::string, Object>::iterator o = object.begin();
-	//while (o != object.end()) {
 	for (auto& [object_name, o] : object) {
 		o.dBody = dBodyCreate(game.world);
 		dBodySetPosition(
@@ -1653,8 +1645,6 @@ void UpdateFreeze()
 	game.freeze = true;
 	game.unfreeze_t = 0;
 
-	//std::map<std::string, Object>::iterator o = object.begin();
-	//while (o != object.end()) {
 	for (auto& [obejct_name, o] : object) {
 		const dReal *position = dBodyGetPosition(o.dBody);
 		const dReal *orientation = dBodyGetQuaternion(o.dBody);
@@ -2073,7 +2063,7 @@ void DrawFreeze()
 				DrawCubeWires((Vector3){ 0.0f, 0.0f, 0.0f }, j.sides[0], j.sides[1], j.sides[2], BLACK);
 			} break;
 			case Sphere: {
-				if (j.name == SelectedJoint)
+				if (j.name == game.selected_joint)
 					DrawSphere((Vector3){ 0.0f, 0.0f, 0.0f }, j.radius, RED);
 				else
 					DrawSphere((Vector3){ 0.0f, 0.0f, 0.0f }, j.radius, JointColor);
@@ -2156,28 +2146,27 @@ void ReFreeze()
 	}
 }
 
-void DrawGameFrame()
+void DrawFloor()
 {
-	if (game.freeze)
-	{
+	rlPushMatrix();
+	float angle;
+	Vector3 axis;
+	Matrix m = MatrixRotateX(DEG2RAD*90);
+	Quaternion q = QuaternionFromMatrix(m);
+	QuaternionToAxisAngle(q, &axis, &angle);
+	rlRotatef(RAD2DEG * angle, axis.x, axis.y, axis.z);
+	DrawGrid(20, 1.0f);
+	rlPopMatrix();
+}
+
+void DrawFrame()
+{
+	DrawFloor();
+	if (game.freeze) {
 		DrawFreeze();
 		DrawGhost();
-
-		if (game.freeze_t < game.freeze_time)
-			++game.freeze_t;
-		else
-			ReFreeze();
-	}
-	else
-	{
+	} else {
 		DrawSim();
-
-		if (game.unfreeze_t < game.unfreeze_time) {
-			++game.unfreeze_t;
-			++game.gameframe;
-		} else {
-			UpdateFreeze();
-		}
 	}
 }
 
@@ -2195,8 +2184,7 @@ void GameStep(int frame_count)
 	ReFreeze();
 }
 
-/*
- * TODO: implement this per player
+/* TODO: implement this per player
 void TriggerPlayerPassiveStates(std::string player)
 {
 
@@ -2206,9 +2194,11 @@ void TriggerPlayerPassiveStates(std::string player)
 void TriggerPlayerPassiveStates(PlayerPassiveStates state)
 {
 	dReal strength = 0.00;
-	for (auto const& [joint_name, j] : joint) {
-		if (state != HOLD_ALL) {
+	for (auto& [joint_name, j] : joint) {
+		j.state = RELAX;
+		if (state == HOLD_ALL) {
 			strength = j.strength;
+			j.state = HOLD;
 		}
 		switch(j.connectionType) {
 			case Hinge: {
@@ -2231,8 +2221,7 @@ void TriggerPlayerPassiveStates(PlayerPassiveStates state)
 	}
 }
 
-/*
- * TODO: implement this per player
+/* TODO: implement this per player
 void TriggerPlayerPassiveStatesAlt(std::string player)
 {
 
@@ -2242,9 +2231,11 @@ void TriggerPlayerPassiveStatesAlt(std::string player)
 void TriggerPlayerPassiveStatesAlt(PlayerPassiveStates state)
 {
 	dReal strength = 0.00;
-	for (auto const& [joint_name, j] : joint) {
-		if (state != HOLD_ALL) {
+	for (auto& [joint_name, j] : joint) {
+		j.state_alt = RELAX;
+		if (state == HOLD_ALL) {
 			strength = j.strength_alt;
+			j.state_alt = HOLD;
 		}
 		switch(j.connectionType) {
 			case Hinge: {
@@ -2263,8 +2254,7 @@ void TriggerPlayerPassiveStatesAlt(PlayerPassiveStates state)
 	}
 }
 
-/*
- * TODO: implement this per player
+/* TODO: implement this per player
 void TogglePlayerPassiveStates(std::string player)
 {
 
@@ -2274,7 +2264,6 @@ void TogglePlayerPassiveStates(std::string player)
 void TogglePlayerPassiveStates()
 {
 	ReFreeze();
-	
 	if (player.passive_states == RELAX_ALL) {
 		TriggerPlayerPassiveStates(HOLD_ALL);
 		player.passive_states = HOLD_ALL;
@@ -2284,8 +2273,7 @@ void TogglePlayerPassiveStates()
 	}
 }
 
-/*
- * TODO: implement this per player
+/* TODO: implement this per player
 void TogglePlayerPassiveStatesAlt(std::string player)
 {
 
@@ -2295,7 +2283,6 @@ void TogglePlayerPassiveStatesAlt(std::string player)
 void TogglePlayerPassiveStatesAlt()
 {
 	ReFreeze();
-
 	if (player.passive_states_alt == RELAX_ALL) {
 		TriggerPlayerPassiveStatesAlt(HOLD_ALL);
 		player.passive_states_alt = HOLD_ALL;
@@ -2316,13 +2303,15 @@ void RelaxAll(std::string player)
 void RelaxAll()
 {
 	ReFreeze();
-	TriggerPlayerPassiveStatesAlt(RELAX_ALL);
+	TriggerPlayerPassiveStates(RELAX_ALL);
+	player.passive_states = RELAX_ALL;
 }
 
 void RelaxAllAlt()
 {
 	ReFreeze();
 	TriggerPlayerPassiveStatesAlt(RELAX_ALL);
+	player.passive_states_alt = RELAX_ALL;
 }
 
 void TriggerActiveStateAlt(std::string joint_name, dReal direction)
@@ -2466,7 +2455,7 @@ void ToggleActiveStateAlt(std::string joint_name)
 }
 
 
-void StateCycle(std::string joint_name)
+void CycleState(std::string joint_name)
 {
 	if (joint_name == "NONE") return;
 
@@ -2488,7 +2477,7 @@ void StateCycle(std::string joint_name)
 }
 
 
-void StateCycleAlt(std::string joint_name)
+void CycleStateAlt(std::string joint_name)
 {
 	if (joint_name == "NONE") return;
 
@@ -2595,276 +2584,6 @@ void Restart()
 		j.freeze.angularVel[2] = 0.00;
 	}
 }
-
-void GameReset()
-{	
-	RelaxAll();
-
-	game.freeze = true;
-	game.gameframe = 0;
-	game.freeze_t = 0;
-	game.unfreeze_t = 0;
-
-	for (auto& [obejct_name, o] : object) {
-		dBodySetPosition(
-			o.dBody,
-			o.position[0],
-			o.position[1],
-			o.position[2]);
-		dBodySetQuaternion(o.dBody, o.orientation);
-		dBodySetLinearVel(o.dBody, 0.00, 0.00, 0.00);
-		dBodySetAngularVel(o.dBody, 0.00, 0.00, 0.00);
-
-		o.freeze.position[0] = o.position[0];
-		o.freeze.position[1] = o.position[1];
-		o.freeze.position[2] = o.position[2];
-
-		o.freeze.orientation[0] = o.orientation[0];
-		o.freeze.orientation[1] = o.orientation[1];
-		o.freeze.orientation[2] = o.orientation[2];
-		o.freeze.orientation[3] = o.orientation[3];
-
-		o.freeze.linearVel[0] = 0.00;
-		o.freeze.linearVel[1] = 0.00;
-		o.freeze.linearVel[2] = 0.00;
-
-		o.freeze.angularVel[0] = 0.00;
-		o.freeze.angularVel[1] = 0.00;
-		o.freeze.angularVel[2] = 0.00;
-	}
-	
-	for (auto& [body_name, b] : body) {
-		dBodySetPosition(
-			b.dBody,
-			b.position[0],
-			b.position[1],
-			b.position[2]);
-		dBodySetQuaternion(b.dBody, b.orientation);
-		dBodySetLinearVel(b.dBody, 0.00, 0.00, 0.00);
-		dBodySetAngularVel(b.dBody, 0.00, 0.00, 0.00);
-
-		b.freeze.position[0] = b.position[0];
-		b.freeze.position[1] = b.position[1];
-		b.freeze.position[2] = b.position[2];
-
-		b.freeze.orientation[0] = b.orientation[0];
-		b.freeze.orientation[1] = b.orientation[1];
-		b.freeze.orientation[2] = b.orientation[2];
-		b.freeze.orientation[3] = b.orientation[3];
-
-		b.freeze.linearVel[0] = 0.00;
-		b.freeze.linearVel[1] = 0.00;
-		b.freeze.linearVel[2] = 0.00;
-
-		b.freeze.angularVel[0] = 0.00;
-		b.freeze.angularVel[1] = 0.00;
-		b.freeze.angularVel[2] = 0.00;
-	}
-	
-	for (auto& [joint_name, j] : joint) {
-		dBodySetPosition(
-			j.dBody,
-			j.position[0],
-			j.position[1],
-			j.position[2]);
-		dBodySetQuaternion(j.dBody, j.orientation);
-		dBodySetLinearVel(j.dBody, 0.00, 0.00, 0.00);
-		dBodySetAngularVel(j.dBody, 0.00, 0.00, 0.00);
-
-		j.freeze.position[0] = j.position[0];
-		j.freeze.position[1] = j.position[1];
-		j.freeze.position[2] = j.position[2];
-
-		j.freeze.orientation[0] = j.orientation[0];
-		j.freeze.orientation[1] = j.orientation[1];
-		j.freeze.orientation[2] = j.orientation[2];
-		j.freeze.orientation[3] = j.orientation[3];
-
-		j.freeze.linearVel[0] = 0.00;
-		j.freeze.linearVel[1] = 0.00;
-		j.freeze.linearVel[2] = 0.00;
-
-		j.freeze.angularVel[0] = 0.00;
-		j.freeze.angularVel[1] = 0.00;
-		j.freeze.angularVel[2] = 0.00;
-	}
-
-	UpdateFreeze();
-}
-
-void StartFreeplay()
-{	
-	//gamemode = FREEPLAY;
-
-	RelaxAll();
-
-	game.freeze = true;
-	game.gameframe = 0;
-	game.freeze_t = 0;
-	game.unfreeze_t = 0;
-	
-	Restart();
-
-	UpdateFreeze();
-}
-
-/*
-void GlobalPassiveStateToggle()
-{
-	ReFreeze();
-
-	GlobalPassiveState = GlobalPassiveState == false;
-
-	dReal s = 0.0f;
-
-	for (auto const& [joint_name, j] : joint) {
-		if (GlobalPassiveState) s = j.strength;
-		switch(j.connectionType) {
-			case Hinge: {
-				dJointSetHingeParam(j.dJoint[0], dParamFMax, s);
-				dJointSetHingeParam(j.dJoint[0], dParamVel, 0.0f);
-			} break;
-			case Slider: {
-				dJointSetSliderParam(j.dJoint[0], dParamFMax, s);
-				dJointSetSliderParam(j.dJoint[0], dParamVel, 0.0f);
-			} break;
-			case Universal: {
-				dJointSetUniversalParam(j.dJoint[0], dParamFMax, s);
-				dJointSetUniversalParam(j.dJoint[0], dParamVel, 0.0f);
-				dJointSetUniversalParam(j.dJoint[0], dParamFMax2, s);
-				dJointSetUniversalParam(j.dJoint[0], dParamVel2, 0.0f);
-			} break;
-			case Hinge2: {
-				dJointSetHinge2Param(j.dJoint[0], dParamFMax, s);
-				dJointSetHinge2Param(j.dJoint[0], dParamVel, 0.0f);
-				dJointSetHinge2Param(j.dJoint[0], dParamFMax2, s);
-				dJointSetHinge2Param(j.dJoint[0], dParamVel2, 0.0f);
-			} break;
-		}
-	}
-}
-
-void PassiveStateToggle()
-{
-	if (SelectedJoint == "NONE") return;
-
-	ReFreeze();
-
-	joint[SelectedJoint].passiveState = joint[SelectedJoint].passiveState == false;
-	
-	dReal s = joint[SelectedJoint].strength;
-
-	if (!joint[SelectedJoint].passiveState) s = 0.0f;
-
-	switch(joint[SelectedJoint].connectionType) {
-		case Hinge: {
-			dJointSetHingeParam(joint[SelectedJoint].dJoint[0], dParamFMax, s);
-			dJointSetHingeParam(joint[SelectedJoint].dJoint[0], dParamVel, 0.0f);
-		} break;
-		case Slider: {
-			dJointSetSliderParam(joint[SelectedJoint].dJoint[0], dParamFMax, s);
-			dJointSetSliderParam(joint[SelectedJoint].dJoint[0], dParamVel, 0.0f);
-		} break;
-		case Universal: {
-			dJointSetUniversalParam(joint[SelectedJoint].dJoint[0], dParamFMax, s);
-			dJointSetUniversalParam(joint[SelectedJoint].dJoint[0], dParamVel, 0.0f);
-		} break;
-		case Hinge2: {
-			dJointSetHinge2Param(joint[SelectedJoint].dJoint[0], dParamFMax, s);
-			dJointSetHinge2Param(joint[SelectedJoint].dJoint[0], dParamVel, 0.0f);
-		} break;
-	}
-}
-
-void AltPassiveStateToggle()
-{
-	if (SelectedJoint == "NONE") return;
-
-	ReFreeze();
-
-	joint[SelectedJoint].altPassiveState = joint[SelectedJoint].altPassiveState == false;
-	
-	dReal s = joint[SelectedJoint].strength_alt;
-
-	if (!joint[SelectedJoint].altPassiveState) s = 0.0f;
-
-	switch(joint[SelectedJoint].connectionType)
-	{
-		case Hinge: {
-		} break;
-		case Slider: {
-		} break;
-		case Universal: {
-			dJointSetUniversalParam(joint[SelectedJoint].dJoint[0], dParamFMax2, s);
-			dJointSetUniversalParam(joint[SelectedJoint].dJoint[0], dParamVel2, 0.0f);
-		} break;
-		case Hinge2: {
-			dJointSetHinge2Param(joint[SelectedJoint].dJoint[0], dParamFMax2, s);
-			dJointSetHinge2Param(joint[SelectedJoint].dJoint[0], dParamVel2, 0.0f);
-		} break;
-	}
-}
-
-void ActiveStateToggle()
-{
-	if (SelectedJoint == "NONE") return;
-
-	ReFreeze();
-
-	joint[SelectedJoint].activeState = joint[SelectedJoint].activeState == false;
-
-	dReal dir = 1.0f;
-
-	if (!joint[SelectedJoint].activeState) dir = -1.0f;
-	
-	switch(joint[SelectedJoint].connectionType) {
-		case Hinge: {
-			dJointSetHingeParam(joint[SelectedJoint].dJoint[0], dParamFMax, joint[SelectedJoint].strength);
-			dJointSetHingeParam(joint[SelectedJoint].dJoint[0], dParamVel, dir * joint[SelectedJoint].velocity);
-		} break;
-		case Slider: {
-			dJointSetSliderParam(joint[SelectedJoint].dJoint[0], dParamFMax, joint[SelectedJoint].strength);
-			dJointSetSliderParam(joint[SelectedJoint].dJoint[0], dParamVel, dir * joint[SelectedJoint].velocity);
-		} break;
-		case Universal: {
-			dJointSetUniversalParam(joint[SelectedJoint].dJoint[0], dParamFMax, joint[SelectedJoint].strength);
-			dJointSetUniversalParam(joint[SelectedJoint].dJoint[0], dParamVel, dir * joint[SelectedJoint].velocity);
-		} break;
-		case Hinge2: {
-			dJointSetHinge2Param(joint[SelectedJoint].dJoint[0], dParamFMax, joint[SelectedJoint].strength);
-			dJointSetHinge2Param(joint[SelectedJoint].dJoint[0], dParamVel, dir * joint[SelectedJoint].velocity);
-		} break;
-	}
-}
-
-void AltActiveStateToggle()
-{
-	if (SelectedJoint == "NONE") return;
-
-	ReFreeze();
-	
-	joint[SelectedJoint].altActiveState = joint[SelectedJoint].altActiveState == false;
-
-	dReal dir = 1.0f;
-	
-	if (!joint[SelectedJoint].altActiveState) dir = -1.0f;
-	
-	switch(joint[SelectedJoint].connectionType) {
-		case Hinge: {
-		} break;
-		case Slider: {
-		} break;
-		case Universal: {
-			dJointSetUniversalParam(joint[SelectedJoint].dJoint[0], dParamFMax2, joint[SelectedJoint].strength_alt);
-			dJointSetUniversalParam(joint[SelectedJoint].dJoint[0], dParamVel2, dir * joint[SelectedJoint].velocity_alt);
-		} break;
-		case Hinge2: {
-			dJointSetHinge2Param(joint[SelectedJoint].dJoint[0], dParamFMax2, joint[SelectedJoint].strength_alt);
-			dJointSetHinge2Param(joint[SelectedJoint].dJoint[0], dParamVel2, dir * joint[SelectedJoint].velocity_alt);
-		} break;
-	}
-}
-*/
 
 void CameraRotateZClockwise(Camera3D *camera, Vector3 *CameraZoom, Vector3 *CameraOffset)
 {
@@ -3070,11 +2789,189 @@ void SelectJoint (Camera3D Camera, Ray MouseRay, RayCollision MouseCollision)
 		);
 
 		if (MouseCollision.hit) {
-			SelectedJoint = j.name;
+			game.selected_joint = j.name;
 			break;
 		} else {
-			SelectedJoint = "NONE";
+			game.selected_joint = "NONE";
 		}
+	}
+}
+
+std::map<int, FrameData> RecordedFrames;
+
+void RecordFrame(int gameframe)
+{
+	std::ofstream tempframefile("tempframefile.txt");
+	tempframefile << "FRAME " << gameframe << "\n";
+	for (auto const& [joint_name, j] : joint) {
+		RecordedFrames[gameframe].joint[joint_name] = j;
+		tempframefile << j.name << " " << j.state << " " << j.state_alt << "\n";
+	}
+	tempframefile.close();
+
+	std::ofstream tempreplayfile("tempreplayfile.txt", std::ios::app);
+	tempreplayfile << "FRAME " << gameframe << "\n";
+	for (auto const& [joint_name, j] : joint) {
+		RecordedFrames[gameframe].joint[joint_name] = j;
+		tempreplayfile << j.name << " " << j.state << " " << j.state_alt << "\n";
+	}
+	tempreplayfile.close();}
+
+void PlayFrame(int gameframe)
+{
+	FrameData frame = RecordedFrames[gameframe];
+	for (auto& [joint_name, j] : frame.joint) {
+		switch(j.state) {
+			case RELAX: {
+				j.state = RELAX;
+				TriggerPassiveState(j.name, 0);
+			} break;
+			case HOLD: {
+				j.state = HOLD;
+				TriggerPassiveState(j.name, j.strength);
+			} break;
+			case FORWARD: {
+				j.state = FORWARD;
+				TriggerActiveState(j.name, 1);
+			} break; 
+			case BACKWARD: {
+				j.state = BACKWARD;
+				TriggerActiveState(j.name, -1);
+			} break;
+		}
+	
+		switch(j.state_alt) {
+			case RELAX: {
+				j.state_alt = RELAX;
+				TriggerPassiveStateAlt(j.name, 0);
+			} break;
+			case HOLD: {
+				j.state_alt = HOLD;
+				TriggerPassiveStateAlt(j.name, j.strength_alt);
+			} break;
+			case FORWARD: {
+				j.state_alt = FORWARD;
+				TriggerActiveStateAlt(j.name, 1);
+			} break;
+			case BACKWARD: {
+				j.state_alt = BACKWARD;
+				TriggerActiveStateAlt(j.name, -1);
+			} break;
+		}
+	}
+}
+
+void EditReplay()
+{
+	game.gamemode = FREEPLAY;
+
+	game.freeze = true;
+	UpdateFreeze();
+
+	std::ofstream tempframefile("tempframefile.txt");
+	tempframefile << "FRAME " << game.gameframe << "\n";
+	for (auto const& [joint_name, j] : joint) {
+		tempframefile << j.name << " " << j.state << " " << j.state_alt << "\n";
+	}
+	tempframefile.close();
+
+	std::ofstream tempreplayfile("tempreplayfile.txt");
+	for (auto const& [gameframe, frame] : RecordedFrames) {
+		if (gameframe > game.gameframe) {
+			break;
+		} else {
+			tempreplayfile << "FRAME " << gameframe << "\n";
+			for (auto const& [joint_name, j] : frame.joint) {
+				tempreplayfile << j.name << " " << j.state << " " << j.state_alt << "\n";
+			}
+		}
+	}
+	tempreplayfile.close();
+}
+
+void SaveReplay()
+{
+	std::ofstream savedreplayfile("savedreplayfile.txt");
+	for (auto const& [gameframe, frame] : RecordedFrames) {
+		savedreplayfile << "FRAME " << gameframe << "\n";
+		for (auto const& [joint_name, j] : frame.joint) {
+			savedreplayfile << j.name << " " << j.state << " " << j.state_alt << "\n";
+		}
+	}
+	savedreplayfile.close();
+}
+
+void StartFreeplay()
+{
+	game.gamemode = FREEPLAY;
+
+	RelaxAll();
+	RelaxAllAlt();
+
+	game.freeze = true;
+	game.gameframe = 0;
+	game.freeze_t = 0;
+	game.unfreeze_t = 0;
+	
+	Restart();
+
+	UpdateFreeze();
+
+	std::ofstream tempreplayfile("tempreplayfile.txt");
+	tempreplayfile << "FRAME 0\n";
+	for (auto const& [joint_name, j] : joint) {
+		RecordedFrames[0].joint[joint_name] = j;
+		tempreplayfile << j.name << " " << j.state << " " << j.state_alt << "\n";
+	}
+	tempreplayfile.close();
+}
+
+void StartReplay()
+{
+	game.gamemode = REPLAY;
+
+	RelaxAll();
+	RelaxAllAlt();
+
+	game.freeze = false;
+	game.gameframe = 0;
+	game.freeze_t = 0;
+	game.unfreeze_t = 0;
+	
+	Restart();
+}
+
+
+void UpdateFrame()
+{
+	if (game.freeze) {
+		if (!(++game.freeze_t < game.freeze_time)) {
+			ReFreeze();
+		}
+	} else {
+		if (game.gamemode == FREEPLAY) {
+			if (!(++game.unfreeze_t < game.unfreeze_time)) {
+				UpdateFreeze();
+			}
+		}
+		++game.gameframe;
+	}
+
+	if (!game.pause) {
+		if(!game.freeze && game.gamemode == FREEPLAY) {
+			RecordFrame(game.gameframe);
+		} else if (game.gamemode == REPLAY) {
+			float size = RecordedFrames.size();
+			if (game.gameframe < size) {
+				PlayFrame(game.gameframe);
+			} else if (game.gameframe > size + 100) {
+				StartReplay();
+			}
+		}
+
+		dSpaceCollide(game.space, 0, &nearCallback);
+		dWorldStep(game.world, game.step);
+		dJointGroupEmpty(game.contactgroup);
 	}
 }
 
@@ -3082,24 +2979,41 @@ int main()
 {
 	SetTraceLogLevel(LOG_ERROR);
 
-	InitWindow(1280, 720, "Tobas");
+	InitWindow(1600, 900, "TOBAS");
 
 	Camera3D camera = { 0 };
-	camera.up = (Vector3){ 0.0f, 0.0f, 1.0f };
-	camera.fovy = 45.0f;
+	camera.up = (Vector3){ 0.00, 0.00, 1.00 };
+	camera.fovy = 45.00;
 	camera.projection = CAMERA_PERSPECTIVE;
 
-	Vector3 CameraOffset = (Vector3){ 0.0f, -5.0f, 0.0f };
-	Vector3 CameraZoom = (Vector3){ 0.0f, 0.0f, 0.0f };
+	Vector3 CameraOffset = (Vector3){ 0.00, -5.00, 0.0f };
+	Vector3 CameraZoom = (Vector3){ 0.00, 0.00, 0.00 };
 
 	SetTargetFPS(60);
 	
 	GameStart();
 
+	std::ofstream tempframefile("tempframefile.txt");
+	tempframefile << "FRAME " << game.gameframe << "\n";
+	for (auto const& [joint_name, j] : joint) {
+		tempframefile << j.name << " " << j.state << " " << j.state_alt << "\n";
+	}
+	tempframefile.close();
+
+
+	std::ofstream tempreplayfile("tempreplayfile.txt");
+	tempreplayfile << "FRAME " << game.gameframe << "\n";
+	for (auto const& [joint_name, j] : joint) {
+		tempreplayfile << j.name << " " << j.state << " " << j.state_alt << "\n";
+	}
+	tempreplayfile.close();
+
 	Ray MouseRay = { 0 };
 	RayCollision MouseCollision = { 0 };
 
 	while (!WindowShouldClose()) {
+		SetWindowTitle(TextFormat("TOBAS %dFPS", GetFPS()));
+
 		UpdatePlaycam(&camera, &CameraOffset);
 
 		SelectJoint(camera, MouseRay, MouseCollision);
@@ -3131,78 +3045,78 @@ int main()
 		}
 
 		if (IsKeyPressed(KEY_Z)) {
-			if (IsKeyDown(KEY_LEFT_SHIFT)) {
-				ToggleActiveStateAlt(SelectedJoint);
+			if (IsKeyDown(KEY_LEFT_CONTROL)) {
+				if (game.freeze && game.gamemode == FREEPLAY) {
+					PlayFrame(game.gameframe - 1);
+				}
 			} else {
-				ToggleActiveState(SelectedJoint);
+				if (IsKeyDown(KEY_LEFT_SHIFT)) {
+					ToggleActiveStateAlt(game.selected_joint);
+				} else {
+					ToggleActiveState(game.selected_joint);
+				}
 			}
 		}
 
 		if (IsKeyPressed(KEY_X)) {
 			if (IsKeyDown(KEY_LEFT_SHIFT)) {
-				TogglePassiveStateAlt(SelectedJoint);
+				TogglePassiveStateAlt(game.selected_joint);
 			} else {
-				TogglePassiveState(SelectedJoint);
+				TogglePassiveState(game.selected_joint);
 			}
 		}
 
 		if (IsKeyPressed(KEY_C)) {
-			if (IsKeyDown(KEY_LEFT_SHIFT)) {
-				TogglePlayerPassiveStatesAlt();
-			} else {
-				TogglePlayerPassiveStates();
-			}
+			TogglePlayerPassiveStates();
+			TogglePlayerPassiveStatesAlt();
 		}
 
 		if (IsMouseButtonPressed(0)) {
 			if (IsKeyDown(KEY_LEFT_SHIFT)) {
-				StateCycleAlt(SelectedJoint);
+				CycleStateAlt(game.selected_joint);
 			} else {
-				StateCycle(SelectedJoint);
+				CycleState(game.selected_joint);
 			}
 		}
 
-		if (game.freeze) {
-			if (IsKeyPressed(KEY_SPACE)) {
+		if (IsKeyPressed(KEY_SPACE)) {
+			if (game.freeze && game.gamemode == FREEPLAY) {
 				if (IsKeyDown(KEY_LEFT_SHIFT)) {
 					GameStep(1);
 				} else {
 					GameStep(game.turnframes);
 				}
+			} else if (!game.freeze && game.gamemode == REPLAY) {
+				StartFreeplay();
 			}
 		}
 
+		if (IsKeyPressed(KEY_E)) {
+			if (!game.freeze && game.gamemode == REPLAY) {
+				EditReplay();
+			}
+		}
+
+		if (IsKeyPressed(KEY_F)) {
+			SaveReplay();
+		}
+
 		if (IsKeyPressed(KEY_R)) {
-			GameReset();
+			StartReplay();
 		}
 
 		if (IsKeyPressed(KEY_P)) {
 			game.pause = game.pause == false;
 		}
 
-		if (!game.pause) {
-			dSpaceCollide(game.space, 0, &nearCallback);
-			dWorldStep(game.world, game.step);
-			dJointGroupEmpty(game.contactgroup);
-		}
-		
+		UpdateFrame();
+	
 		BeginDrawing();
 			ClearBackground(RAYWHITE);
 			BeginMode3D(camera);
-				DrawGameFrame();
-				if (game.globalplane.state == true) {
-					rlPushMatrix();
-					float angle;
-					Vector3 axis;
-					Matrix m = MatrixRotateX(DEG2RAD*90);
-					Quaternion q = QuaternionFromMatrix(m);
-					QuaternionToAxisAngle(q, &axis, &angle);
-					rlRotatef(RAD2DEG * angle, axis.x, axis.y, axis.z);
-					DrawGrid(20, 1.0f);
-					rlPopMatrix();
-				}
+				DrawFrame();
 			EndMode3D();
-			DrawText(TextFormat("%d", game.gameframe), 640, 20, 32, BLACK);
+			DrawText(TextFormat("%d", game.gameframe), 800, 20, 32, BLACK);
 		EndDrawing();
 	}
 	
