@@ -2772,6 +2772,13 @@ void UpdatePlaycam(Camera3D *camera, Vector3 *CameraOffset)
 			CameraOffset->y + y/size,
 			CameraOffset->z + z/size,
 		};
+	} else {
+		camera->target = (Vector3){ 0.00, 0.00, 0.00 };
+		camera->position = (Vector3){
+			CameraOffset->x,
+			CameraOffset->y,
+			CameraOffset->z
+		};
 	}
 }
 
@@ -2986,7 +2993,7 @@ int main()
 	camera.fovy = 45.00;
 	camera.projection = CAMERA_PERSPECTIVE;
 
-	Vector3 CameraOffset = (Vector3){ 0.00, -5.00, 0.0f };
+	Vector3 CameraOffset = (Vector3){ 0.00, -5.00, 0.00 };
 	Vector3 CameraZoom = (Vector3){ 0.00, 0.00, 0.00 };
 
 	SetTargetFPS(60);
