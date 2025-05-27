@@ -1,4 +1,4 @@
-local Math = {}
+local Math = {RAD2DEG = math.pi/180}
 
 function Math.MatrixMultiply(A, B)
 	local M = {}
@@ -71,6 +71,15 @@ function Math.MatrixToQuaternion(M)
 	return {Qw, Qx, Qy, Qz}
 end
 
+function Math.QuaternionMultiply (q, p)
+	return {
+		q[1] * p[1] - q[2] * p[2] - q[3] * p[3] - q[4] * p[4],
+		q[1] * p[2] + q[2] * p[1] - q[3] * p[4] + q[4] * p[3],
+		q[1] * p[3] + q[2] * p[4] + q[3] * p[1] - q[4] * p[2],
+		q[1] * p[4] - q[2] * p[3] + q[3] * p[2] + q[4] * p[1],
+	}
+end
+
 function Math.EulerToQuaternion (u, v, w)
 	local C = math.cos
 	local S = math.sin
@@ -81,5 +90,6 @@ function Math.EulerToQuaternion (u, v, w)
 		C(0.5 * u) * C(0.5 * v) * S(0.5 * w) - S(0.5 * u) * S(0.5 * v) * C(0.5 * w),
 	}
 end
+
 
 return Math
