@@ -71,4 +71,15 @@ function Math.MatrixToQuaternion(M)
 	return {Qw, Qx, Qy, Qz}
 end
 
+function Math.EulerToQuaternion (u, v, w)
+	local C = math.cos
+	local S = math.sin
+	return {
+		C(0.5 * u) * C(0.5 * v) * C(0.5 * w) + S(0.5 * u) * S(0.5 * v) * S(0.5 * w),
+		S(0.5 * u) * C(0.5 * v) * C(0.5 * w) - C(0.5 * u) * S(0.5 * v) * S(0.5 * w),
+		C(0.5 * u) * S(0.5 * v) * C(0.5 * w) + S(0.5 * u) * C(0.5 * v) * S(0.5 * w),
+		C(0.5 * u) * C(0.5 * v) * S(0.5 * w) - S(0.5 * u) * S(0.5 * v) * C(0.5 * w),
+	}
+end
+
 return Math
