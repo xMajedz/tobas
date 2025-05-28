@@ -12,7 +12,8 @@
 
 enum GameContext {
 	NoContext,
-	objectContext,
+	ObjectContext,
+	PlayerContext,
 	BodyContext,
 	JointContext
 } DataContext = NoContext;
@@ -64,6 +65,7 @@ struct game {
 	int turnframes = 10;
 	int max_contacts = 8;
 	Gamemode gamemode = FREEPLAY;
+	std::string selected_player = "NONE";
 	std::string selected_joint = "NONE";
 	bool freeze;
 	bool pause = false;
@@ -121,11 +123,6 @@ class Joint : public Object {
 	dReal velocity_alt;
 };
 
-class FrameData : public FreezeData {
-	public:
-	std::map<std::string, Joint> joint;
-};
-
 enum PlayerPassiveStates {
 	HOLD_ALL,
 	RELAX_ALL,
@@ -134,6 +131,9 @@ enum PlayerPassiveStates {
 
 class Player {
 	public:
+	std::string name;
+	std::map<std::string, Body> body;
+	std::map<std::string, Joint> joint;
 	PlayerPassiveStates passive_states;
 	PlayerPassiveStates passive_states_alt;
 	Player() {
@@ -142,7 +142,12 @@ class Player {
 	};
 };
 
-Player player;
+class FrameData : public FreezeData {
+	public:
+	std::map<std::string, Player> player;
+};
+
+std::map<std::string, Player> player;
 
 std::string MSG;
 
@@ -153,10 +158,9 @@ Color BodyColor = (Color){ 255, 255, 255, 255 };
 Color GhostColor = (Color){ 51, 51, 51, 51 };
 
 std::map<std::string, Object> object;
-std::map<std::string, Body> body;
-std::map<std::string, Joint> joint;
 
 std::string object_key;
+std::string player_key;
 std::string body_key;
 std::string joint_key;
 
@@ -216,7 +220,7 @@ int api_turnframes(lua_State* L)
 		case NoContext: {
 			game.turnframes = turnframes;
 		} break;
-		case objectContext: {
+		case ObjectContext: {
 			// Error Handling
 		} break;
 		case BodyContext: {
@@ -246,7 +250,7 @@ int api_friction(lua_State* L)
 		case NoContext: {
 			game.friction = friction;
 		} break;
-		case objectContext: {
+		case ObjectContext: {
 			// Error Handling
 		} break;
 		case BodyContext: {
@@ -276,7 +280,7 @@ int engagedistance(lua_State* L)
 		case NoContext: {
 			game.engagedistance = distance;
 		} break;
-		case objectContext: {
+		case ObjectContext: {
 			// Error Handling
 		} break;
 		case BodyContext: {
@@ -306,7 +310,7 @@ int engageheight(lua_State* L)
 		case NoContext: {
 			game.engageheight = height;
 		} break;
-		case objectContext: {
+		case ObjectContext: {
 			// Error Handling
 		} break;
 		case BodyContext: {
@@ -342,7 +346,7 @@ int engageplayerpos(lua_State* L)
 			game.engageplayerpos[1] = pos[1];
 			game.engageplayerpos[2] = pos[2];
 		} break;
-		case objectContext: {
+		case ObjectContext: {
 			// Error Handling
 		} break;
 		case BodyContext: {
@@ -378,7 +382,7 @@ int engageplayerrot(lua_State* L)
 			game.engageplayerrot[1] = rot[1];
 			game.engageplayerrot[2] = rot[2];
 		} break;
-		case objectContext: {
+		case ObjectContext: {
 			// Error Handling
 		} break;
 		case BodyContext: {
@@ -416,7 +420,7 @@ int gravity(lua_State* L)
 			game.gravity[1] = gravity[1];
 			game.gravity[2] = gravity[2];
 		} break;
-		case objectContext: {
+		case ObjectContext: {
 			// Error Handling	
 		} break;
 		case BodyContext: {
@@ -441,7 +445,7 @@ int globalplane(lua_State* L)
 		case NoContext: {
 			// Error Handling	
 		} break;
-		case objectContext: {
+		case ObjectContext: {
 			// Error Handling	
 		} break;
 		case BodyContext: {
@@ -461,7 +465,7 @@ int globalplane(lua_State* L)
 
 int api_object(lua_State* L)
 {
-	DataContext = objectContext;
+	DataContext = ObjectContext;
 
 	std::string name = lua_tostring(L, -1);
 	
@@ -497,6 +501,27 @@ int api_object(lua_State* L)
 	return 1;
 }
 
+int api_player(lua_State* L)
+{
+	DataContext = PlayerContext;
+
+	std::string name = lua_tostring(L, -1);
+	
+	player_key = name;
+
+	if (player.size() > 0) {
+		game.selected_player = player_key;
+	}
+
+	player[player_key].name = name;
+
+	lua_Number result = 1;
+
+	lua_pushnumber(L, result);
+
+	return 1;
+}
+
 int api_body(lua_State* L)
 {
 	DataContext = BodyContext;
@@ -505,28 +530,28 @@ int api_body(lua_State* L)
 	
 	body_key = name;
 
-	body[body_key].name = name;
+	player[player_key].body[body_key].name = name;
 
-	body[body_key].orientation[0] = 1.00;
-	body[body_key].orientation[1] = 0.00;
-	body[body_key].orientation[2] = 0.00;
-	body[body_key].orientation[3] = 0.00;
+	player[player_key].body[body_key].orientation[0] = 1.00;
+	player[player_key].body[body_key].orientation[1] = 0.00;
+	player[player_key].body[body_key].orientation[2] = 0.00;
+	player[player_key].body[body_key].orientation[3] = 0.00;
 
-	body[body_key].freeze.orientation[0] = 1.00;
-	body[body_key].freeze.orientation[1] = 0.00;
-	body[body_key].freeze.orientation[2] = 0.00;
-	body[body_key].freeze.orientation[3] = 0.00;
+	player[player_key].body[body_key].freeze.orientation[0] = 1.00;
+	player[player_key].body[body_key].freeze.orientation[1] = 0.00;
+	player[player_key].body[body_key].freeze.orientation[2] = 0.00;
+	player[player_key].body[body_key].freeze.orientation[3] = 0.00;
 
-	body[body_key].freeze.linearVel[0] = 0.00;
-	body[body_key].freeze.linearVel[1] = 0.00;
-	body[body_key].freeze.linearVel[2] = 0.00;
+	player[player_key].body[body_key].freeze.linearVel[0] = 0.00;
+	player[player_key].body[body_key].freeze.linearVel[1] = 0.00;
+	player[player_key].body[body_key].freeze.linearVel[2] = 0.00;
 
-	body[body_key].freeze.angularVel[0] = 0.00;
-	body[body_key].freeze.angularVel[1] = 0.00;
-	body[body_key].freeze.angularVel[2] = 0.00;
+	player[player_key].body[body_key].freeze.angularVel[0] = 0.00;
+	player[player_key].body[body_key].freeze.angularVel[1] = 0.00;
+	player[player_key].body[body_key].freeze.angularVel[2] = 0.00;
 
-	body[body_key].static_state = false;
-	body[body_key].isComposite = false;
+	player[player_key].body[body_key].static_state = false;
+	player[player_key].body[body_key].isComposite = false;
 
 	lua_Number result = 1;
 
@@ -543,28 +568,28 @@ int api_joint(lua_State* L)
 
 	joint_key = name;
 
-	joint[joint_key].name = name;
+	player[player_key].joint[joint_key].name = name;
 
-	joint[joint_key].orientation[0] = 1.00;
-	joint[joint_key].orientation[1] = 0.00;
-	joint[joint_key].orientation[2] = 0.00;
-	joint[joint_key].orientation[3] = 0.00;
+	player[player_key].joint[joint_key].orientation[0] = 1.00;
+	player[player_key].joint[joint_key].orientation[1] = 0.00;
+	player[player_key].joint[joint_key].orientation[2] = 0.00;
+	player[player_key].joint[joint_key].orientation[3] = 0.00;
 
-	joint[joint_key].freeze.orientation[0] = 1.00;
-	joint[joint_key].freeze.orientation[1] = 0.00;
-	joint[joint_key].freeze.orientation[2] = 0.00;
-	joint[joint_key].freeze.orientation[3] = 0.00;
+	player[player_key].joint[joint_key].freeze.orientation[0] = 1.00;
+	player[player_key].joint[joint_key].freeze.orientation[1] = 0.00;
+	player[player_key].joint[joint_key].freeze.orientation[2] = 0.00;
+	player[player_key].joint[joint_key].freeze.orientation[3] = 0.00;
 
-	joint[joint_key].freeze.linearVel[0] = 0.00;
-	joint[joint_key].freeze.linearVel[1] = 0.00;
-	joint[joint_key].freeze.linearVel[2] = 0.00;
+	player[player_key].joint[joint_key].freeze.linearVel[0] = 0.00;
+	player[player_key].joint[joint_key].freeze.linearVel[1] = 0.00;
+	player[player_key].joint[joint_key].freeze.linearVel[2] = 0.00;
 
-	joint[joint_key].freeze.angularVel[0] = 0.00;
-	joint[joint_key].freeze.angularVel[1] = 0.00;
-	joint[joint_key].freeze.angularVel[2] = 0.00;
+	player[player_key].joint[joint_key].freeze.angularVel[0] = 0.00;
+	player[player_key].joint[joint_key].freeze.angularVel[1] = 0.00;
+	player[player_key].joint[joint_key].freeze.angularVel[2] = 0.00;
 
-	joint[joint_key].state = RELAX;
-	joint[joint_key].state_alt = RELAX;
+	player[player_key].joint[joint_key].state = RELAX;
+	player[player_key].joint[joint_key].state_alt = RELAX;
 
 	lua_Number result = 1;
 
@@ -582,7 +607,7 @@ int shape(lua_State* L)
 		case NoContext: {
 			// Error Handling
 		} break;
-		case objectContext: {
+		case ObjectContext: {
 			if ("box" == shape) {
 				object[object_key].shape = Box;
 			} else if ("sphere" == shape) {
@@ -597,26 +622,26 @@ int shape(lua_State* L)
 		} break;
 		case BodyContext: {
 			if ("box" == shape) {
-				body[body_key].shape = Box;
+				player[player_key].body[body_key].shape = Box;
 			} else if ("sphere" == shape) {
-				body[body_key].shape = Sphere;
+				player[player_key].body[body_key].shape = Sphere;
 			} else if ("capsule" == shape) {
-				body[body_key].shape = Capsule;
+				player[player_key].body[body_key].shape = Capsule;
 			} else if ("cylinder" == shape) {
-				body[body_key].shape = Cylinder;
+				player[player_key].body[body_key].shape = Cylinder;
 			} else  {
 				//Error Handling
 			}
 		} break;
 		case JointContext: {
 			if ("box"  == shape) {
-				joint[joint_key].shape = Box;
+				player[player_key].joint[joint_key].shape = Box;
 			} else if ("sphere" == shape) {
-				joint[joint_key].shape = Sphere;
+				player[player_key].joint[joint_key].shape = Sphere;
 			} else if ("capsule" == shape) {
-				joint[joint_key].shape = Capsule;
+				player[player_key].joint[joint_key].shape = Capsule;
 			} else if ("cylinder" == shape) {
-				joint[joint_key].shape = Cylinder;
+				player[player_key].joint[joint_key].shape = Cylinder;
 			} else  {
 				//Error Handling
 			}
@@ -646,7 +671,7 @@ int position(lua_State* L)
 		case NoContext: {
 			// Error Handling
 		} break;
-		case objectContext: {
+		case ObjectContext: {
 			object[object_key].position[0] = position[0];
 			object[object_key].position[1] = position[1];
 			object[object_key].position[2] = position[2];
@@ -656,37 +681,37 @@ int position(lua_State* L)
 		} break;
 		case BodyContext: {
 			if (game.engageplayerpos) {
-				body[body_key].position[0] = position[0] + game.engageplayerpos[0];
-				body[body_key].position[1] = position[1] + game.engageplayerpos[1];
-				body[body_key].position[2] = position[2] + game.engageplayerpos[2];
-				body[body_key].freeze.position[0] = position[0] + game.engageplayerpos[0];
-				body[body_key].freeze.position[1] = position[1] + game.engageplayerpos[1];
-				body[body_key].freeze.position[2] = position[2] + game.engageplayerpos[2];
+				player[player_key].body[body_key].position[0] = position[0] + game.engageplayerpos[0];
+				player[player_key].body[body_key].position[1] = position[1] + game.engageplayerpos[1];
+				player[player_key].body[body_key].position[2] = position[2] + game.engageplayerpos[2];
+				player[player_key].body[body_key].freeze.position[0] = position[0] + game.engageplayerpos[0];
+				player[player_key].body[body_key].freeze.position[1] = position[1] + game.engageplayerpos[1];
+				player[player_key].body[body_key].freeze.position[2] = position[2] + game.engageplayerpos[2];
 
 			} else {
-				body[body_key].position[0] = position[0];
-				body[body_key].position[1] = position[1];
-				body[body_key].position[2] = position[2];
-				body[body_key].freeze.position[0] = position[0];
-				body[body_key].freeze.position[1] = position[1];
-				body[body_key].freeze.position[2] = position[2];
+				player[player_key].body[body_key].position[0] = position[0];
+				player[player_key].body[body_key].position[1] = position[1];
+				player[player_key].body[body_key].position[2] = position[2];
+				player[player_key].body[body_key].freeze.position[0] = position[0];
+				player[player_key].body[body_key].freeze.position[1] = position[1];
+				player[player_key].body[body_key].freeze.position[2] = position[2];
 			}
 		} break;
 		case JointContext: {
 			if (game.engageplayerpos) {
-				joint[joint_key].position[0] = position[0] + game.engageplayerpos[0];
-				joint[joint_key].position[1] = position[1] + game.engageplayerpos[1];
-				joint[joint_key].position[2] = position[2] + game.engageplayerpos[2];
-				joint[joint_key].freeze.position[0] = position[0] + game.engageplayerpos[0];
-				joint[joint_key].freeze.position[1] = position[1] + game.engageplayerpos[1];
-				joint[joint_key].freeze.position[2] = position[2] + game.engageplayerpos[2];
+				player[player_key].joint[joint_key].position[0] = position[0] + game.engageplayerpos[0];
+				player[player_key].joint[joint_key].position[1] = position[1] + game.engageplayerpos[1];
+				player[player_key].joint[joint_key].position[2] = position[2] + game.engageplayerpos[2];
+				player[player_key].joint[joint_key].freeze.position[0] = position[0] + game.engageplayerpos[0];
+				player[player_key].joint[joint_key].freeze.position[1] = position[1] + game.engageplayerpos[1];
+				player[player_key].joint[joint_key].freeze.position[2] = position[2] + game.engageplayerpos[2];
 			} else {
-				joint[joint_key].position[0] = position[0];
-				joint[joint_key].position[1] = position[1];
-				joint[joint_key].position[2] = position[2];
-				joint[joint_key].freeze.position[0] = position[0];
-				joint[joint_key].freeze.position[1] = position[1];
-				joint[joint_key].freeze.position[2] = position[2];
+				player[player_key].joint[joint_key].position[0] = position[0];
+				player[player_key].joint[joint_key].position[1] = position[1];
+				player[player_key].joint[joint_key].position[2] = position[2];
+				player[player_key].joint[joint_key].freeze.position[0] = position[0];
+				player[player_key].joint[joint_key].freeze.position[1] = position[1];
+				player[player_key].joint[joint_key].freeze.position[2] = position[2];
 			}
 		} break;
 	}
@@ -719,7 +744,7 @@ int orientation(lua_State* L)
 		case NoContext: {
 			// Error Handling
 		} break;
-		case objectContext: {
+		case ObjectContext: {
 			object[object_key].orientation[0] = orientation[0];
 			object[object_key].orientation[1] = orientation[1];
 			object[object_key].orientation[2] = orientation[2];
@@ -731,26 +756,26 @@ int orientation(lua_State* L)
 			object[object_key].freeze.orientation[3] = orientation[3];
 		} break;
 		case BodyContext: {
-			body[body_key].orientation[0] = orientation[0];
-			body[body_key].orientation[1] = orientation[1];
-			body[body_key].orientation[2] = orientation[2];
-			body[body_key].orientation[3] = orientation[3];
+			player[player_key].body[body_key].orientation[0] = orientation[0];
+			player[player_key].body[body_key].orientation[1] = orientation[1];
+			player[player_key].body[body_key].orientation[2] = orientation[2];
+			player[player_key].body[body_key].orientation[3] = orientation[3];
 
-			body[body_key].freeze.orientation[0] = orientation[0];
-			body[body_key].freeze.orientation[1] = orientation[1];
-			body[body_key].freeze.orientation[2] = orientation[2];
-			body[body_key].freeze.orientation[3] = orientation[3];
+			player[player_key].body[body_key].freeze.orientation[0] = orientation[0];
+			player[player_key].body[body_key].freeze.orientation[1] = orientation[1];
+			player[player_key].body[body_key].freeze.orientation[2] = orientation[2];
+			player[player_key].body[body_key].freeze.orientation[3] = orientation[3];
 		} break;
 		case JointContext: {
-			joint[joint_key].orientation[0] = orientation[0];
-			joint[joint_key].orientation[1] = orientation[1];
-			joint[joint_key].orientation[2] = orientation[2];
-			joint[joint_key].orientation[3] = orientation[3];
+			player[player_key].joint[joint_key].orientation[0] = orientation[0];
+			player[player_key].joint[joint_key].orientation[1] = orientation[1];
+			player[player_key].joint[joint_key].orientation[2] = orientation[2];
+			player[player_key].joint[joint_key].orientation[3] = orientation[3];
 	
-			joint[joint_key].freeze.orientation[0] = orientation[0];
-			joint[joint_key].freeze.orientation[1] = orientation[1];
-			joint[joint_key].freeze.orientation[2] = orientation[2];
-			joint[joint_key].freeze.orientation[3] = orientation[3];
+			player[player_key].joint[joint_key].freeze.orientation[0] = orientation[0];
+			player[player_key].joint[joint_key].freeze.orientation[1] = orientation[1];
+			player[player_key].joint[joint_key].freeze.orientation[2] = orientation[2];
+			player[player_key].joint[joint_key].freeze.orientation[3] = orientation[3];
 		} break;
 	}
 
@@ -779,20 +804,20 @@ int sides(lua_State* L)
 		case NoContext: {
 			// Error Handling
 		} break;
-		case objectContext: {
+		case ObjectContext: {
 			object[object_key].sides[0] = sides[0];
 			object[object_key].sides[1] = sides[1];
 			object[object_key].sides[2] = sides[2];
 		} break;
 		case BodyContext: {
-			body[body_key].sides[0] = sides[0];
-			body[body_key].sides[1] = sides[1];
-			body[body_key].sides[2] = sides[2];
+			player[player_key].body[body_key].sides[0] = sides[0];
+			player[player_key].body[body_key].sides[1] = sides[1];
+			player[player_key].body[body_key].sides[2] = sides[2];
 		} break;
 		case JointContext: {
-			joint[joint_key].sides[0] = sides[0];
-			joint[joint_key].sides[1] = sides[1];
-			joint[joint_key].sides[2] = sides[2];
+			player[player_key].joint[joint_key].sides[0] = sides[0];
+			player[player_key].joint[joint_key].sides[1] = sides[1];
+			player[player_key].joint[joint_key].sides[2] = sides[2];
 		} break;
 	}
 
@@ -814,14 +839,14 @@ int density(lua_State* L)
 		case NoContext: {
 			// Error Handling
 		} break;
-		case objectContext: {
+		case ObjectContext: {
 			object[object_key].density = density;
 		} break;
 		case BodyContext: {
-			body[body_key].density = density;
+			player[player_key].body[body_key].density = density;
 		} break;
 		case JointContext: {
-			joint[joint_key].density = density;
+			player[player_key].joint[joint_key].density = density;
 		} break;
 	}
 
@@ -839,14 +864,14 @@ int api_static_state(lua_State* L)
 		case NoContext: {
 			// Error Handling
 		} break;
-		case objectContext: {
+		case ObjectContext: {
 			object[object_key].static_state = true;
 		} break;
 		case BodyContext: {
-			body[body_key].static_state = true;
+			player[player_key].body[body_key].static_state = true;
 		} break;
 		case JointContext: {
-			joint[joint_key].static_state = true;
+			player[player_key].joint[joint_key].static_state = true;
 		} break;
 	}
 
@@ -868,14 +893,14 @@ int radius(lua_State* L)
 		case NoContext: {
 			// Error Handling
 		} break;
-		case objectContext: {
+		case ObjectContext: {
 			object[object_key].radius = radius;
 		} break;
 		case BodyContext: {
-			body[body_key].radius = radius;
+			player[player_key].body[body_key].radius = radius;
 		} break;
 		case JointContext: {
-			joint[joint_key].radius = radius;
+			player[player_key].joint[joint_key].radius = radius;
 		} break;
 	}
 
@@ -897,14 +922,14 @@ int length(lua_State* L)
 		case NoContext: {
 			// Error Handling
 		} break;
-		case objectContext: {
+		case ObjectContext: {
 			object[object_key].length = length;
 		} break;
 		case BodyContext: {
-			body[body_key].length = length;
+			player[player_key].body[body_key].length = length;
 		} break;
 		case JointContext: {
-			joint[joint_key].length = length;
+			player[player_key].joint[joint_key].length = length;
 		} break;
 	}
 
@@ -919,22 +944,21 @@ int composite(lua_State* L)
 {
 	std::string name = lua_tostring(L, -1);
 	
-	switch(DataContext)
-	{
+	switch(DataContext) {
 		case NoContext: {
 			// Error Handling
 		} break;
-		case objectContext: {
+		case ObjectContext: {
 			object[object_key].isComposite = true;
 			object[object_key].composite.name = name;
 		} break;
 		case BodyContext: {
-			body[body_key].isComposite = true;
-			body[body_key].composite.name = name;
+			player[player_key].body[body_key].isComposite = true;
+			player[player_key].body[body_key].composite.name = name;
 		} break;
 		case JointContext: {
-			joint[joint_key].isComposite = true;
-			joint[joint_key].composite.name = name;
+			player[player_key].joint[joint_key].isComposite = true;
+			player[player_key].joint[joint_key].composite.name = name;
 		} break;
 	}
 
@@ -952,10 +976,9 @@ int strength(lua_State* L)
 	lua_rawgeti(L, -1, 1);
 	strength = lua_tonumber(L, -1); 
 
-	switch(DataContext)
-	{
+	switch(DataContext) {
 		case JointContext: {
-			joint[joint_key].strength = strength;
+			player[player_key].joint[joint_key].strength = strength;
 		} break;
 	}
 
@@ -973,10 +996,9 @@ int strength_alt(lua_State* L)
 	lua_rawgeti(L, -1, 1);
 	strength_alt = lua_tonumber(L, -1); 
 
-	switch(DataContext)
-	{
+	switch(DataContext) {
 		case JointContext: {
-			joint[joint_key].strength_alt = strength_alt;
+			player[player_key].joint[joint_key].strength_alt = strength_alt;
 		} break;
 	}
 
@@ -998,7 +1020,7 @@ int velocity(lua_State* L)
 	switch(DataContext)
 	{
 		case JointContext: {
-			joint[joint_key].velocity = velocity;
+			player[player_key].joint[joint_key].velocity = velocity;
 		} break;
 	}
 
@@ -1019,7 +1041,7 @@ int velocity_alt(lua_State* L)
 	switch(DataContext)
 	{
 		case JointContext: {
-			joint[joint_key].velocity_alt = velocity_alt;
+			player[player_key].joint[joint_key].velocity_alt = velocity_alt;
 		} break;
 	}
 
@@ -1046,9 +1068,9 @@ int axis(lua_State* L)
 	switch(DataContext)
 	{
 		case JointContext: {
-			joint[joint_key].axis[0] = axis[0];
-			joint[joint_key].axis[1] = axis[1];
-			joint[joint_key].axis[2] = axis[2];
+			player[player_key].joint[joint_key].axis[0] = axis[0];
+			player[player_key].joint[joint_key].axis[1] = axis[1];
+			player[player_key].joint[joint_key].axis[2] = axis[2];
 		} break;
 	}
 
@@ -1075,9 +1097,9 @@ int axis_alt(lua_State* L)
 	switch(DataContext)
 	{
 		case JointContext: {
-			joint[joint_key].axis_alt[0] = axis_alt[0];
-			joint[joint_key].axis_alt[1] = axis_alt[1];
-			joint[joint_key].axis_alt[2] = axis_alt[2];
+			player[player_key].joint[joint_key].axis_alt[0] = axis_alt[0];
+			player[player_key].joint[joint_key].axis_alt[1] = axis_alt[1];
+			player[player_key].joint[joint_key].axis_alt[2] = axis_alt[2];
 		} break;
 	}
 
@@ -1101,8 +1123,8 @@ int range(lua_State* L)
 	switch(DataContext)
 	{
 		case JointContext: {
-			joint[joint_key].range[0] = range[0];
-			joint[joint_key].range[1] = range[1];
+			player[player_key].joint[joint_key].range[0] = range[0];
+			player[player_key].joint[joint_key].range[1] = range[1];
 		} break;
 	}
 
@@ -1126,8 +1148,8 @@ int range_alt(lua_State* L)
 	switch(DataContext)
 	{
 		case JointContext: {
-			joint[joint_key].range_alt[0] = range_alt[0];
-			joint[joint_key].range_alt[1] = range_alt[1];
+			player[player_key].joint[joint_key].range_alt[0] = range_alt[0];
+			player[player_key].joint[joint_key].range_alt[1] = range_alt[1];
 		} break;
 	}
 
@@ -1151,8 +1173,8 @@ int connections(lua_State* L)
 	switch(DataContext)
 	{
 		case JointContext: {
-			joint[joint_key].connections[0] = connections[0];
-			joint[joint_key].connections[1] = connections[1];
+			player[player_key].joint[joint_key].connections[0] = connections[0];
+			player[player_key].joint[joint_key].connections[1] = connections[1];
 		} break;
 	}
 
@@ -1171,13 +1193,13 @@ int connectionType(lua_State* L)
 	{
 		case JointContext: {
 			if ("hinge" == connectionType) {
-				joint[joint_key].connectionType = Hinge;
+				player[player_key].joint[joint_key].connectionType = Hinge;
 			} else if ("slider" == connectionType) {
-				joint[joint_key].connectionType = Slider;
+				player[player_key].joint[joint_key].connectionType = Slider;
 			} else if ("universal" == connectionType) {
-				joint[joint_key].connectionType = Universal;
+				player[player_key].joint[joint_key].connectionType = Universal;
 			} else if ("hinge2" == connectionType) {
-				joint[joint_key].connectionType = Hinge2;
+				player[player_key].joint[joint_key].connectionType = Hinge2;
 			} else {
 			// Error Handling
 			}
@@ -1216,6 +1238,9 @@ void init_api()
 
 	lua_pushcfunction(L, api_object);
 	lua_setglobal(L, "object");
+
+	lua_pushcfunction(L, api_player);
+	lua_setglobal(L, "player");
 
 	lua_pushcfunction(L, api_body);
 	lua_setglobal(L, "body");
@@ -1366,277 +1391,277 @@ void GameStart()
 			dGeomSetCollideBits(o.dGeom, DynamicobjectsCollideBits);
 		}
 	}
-
-	for (auto& [body_name, b] : body) {
-		b.dBody = dBodyCreate(game.world);
-		dBodySetPosition(
-			b.dBody,
-			b.position[0],
-			b.position[1],
-			b.position[2]
-		);
-
-		dBodySetQuaternion(b.dBody, b.orientation);
-
-		switch(b.shape)
-		{
-			case Box: {
-				b.dGeom = dCreateBox(game.space, b.sides[0], b.sides[1], b.sides[2]);
-				dMassSetBox(&mass, b.density, b.sides[0], b.sides[1], b.sides[2]);
-			} break;
-			case Sphere: {
-				b.dGeom = dCreateSphere(game.space, b.radius);
-				dMassSetSphere(&mass, b.density, b.radius);
-			} break;
-			case Capsule: {
-				b.dGeom = dCreateCapsule(game.space, b.radius, b.length);
-				dMassSetCapsule(&mass, b.density, 1, b.radius, b.length);
-			} break;
-			case Cylinder: {
-				b.dGeom = dCreateCylinder(game.space, b.radius, b.length);
-				dMassSetCylinder(&mass, b.density, 1, b.radius, b.length);
-			} break;
+	for (auto& [player_name, p] : player) {
+		for (auto& [body_name, b] : p.body) {
+			b.dBody = dBodyCreate(game.world);
+			dBodySetPosition(
+				b.dBody,
+				b.position[0],
+				b.position[1],
+				b.position[2]
+			);
+	
+			dBodySetQuaternion(b.dBody, b.orientation);
+	
+			switch(b.shape)
+			{
+				case Box: {
+					b.dGeom = dCreateBox(game.space, b.sides[0], b.sides[1], b.sides[2]);
+					dMassSetBox(&mass, b.density, b.sides[0], b.sides[1], b.sides[2]);
+				} break;
+				case Sphere: {
+					b.dGeom = dCreateSphere(game.space, b.radius);
+					dMassSetSphere(&mass, b.density, b.radius);
+				} break;
+				case Capsule: {
+					b.dGeom = dCreateCapsule(game.space, b.radius, b.length);
+					dMassSetCapsule(&mass, b.density, 1, b.radius, b.length);
+				} break;
+				case Cylinder: {
+					b.dGeom = dCreateCylinder(game.space, b.radius, b.length);
+					dMassSetCylinder(&mass, b.density, 1, b.radius, b.length);
+				} break;
+			}
+	
+			dMassAdjust(&mass, 0.5);
+			dBodySetMass(b.dBody, &mass);
+			dGeomSetBody(b.dGeom, b.dBody);
+	
+			if (b.static_state) {
+				dJointID fixed = dJointCreateFixed(game.world ,0);
+				dJointAttach(fixed, b.dBody, 0);
+				dJointSetFixed(fixed);
+			} else {
+			}
+	
+			dGeomSetCategoryBits(b.dGeom, BodyCategoryBits);
+			dGeomSetCollideBits(b.dGeom, BodyCollideBits);
 		}
-
-		dMassAdjust(&mass, 0.5);
-		dBodySetMass(b.dBody, &mass);
-		dGeomSetBody(b.dGeom, b.dBody);
-
-		if (b.static_state) {
-			dJointID fixed = dJointCreateFixed(game.world ,0);
-			dJointAttach(fixed, b.dBody, 0);
-			dJointSetFixed(fixed);
-		} else {
-		}
-
-		dGeomSetCategoryBits(b.dGeom, BodyCategoryBits);
-		dGeomSetCollideBits(b.dGeom, BodyCollideBits);
-	}
-
-	for (auto& [joint_name, j] : joint) {
-		j.dBody = dBodyCreate(game.world);
-		dBodySetPosition(
-			j.dBody,
-			j.position[0],
-			j.position[1],
-			j.position[2]
-		);
-
-		dBodySetQuaternion(j.dBody, j.orientation);
-
-		switch(j.shape)
-		{
-			case Box: {
-				j.dGeom = dCreateBox(game.space, j.sides[0], j.sides[1], j.sides[2]);
-				dMassSetBox(&mass, j.density, j.sides[0], j.sides[1], j.sides[2]);
-			} break;
-			case Sphere: {
-				j.dGeom = dCreateSphere(game.space, j.radius);
-				dMassSetSphere(&mass, j.density, j.radius);
-			} break;
-			case Capsule: {
-				j.dGeom = dCreateCapsule(game.space, j.radius, j.length);
-				dMassSetCapsule(&mass, j.density, 1, j.radius, j.length);
-			} break;
-			case Cylinder: {
-				j.dGeom = dCreateCylinder(game.space, j.radius, j.length);
-				dMassSetCylinder(&mass, j.density, 1, j.radius, j.length);
-			} break;
-		}
-
-		dMassAdjust(&mass, 0.5);
-		dBodySetMass(j.dBody, &mass);
-		dGeomSetBody(j.dGeom, j.dBody);
-
-		if (j.static_state) {
-			dJointID fixed = dJointCreateFixed(game.world ,0);
-			dJointAttach(fixed, j.dBody, 0);
-			dJointSetFixed(fixed);
-		}
-		switch(j.connectionType)
-		{
-			case Hinge: {
-				j.dJoint[0] = dJointCreateHinge(game.world, 0);
-				dJointAttach(
-					j.dJoint[0],
-					body[j.connections[0]].dBody,
-					j.dBody);
-				dJointSetHingeAnchor(
-					j.dJoint[0],
-					j.position[0],
-					j.position[1],
-					j.position[2]);
-				dJointSetHingeAxis(
-					j.dJoint[0],
-					j.axis[0],
-					j.axis[1],
-					j.axis[2]);
-		
-				dJointSetHingeParam(
-					j.dJoint[0],
-					dParamHiStop,
-					j.range[0]);
-				dJointSetHingeParam(
-					j.dJoint[0],
-					dParamLoStop,
-					j.range[1]);
-		
-				j.dJoint[1] = dJointCreateFixed(game.world, 0);
-				dJointAttach(
-					j.dJoint[1],
-					j.dBody,
-					body[j.connections[1]].dBody);
-				dJointSetFixed(j.dJoint[1]);
-			} break;
-			case Slider: {
-				j.dJoint[0] = dJointCreateSlider(game.world, 0);
-				dJointAttach(
-					j.dJoint[0],
-					body[j.connections[0]].dBody,
-					j.dBody);
-				dJointSetSliderAxis(
-					j.dJoint[0],
-					j.axis[0],
-					j.axis[1],
-					j.axis[2]);
-		
-				dJointSetSliderParam(
-					j.dJoint[0],
-					dParamHiStop,
-					j.range[0]);
-				dJointSetSliderParam(
-					j.dJoint[0],
-					dParamLoStop,
-					j.range[1]);
-		
-				j.dJoint[1] = dJointCreateFixed(game.world, 0);
-				dJointAttach(
-					j.dJoint[1],
-					j.dBody,
-					body[j.connections[1]].dBody);
-				dJointSetFixed(j.dJoint[1]);
-			} break;
-			case Universal: {
-				j.dJoint[0] = dJointCreateUniversal(game.world, 0);
-				dJointAttach(
-					j.dJoint[0],
-					body[j.connections[0]].dBody,
-					j.dBody);
-				dJointSetUniversalAnchor(
-					j.dJoint[0],
-					j.position[0],
-					j.position[1],
-					j.position[2]);
-
-				dJointSetUniversalAnchor(
-					j.dJoint[0],
-					j.position[0],
-					j.position[1],
-					j.position[2]);
-
-				dJointSetUniversalAxis1(
-					j.dJoint[0],
-					j.axis[0],
-					j.axis[1],
-					j.axis[2]);
-				dJointSetUniversalAxis2(
-					j.dJoint[0],
-					j.axis_alt[0],
-					j.axis_alt[1],
-					j.axis_alt[2]);
-		
-				dJointSetUniversalParam(
-					j.dJoint[0],
-					dParamHiStop,
-					j.range[0]);
-
-				dJointSetUniversalParam(
-					j.dJoint[0],
-					dParamHiStop2,
-					j.range_alt[0]);
-
-				dJointSetUniversalParam(
-					j.dJoint[0],
-					dParamLoStop,
-					j.range[1]);
-
-				dJointSetUniversalParam(
-					j.dJoint[0],
-					dParamLoStop2,
-					j.range_alt[1]);
-		
-				j.dJoint[1] = dJointCreateFixed(game.world, 0);
-				dJointAttach(
-					j.dJoint[1],
-					j.dBody,
-					body[j.connections[1]].dBody);
-				dJointSetFixed(j.dJoint[1]);
-			} break;
-			case Hinge2: {
-				j.dJoint[0] = dJointCreateHinge2(game.world, 0);
-				dJointAttach(
-					j.dJoint[0],
-					body[j.connections[0]].dBody,
-					j.dBody);
-				dJointSetHinge2Anchor(
-					j.dJoint[0],
-					j.position[0],
-					j.position[1],
-					j.position[2]);
-
-				dJointSetHinge2Anchor(
-					j.dJoint[0],
-					j.position[0],
-					j.position[1],
-					j.position[2]);
+	
+		for (auto& [joint_name, j] : p.joint) {
+			j.dBody = dBodyCreate(game.world);
+			dBodySetPosition(
+				j.dBody,
+				j.position[0],
+				j.position[1],
+				j.position[2]
+			);
+	
+			dBodySetQuaternion(j.dBody, j.orientation);
+	
+			switch(j.shape)
+			{
+				case Box: {
+					j.dGeom = dCreateBox(game.space, j.sides[0], j.sides[1], j.sides[2]);
+					dMassSetBox(&mass, j.density, j.sides[0], j.sides[1], j.sides[2]);
+				} break;
+				case Sphere: {
+					j.dGeom = dCreateSphere(game.space, j.radius);
+					dMassSetSphere(&mass, j.density, j.radius);
+				} break;
+				case Capsule: {
+					j.dGeom = dCreateCapsule(game.space, j.radius, j.length);
+					dMassSetCapsule(&mass, j.density, 1, j.radius, j.length);
+				} break;
+				case Cylinder: {
+					j.dGeom = dCreateCylinder(game.space, j.radius, j.length);
+					dMassSetCylinder(&mass, j.density, 1, j.radius, j.length);
+				} break;
+			}
+	
+			dMassAdjust(&mass, 0.5);
+			dBodySetMass(j.dBody, &mass);
+			dGeomSetBody(j.dGeom, j.dBody);
+	
+			if (j.static_state) {
+				dJointID fixed = dJointCreateFixed(game.world ,0);
+				dJointAttach(fixed, j.dBody, 0);
+				dJointSetFixed(fixed);
+			}
+			switch(j.connectionType) {
+				case Hinge: {
+					j.dJoint[0] = dJointCreateHinge(game.world, 0);
+					dJointAttach(
+						j.dJoint[0],
+						p.body[j.connections[0]].dBody,
+						j.dBody);
+					dJointSetHingeAnchor(
+						j.dJoint[0],
+						j.position[0],
+						j.position[1],
+						j.position[2]);
+					dJointSetHingeAxis(
+						j.dJoint[0],
+						j.axis[0],
+						j.axis[1],
+						j.axis[2]);
 			
-				dJointSetHinge2Axes(j.dJoint[0], j.axis, j.axis_alt);
-
-				dJointSetHinge2Param(
-					j.dJoint[0],
-					dParamHiStop,
-					j.range[0]);
-
-				dJointSetHinge2Param(
-					j.dJoint[0],
-					dParamHiStop2,
-					j.range_alt[0]);
-
-				dJointSetHinge2Param(
-					j.dJoint[0],
-					dParamLoStop,
-					j.range[1]);
-
-				dJointSetHinge2Param(
-					j.dJoint[0],
-					dParamLoStop2,
-					j.range_alt[1]);
-		
-				j.dJoint[1] = dJointCreateFixed(game.world, 0);
-				dJointAttach(
-					j.dJoint[1],
-					j.dBody,
-					body[j.connections[1]].dBody);
-				dJointSetFixed(j.dJoint[1]);
-			} break;
-			default:
-				j.dJoint[0] = dJointCreateFixed(game.world, 0);
-				dJointAttach(
-					j.dJoint[0],
-					body[j.connections[0]].dBody,
-					j.dBody);
-				dJointSetFixed(j.dJoint[0]);
-
-				j.dJoint[1] = dJointCreateFixed(game.world, 0);
-				dJointAttach(
-					j.dJoint[1],
-					j.dBody,
-					body[j.connections[1]].dBody);
-				dJointSetFixed(j.dJoint[1]);
+					dJointSetHingeParam(
+						j.dJoint[0],
+						dParamHiStop,
+						j.range[0]);
+					dJointSetHingeParam(
+						j.dJoint[0],
+						dParamLoStop,
+						j.range[1]);
+			
+					j.dJoint[1] = dJointCreateFixed(game.world, 0);
+					dJointAttach(
+						j.dJoint[1],
+						j.dBody,
+						p.body[j.connections[1]].dBody);
+					dJointSetFixed(j.dJoint[1]);
+				} break;
+				case Slider: {
+					j.dJoint[0] = dJointCreateSlider(game.world, 0);
+					dJointAttach(
+						j.dJoint[0],
+						p.body[j.connections[0]].dBody,
+						j.dBody);
+					dJointSetSliderAxis(
+						j.dJoint[0],
+						j.axis[0],
+						j.axis[1],
+						j.axis[2]);
+			
+					dJointSetSliderParam(
+						j.dJoint[0],
+						dParamHiStop,
+						j.range[0]);
+					dJointSetSliderParam(
+						j.dJoint[0],
+						dParamLoStop,
+						j.range[1]);
+			
+					j.dJoint[1] = dJointCreateFixed(game.world, 0);
+					dJointAttach(
+						j.dJoint[1],
+						j.dBody,
+						p.body[j.connections[1]].dBody);
+					dJointSetFixed(j.dJoint[1]);
+				} break;
+				case Universal: {
+					j.dJoint[0] = dJointCreateUniversal(game.world, 0);
+					dJointAttach(
+						j.dJoint[0],
+						p.body[j.connections[0]].dBody,
+						j.dBody);
+					dJointSetUniversalAnchor(
+						j.dJoint[0],
+						j.position[0],
+						j.position[1],
+						j.position[2]);
+	
+					dJointSetUniversalAnchor(
+						j.dJoint[0],
+						j.position[0],
+						j.position[1],
+						j.position[2]);
+	
+					dJointSetUniversalAxis1(
+						j.dJoint[0],
+						j.axis[0],
+						j.axis[1],
+						j.axis[2]);
+					dJointSetUniversalAxis2(
+						j.dJoint[0],
+						j.axis_alt[0],
+						j.axis_alt[1],
+						j.axis_alt[2]);
+			
+					dJointSetUniversalParam(
+						j.dJoint[0],
+						dParamHiStop,
+						j.range[0]);
+	
+					dJointSetUniversalParam(
+						j.dJoint[0],
+						dParamHiStop2,
+						j.range_alt[0]);
+	
+					dJointSetUniversalParam(
+						j.dJoint[0],
+						dParamLoStop,
+						j.range[1]);
+	
+					dJointSetUniversalParam(
+						j.dJoint[0],
+						dParamLoStop2,
+						j.range_alt[1]);
+			
+					j.dJoint[1] = dJointCreateFixed(game.world, 0);
+					dJointAttach(
+						j.dJoint[1],
+						j.dBody,
+						p.body[j.connections[1]].dBody);
+					dJointSetFixed(j.dJoint[1]);
+				} break;
+				case Hinge2: {
+					j.dJoint[0] = dJointCreateHinge2(game.world, 0);
+					dJointAttach(
+						j.dJoint[0],
+						p.body[j.connections[0]].dBody,
+						j.dBody);
+					dJointSetHinge2Anchor(
+						j.dJoint[0],
+						j.position[0],
+						j.position[1],
+						j.position[2]);
+	
+					dJointSetHinge2Anchor(
+						j.dJoint[0],
+						j.position[0],
+						j.position[1],
+						j.position[2]);
+				
+					dJointSetHinge2Axes(j.dJoint[0], j.axis, j.axis_alt);
+	
+					dJointSetHinge2Param(
+						j.dJoint[0],
+						dParamHiStop,
+						j.range[0]);
+	
+					dJointSetHinge2Param(
+						j.dJoint[0],
+						dParamHiStop2,
+						j.range_alt[0]);
+	
+					dJointSetHinge2Param(
+						j.dJoint[0],
+						dParamLoStop,
+						j.range[1]);
+	
+					dJointSetHinge2Param(
+						j.dJoint[0],
+						dParamLoStop2,
+						j.range_alt[1]);
+			
+					j.dJoint[1] = dJointCreateFixed(game.world, 0);
+					dJointAttach(
+						j.dJoint[1],
+						j.dBody,
+						p.body[j.connections[1]].dBody);
+					dJointSetFixed(j.dJoint[1]);
+				} break;
+				default:
+					j.dJoint[0] = dJointCreateFixed(game.world, 0);
+					dJointAttach(
+						j.dJoint[0],
+						p.body[j.connections[0]].dBody,
+						j.dBody);
+					dJointSetFixed(j.dJoint[0]);
+	
+					j.dJoint[1] = dJointCreateFixed(game.world, 0);
+					dJointAttach(
+						j.dJoint[1],
+						j.dBody,
+						p.body[j.connections[1]].dBody);
+					dJointSetFixed(j.dJoint[1]);
+			}
+	
+			dGeomSetCategoryBits(j.dGeom, JointCategoryBits);
+			dGeomSetCollideBits(j.dGeom, JointCollideBits);
 		}
-
-		dGeomSetCategoryBits(j.dGeom, JointCategoryBits);
-		dGeomSetCollideBits(j.dGeom, JointCollideBits);
 	}
 }
 
@@ -1668,53 +1693,54 @@ void UpdateFreeze()
 		o.freeze.angularVel[1] = angularVel[1];
 		o.freeze.angularVel[2] = angularVel[2];
 	}
-
-	for (auto& [body_name, b] : body) {
-		const dReal *position = dBodyGetPosition(b.dBody);
-		const dReal *orientation = dBodyGetQuaternion(b.dBody);
-		const dReal *linearVel = dBodyGetLinearVel(b.dBody);
-		const dReal *angularVel = dBodyGetAngularVel(b.dBody);
-
-		b.freeze.position[0] = position[0];
-		b.freeze.position[1] = position[1];
-		b.freeze.position[2] = position[2];
-
-		b.freeze.orientation[0] = orientation[0];
-		b.freeze.orientation[1] = orientation[1];
-		b.freeze.orientation[2] = orientation[2];
-		b.freeze.orientation[3] = orientation[3];
-
-		b.freeze.linearVel[0] = linearVel[0];
-		b.freeze.linearVel[1] = linearVel[1];
-		b.freeze.linearVel[2] = linearVel[2];
-
-		b.freeze.angularVel[0] = angularVel[0];
-		b.freeze.angularVel[1] = angularVel[1];
-		b.freeze.angularVel[2] = angularVel[2];
-	}
+	for (auto& [player_name, p] : player) {
+		for (auto& [body_name, b] : p.body) {
+			const dReal *position = dBodyGetPosition(b.dBody);
+			const dReal *orientation = dBodyGetQuaternion(b.dBody);
+			const dReal *linearVel = dBodyGetLinearVel(b.dBody);
+			const dReal *angularVel = dBodyGetAngularVel(b.dBody);
 	
-	for (auto& [joint_name, j] : joint) {
-		const dReal *position = dBodyGetPosition(j.dBody);
-		const dReal *orientation = dBodyGetQuaternion(j.dBody);
-		const dReal *linearVel = dBodyGetLinearVel(j.dBody);
-		const dReal *angularVel = dBodyGetAngularVel(j.dBody);
-
-		j.freeze.position[0] = position[0];
-		j.freeze.position[1] = position[1];
-		j.freeze.position[2] = position[2];
-
-		j.freeze.orientation[0] = orientation[0];
-		j.freeze.orientation[1] = orientation[1];
-		j.freeze.orientation[2] = orientation[2];
-		j.freeze.orientation[3] = orientation[3];
-
-		j.freeze.linearVel[0] = linearVel[0];
-		j.freeze.linearVel[1] = linearVel[1];
-		j.freeze.linearVel[2] = linearVel[2];
-
-		j.freeze.angularVel[0] = angularVel[0];
-		j.freeze.angularVel[1] = angularVel[1];
-		j.freeze.angularVel[2] = angularVel[2];
+			b.freeze.position[0] = position[0];
+			b.freeze.position[1] = position[1];
+			b.freeze.position[2] = position[2];
+	
+			b.freeze.orientation[0] = orientation[0];
+			b.freeze.orientation[1] = orientation[1];
+			b.freeze.orientation[2] = orientation[2];
+			b.freeze.orientation[3] = orientation[3];
+	
+			b.freeze.linearVel[0] = linearVel[0];
+			b.freeze.linearVel[1] = linearVel[1];
+			b.freeze.linearVel[2] = linearVel[2];
+	
+			b.freeze.angularVel[0] = angularVel[0];
+			b.freeze.angularVel[1] = angularVel[1];
+			b.freeze.angularVel[2] = angularVel[2];
+		}
+		
+		for (auto& [joint_name, j] : p.joint) {
+			const dReal *position = dBodyGetPosition(j.dBody);
+			const dReal *orientation = dBodyGetQuaternion(j.dBody);
+			const dReal *linearVel = dBodyGetLinearVel(j.dBody);
+			const dReal *angularVel = dBodyGetAngularVel(j.dBody);
+	
+			j.freeze.position[0] = position[0];
+			j.freeze.position[1] = position[1];
+			j.freeze.position[2] = position[2];
+	
+			j.freeze.orientation[0] = orientation[0];
+			j.freeze.orientation[1] = orientation[1];
+			j.freeze.orientation[2] = orientation[2];
+			j.freeze.orientation[3] = orientation[3];
+	
+			j.freeze.linearVel[0] = linearVel[0];
+			j.freeze.linearVel[1] = linearVel[1];
+			j.freeze.linearVel[2] = linearVel[2];
+	
+			j.freeze.angularVel[0] = angularVel[0];
+			j.freeze.angularVel[1] = angularVel[1];
+			j.freeze.angularVel[2] = angularVel[2];
+		}
 	}
 }
 
@@ -1767,71 +1793,73 @@ void DrawSim()
 
 			rlPopMatrix();
 		}
-	for (auto const& [body_name, b] : body)	 {
+	for (auto const& [player_name, p] : player) {
+		for (auto const& [body_name, b] : p.body) {
+				dQuaternion dQ;
+				dRtoQ(dBodyGetRotation(b.dBody), dQ);
+				float angle;
+				Vector3 axis;
+				Quaternion q = { dQ[1], dQ[2], dQ[3], dQ[0] };
+				QuaternionToAxisAngle(q, &axis, &angle);
+				const dReal *pos = dBodyGetPosition(b.dBody);
+				rlPushMatrix();
+				rlTranslatef(pos[0], pos[1], pos[2]);
+				rlRotatef(RAD2DEG * angle, axis.x, axis.y, axis.z);
+	
+				switch(b.shape) {
+				case Box: {
+					DrawCube((Vector3){ 0.0f, 0.0f, 0.0f }, b.sides[0], b.sides[1], b.sides[2], BodyColor);
+					DrawCubeWires((Vector3){ 0.0f, 0.0f, 0.0f }, b.sides[0], b.sides[1], b.sides[2], BLACK);
+				} break;
+				case Sphere: {
+					DrawSphere((Vector3){ 0.0f, 0.0f, 0.0f }, b.radius, BodyColor);
+					DrawSphereWires((Vector3){ 0.0f, 0.0f, 0.0f }, b.radius, 16, 16, BLACK);
+				} break;
+				case Capsule: {
+					DrawCapsule((Vector3){ 0.0f, 0.0f, -(b.length/2) }, (Vector3){ 0.0f, 0.0f, (b.length/2) }, b.radius, 16, 16, BodyColor);
+					DrawCapsuleWires((Vector3){ 0.0f, 0.0f, -(b.length/2) }, (Vector3){ 0.0f, 0.0f, (b.length/2) }, b.radius, 16, 16, BLACK);
+				} break;
+				case Cylinder: {
+					DrawCylinderEx((Vector3){ 0.0f, 0.0f, -(b.length/2) }, (Vector3){ 0.0f, 0.0f, (b.length/2) }, b.radius, b.radius, 16, BodyColor);
+					DrawCylinderWiresEx((Vector3){ 0.0f, 0.0f, -(b.length/2) }, (Vector3){ 0.0f, 0.0f, (b.length/2) }, b.radius, b.radius, 16, BLACK);
+				} break;
+			}
+			rlPopMatrix();
+		}
+	
+		for (auto const& [joint_name, j] : p.joint) {
 			dQuaternion dQ;
-			dRtoQ(dBodyGetRotation(b.dBody), dQ);
+			dRtoQ(dBodyGetRotation(j.dBody), dQ);
+	
 			float angle;
 			Vector3 axis;
 			Quaternion q = { dQ[1], dQ[2], dQ[3], dQ[0] };
 			QuaternionToAxisAngle(q, &axis, &angle);
-			const dReal *pos = dBodyGetPosition(b.dBody);
+			const dReal *pos = dBodyGetPosition(j.dBody);
 			rlPushMatrix();
 			rlTranslatef(pos[0], pos[1], pos[2]);
 			rlRotatef(RAD2DEG * angle, axis.x, axis.y, axis.z);
-
-			switch(b.shape) {
-			case Box: {
-				DrawCube((Vector3){ 0.0f, 0.0f, 0.0f }, b.sides[0], b.sides[1], b.sides[2], BodyColor);
-				DrawCubeWires((Vector3){ 0.0f, 0.0f, 0.0f }, b.sides[0], b.sides[1], b.sides[2], BLACK);
-			} break;
-			case Sphere: {
-				DrawSphere((Vector3){ 0.0f, 0.0f, 0.0f }, b.radius, BodyColor);
-				DrawSphereWires((Vector3){ 0.0f, 0.0f, 0.0f }, b.radius, 16, 16, BLACK);
-			} break;
-			case Capsule: {
-				DrawCapsule((Vector3){ 0.0f, 0.0f, -(b.length/2) }, (Vector3){ 0.0f, 0.0f, (b.length/2) }, b.radius, 16, 16, BodyColor);
-				DrawCapsuleWires((Vector3){ 0.0f, 0.0f, -(b.length/2) }, (Vector3){ 0.0f, 0.0f, (b.length/2) }, b.radius, 16, 16, BLACK);
-			} break;
-			case Cylinder: {
-				DrawCylinderEx((Vector3){ 0.0f, 0.0f, -(b.length/2) }, (Vector3){ 0.0f, 0.0f, (b.length/2) }, b.radius, b.radius, 16, BodyColor);
-				DrawCylinderWiresEx((Vector3){ 0.0f, 0.0f, -(b.length/2) }, (Vector3){ 0.0f, 0.0f, (b.length/2) }, b.radius, b.radius, 16, BLACK);
-			} break;
+	
+			switch(j.shape) {
+				case Box: {
+					DrawCube((Vector3){ 0.0f, 0.0f, 0.0f }, j.sides[0], j.sides[1], j.sides[2], JointColor);
+					DrawCubeWires((Vector3){ 0.0f, 0.0f, 0.0f }, j.sides[0], j.sides[1], j.sides[2], BLACK);
+				} break;
+				case Sphere: {
+					DrawSphere((Vector3){ 0.0f, 0.0f, 0.0f }, j.radius, JointColor);
+					DrawSphereWires((Vector3){ 0.0f, 0.0f, 0.0f }, j.radius, 16, 16, BLACK);
+				} break;
+				case Capsule: {
+					DrawCapsule((Vector3){ 0.0f, 0.0f, -(j.length/2) }, (Vector3){ 0.0f, 0.0f, (j.length/2) }, j.radius, 16, 16, JointColor);
+					DrawCapsuleWires((Vector3){ 0.0f, 0.0f, -(j.length/2) }, (Vector3){ 0.0f, 0.0f, (j.length/2) }, j.radius, 16, 16, BLACK);
+				} break;
+				case Cylinder: {
+					DrawCylinderEx((Vector3){ 0.0f, 0.0f, -(j.length/2) }, (Vector3){ 0.0f, 0.0f, (j.length/2) }, j.radius, j.radius, 16, JointColor);
+					DrawCylinderWiresEx((Vector3){ 0.0f, 0.0f, -(j.length/2) }, (Vector3){ 0.0f, 0.0f, (j.length/2) }, j.radius, j.radius, 16, BLACK);
+				} break;
+			}
+			rlPopMatrix();
 		}
-		rlPopMatrix();
-	}
-
-	for (auto const& [joint_name, j] : joint) {
-		dQuaternion dQ;
-		dRtoQ(dBodyGetRotation(j.dBody), dQ);
-
-		float angle;
-		Vector3 axis;
-		Quaternion q = { dQ[1], dQ[2], dQ[3], dQ[0] };
-		QuaternionToAxisAngle(q, &axis, &angle);
-		const dReal *pos = dBodyGetPosition(j.dBody);
-		rlPushMatrix();
-		rlTranslatef(pos[0], pos[1], pos[2]);
-		rlRotatef(RAD2DEG * angle, axis.x, axis.y, axis.z);
-
-		switch(j.shape) {
-			case Box: {
-				DrawCube((Vector3){ 0.0f, 0.0f, 0.0f }, j.sides[0], j.sides[1], j.sides[2], JointColor);
-				DrawCubeWires((Vector3){ 0.0f, 0.0f, 0.0f }, j.sides[0], j.sides[1], j.sides[2], BLACK);
-			} break;
-			case Sphere: {
-				DrawSphere((Vector3){ 0.0f, 0.0f, 0.0f }, j.radius, JointColor);
-				DrawSphereWires((Vector3){ 0.0f, 0.0f, 0.0f }, j.radius, 16, 16, BLACK);
-			} break;
-			case Capsule: {
-				DrawCapsule((Vector3){ 0.0f, 0.0f, -(j.length/2) }, (Vector3){ 0.0f, 0.0f, (j.length/2) }, j.radius, 16, 16, JointColor);
-				DrawCapsuleWires((Vector3){ 0.0f, 0.0f, -(j.length/2) }, (Vector3){ 0.0f, 0.0f, (j.length/2) }, j.radius, 16, 16, BLACK);
-			} break;
-			case Cylinder: {
-				DrawCylinderEx((Vector3){ 0.0f, 0.0f, -(j.length/2) }, (Vector3){ 0.0f, 0.0f, (j.length/2) }, j.radius, j.radius, 16, JointColor);
-				DrawCylinderWiresEx((Vector3){ 0.0f, 0.0f, -(j.length/2) }, (Vector3){ 0.0f, 0.0f, (j.length/2) }, j.radius, j.radius, 16, BLACK);
-			} break;
-		}
-		rlPopMatrix();
 	}
 }
 
@@ -1870,75 +1898,77 @@ void DrawGhost()
 		}
 		rlPopMatrix();
 	}
-		
-	for (auto const& [body_name, b] : body) {
-		dQuaternion dQ;
-		dRtoQ(dBodyGetRotation(b.dBody), dQ);
 
-		float angle;
-		Vector3 axis;
-		Quaternion q = { dQ[1], dQ[2], dQ[3], dQ[0] };
-		QuaternionToAxisAngle(q, &axis, &angle);
-		const dReal *pos = dBodyGetPosition(b.dBody);
-		rlPushMatrix();
-		rlTranslatef(pos[0], pos[1], pos[2]);
-		rlRotatef(RAD2DEG * angle, axis.x, axis.y, axis.z);
+	for (auto const& [player_name, p] : player) {
+		for (auto const& [body_name, b] : p.body) {
+			dQuaternion dQ;
+			dRtoQ(dBodyGetRotation(b.dBody), dQ);
 
-		switch(b.shape) {
-			case Box: {
-				DrawCube((Vector3){ 0.0f, 0.0f, 0.0f }, b.sides[0], b.sides[1], b.sides[2], GhostColor);
-				DrawCubeWires((Vector3){ 0.0f, 0.0f, 0.0f }, b.sides[0], b.sides[1], b.sides[2], BLACK);
-			} break;
-			case Sphere: {
-				DrawSphere((Vector3){ 0.0f, 0.0f, 0.0f }, b.radius, GhostColor);
-				DrawSphereWires((Vector3){ 0.0f, 0.0f, 0.0f }, b.radius, 16, 16, BLACK);
-			} break;
-			case Capsule: {
-					DrawCapsule((Vector3){ 0.0f, 0.0f, -(b.length/2) }, (Vector3){ 0.0f, 0.0f, (b.length/2) }, b.radius, 16, 16, GhostColor);
-					DrawCapsuleWires((Vector3){ 0.0f, 0.0f, -(b.length/2) }, (Vector3){ 0.0f, 0.0f, (b.length/2) }, b.radius, 16, 16, BLACK);
-			} break;
-			case Cylinder: {
-				DrawCylinderEx((Vector3){ 0.0f, 0.0f, -(b.length/2) }, (Vector3){ 0.0f, 0.0f, (b.length/2) }, b.radius, b.radius, 16, GhostColor);
-				DrawCylinderWiresEx((Vector3){ 0.0f, 0.0f, -(b.length/2) }, (Vector3){ 0.0f, 0.0f, (b.length/2) }, b.radius, b.radius, 16, BLACK);
-			} break;
+			float angle;
+			Vector3 axis;
+			Quaternion q = { dQ[1], dQ[2], dQ[3], dQ[0] };
+			QuaternionToAxisAngle(q, &axis, &angle);
+			const dReal *pos = dBodyGetPosition(b.dBody);
+			rlPushMatrix();
+			rlTranslatef(pos[0], pos[1], pos[2]);
+			rlRotatef(RAD2DEG * angle, axis.x, axis.y, axis.z);
+
+			switch(b.shape) {
+				case Box: {
+					DrawCube((Vector3){ 0.0f, 0.0f, 0.0f }, b.sides[0], b.sides[1], b.sides[2], GhostColor);
+					DrawCubeWires((Vector3){ 0.0f, 0.0f, 0.0f }, b.sides[0], b.sides[1], b.sides[2], BLACK);
+				} break;
+				case Sphere: {
+					DrawSphere((Vector3){ 0.0f, 0.0f, 0.0f }, b.radius, GhostColor);
+					DrawSphereWires((Vector3){ 0.0f, 0.0f, 0.0f }, b.radius, 16, 16, BLACK);
+				} break;
+				case Capsule: {
+						DrawCapsule((Vector3){ 0.0f, 0.0f, -(b.length/2) }, (Vector3){ 0.0f, 0.0f, (b.length/2) }, b.radius, 16, 16, GhostColor);
+						DrawCapsuleWires((Vector3){ 0.0f, 0.0f, -(b.length/2) }, (Vector3){ 0.0f, 0.0f, (b.length/2) }, b.radius, 16, 16, BLACK);
+				} break;
+				case Cylinder: {
+					DrawCylinderEx((Vector3){ 0.0f, 0.0f, -(b.length/2) }, (Vector3){ 0.0f, 0.0f, (b.length/2) }, b.radius, b.radius, 16, GhostColor);
+					DrawCylinderWiresEx((Vector3){ 0.0f, 0.0f, -(b.length/2) }, (Vector3){ 0.0f, 0.0f, (b.length/2) }, b.radius, b.radius, 16, BLACK);
+				} break;
+			}
+			rlPopMatrix();
 		}
-		rlPopMatrix();
-	}
 
-	for (auto const& [joint_name, j] : joint) {
-		dQuaternion dQ;
-		dRtoQ(dBodyGetRotation(j.dBody), dQ);
+		for (auto const& [joint_name, j] : p.joint) {
+			dQuaternion dQ;
+			dRtoQ(dBodyGetRotation(j.dBody), dQ);
 
-		float angle;
-		Vector3 axis;
-		Quaternion q = { dQ[1], dQ[2], dQ[3], dQ[0] };
-		QuaternionToAxisAngle(q, &axis, &angle);
-		const dReal *pos = dBodyGetPosition(j.dBody);
-		rlPushMatrix();
-		rlTranslatef(pos[0], pos[1], pos[2]);
-		rlRotatef(RAD2DEG * angle, axis.x, axis.y, axis.z);
+			float angle;
+			Vector3 axis;
+			Quaternion q = { dQ[1], dQ[2], dQ[3], dQ[0] };
+			QuaternionToAxisAngle(q, &axis, &angle);
+			const dReal *pos = dBodyGetPosition(j.dBody);
+			rlPushMatrix();
+			rlTranslatef(pos[0], pos[1], pos[2]);
+			rlRotatef(RAD2DEG * angle, axis.x, axis.y, axis.z);
 
-		switch(j.shape)
-		{
-			case Box: {
-				DrawCube((Vector3){ 0.0f, 0.0f, 0.0f }, j.sides[0], j.sides[1], j.sides[2], GhostColor);
-				DrawCubeWires((Vector3){ 0.0f, 0.0f, 0.0f }, j.sides[0], j.sides[1], j.sides[2], BLACK);
-			} break;
-			case Sphere: {
-				DrawSphere((Vector3){ 0.0f, 0.0f, 0.0f }, j.radius, GhostColor);
-				DrawSphereWires((Vector3){ 0.0f, 0.0f, 0.0f }, j.radius, 16, 16, BLACK);
-			} break;
-			case Capsule: {
-				// WTF is with the capsules hitbox
-				DrawCapsule((Vector3){ 0.0f, 0.0f, -(j.length/2) }, (Vector3){ 0.0f, 0.0f, (j.length/2) }, j.radius, 16, 16, GhostColor);
-				DrawCapsuleWires((Vector3){ 0.0f, 0.0f, -(j.length/2) }, (Vector3){ 0.0f, 0.0f, (j.length/2) }, j.radius, 16, 16, BLACK);
-			} break;
-			case Cylinder: {
-				DrawCylinderEx((Vector3){ 0.0f, 0.0f, -(j.length/2) }, (Vector3){ 0.0f, 0.0f, (j.length/2) }, j.radius, j.radius, 16, GhostColor);
-				DrawCylinderWiresEx((Vector3){ 0.0f, 0.0f, -(j.length/2) }, (Vector3){ 0.0f, 0.0f, (j.length/2) }, j.radius, j.radius, 16, BLACK);
-			} break;
+			switch(j.shape)
+			{
+				case Box: {
+					DrawCube((Vector3){ 0.0f, 0.0f, 0.0f }, j.sides[0], j.sides[1], j.sides[2], GhostColor);
+					DrawCubeWires((Vector3){ 0.0f, 0.0f, 0.0f }, j.sides[0], j.sides[1], j.sides[2], BLACK);
+				} break;
+				case Sphere: {
+					DrawSphere((Vector3){ 0.0f, 0.0f, 0.0f }, j.radius, GhostColor);
+					DrawSphereWires((Vector3){ 0.0f, 0.0f, 0.0f }, j.radius, 16, 16, BLACK);
+				} break;
+				case Capsule: {
+					// WTF is with the capsules hitbox
+					DrawCapsule((Vector3){ 0.0f, 0.0f, -(j.length/2) }, (Vector3){ 0.0f, 0.0f, (j.length/2) }, j.radius, 16, 16, GhostColor);
+					DrawCapsuleWires((Vector3){ 0.0f, 0.0f, -(j.length/2) }, (Vector3){ 0.0f, 0.0f, (j.length/2) }, j.radius, 16, 16, BLACK);
+				} break;
+				case Cylinder: {
+					DrawCylinderEx((Vector3){ 0.0f, 0.0f, -(j.length/2) }, (Vector3){ 0.0f, 0.0f, (j.length/2) }, j.radius, j.radius, 16, GhostColor);
+					DrawCylinderWiresEx((Vector3){ 0.0f, 0.0f, -(j.length/2) }, (Vector3){ 0.0f, 0.0f, (j.length/2) }, j.radius, j.radius, 16, BLACK);
+				} break;
+			}
+			rlPopMatrix();
 		}
-		rlPopMatrix();
 	}
 }
 
@@ -1998,88 +2028,90 @@ void DrawFreeze()
 			}
 			rlPopMatrix();
 		}
-		
-	for (auto const& [body_name, b] : body) {
-		float angle;
-		Vector3 axis;
-		Quaternion q = {
-			b.freeze.orientation[1],
-			b.freeze.orientation[2],
-			b.freeze.orientation[3],
-			b.freeze.orientation[0]
-		};
-		QuaternionToAxisAngle(q, &axis, &angle);
-		rlPushMatrix();
-		rlTranslatef(
-			b.freeze.position[0],
-			b.freeze.position[1],
-			b.freeze.position[2]
-		);
-		rlRotatef(RAD2DEG * angle, axis.x, axis.y, axis.z);
-
-		switch (b.shape) {
-			case Box: {
-				DrawCube((Vector3){ 0.0f, 0.0f, 0.0f }, b.sides[0], b.sides[1], b.sides[2], BodyColor);
-				DrawCubeWires((Vector3){ 0.0f, 0.0f, 0.0f }, b.sides[0], b.sides[1], b.sides[2], BLACK);
-			} break;
-			case Sphere: {
-				DrawSphere((Vector3){ 0.0f, 0.0f, 0.0f }, b.radius, BodyColor);
-				DrawSphereWires((Vector3){ 0.0f, 0.0f, 0.0f }, b.radius, 16, 16, BLACK);
-			} break;
-			case Capsule: {
-				DrawCapsule((Vector3){ 0.0f, 0.0f, -(b.length/2) }, (Vector3){ 0.0f, 0.0f, (b.length/2) }, b.radius, 16, 16, BodyColor);
-				DrawCapsuleWires((Vector3){ 0.0f, 0.0f, -(b.length/2) }, (Vector3){ 0.0f, 0.0f, (b.length/2) }, b.radius, 16, 16, BLACK);
-			} break;
-			case Cylinder: {
-				DrawCylinderEx((Vector3){ 0.0f, 0.0f, -(b.length/2) }, (Vector3){ 0.0f, 0.0f, (b.length/2) }, b.radius, b.radius, 16, BodyColor);
-				DrawCylinderWiresEx((Vector3){ 0.0f, 0.0f, -(b.length/2) }, (Vector3){ 0.0f, 0.0f, (b.length/2) }, b.radius, b.radius, 16, BLACK);
-			} break;
+			
+	for (auto const& [player_name, p] : player) {
+		for (auto const& [body_name, b] : p.body) {
+			float angle;
+			Vector3 axis;
+			Quaternion q = {
+				b.freeze.orientation[1],
+				b.freeze.orientation[2],
+				b.freeze.orientation[3],
+				b.freeze.orientation[0]
+			};
+			QuaternionToAxisAngle(q, &axis, &angle);
+			rlPushMatrix();
+			rlTranslatef(
+				b.freeze.position[0],
+				b.freeze.position[1],
+				b.freeze.position[2]
+			);
+			rlRotatef(RAD2DEG * angle, axis.x, axis.y, axis.z);
+	
+			switch (b.shape) {
+				case Box: {
+					DrawCube((Vector3){ 0.0f, 0.0f, 0.0f }, b.sides[0], b.sides[1], b.sides[2], BodyColor);
+					DrawCubeWires((Vector3){ 0.0f, 0.0f, 0.0f }, b.sides[0], b.sides[1], b.sides[2], BLACK);
+				} break;
+				case Sphere: {
+					DrawSphere((Vector3){ 0.0f, 0.0f, 0.0f }, b.radius, BodyColor);
+					DrawSphereWires((Vector3){ 0.0f, 0.0f, 0.0f }, b.radius, 16, 16, BLACK);
+				} break;
+				case Capsule: {
+					DrawCapsule((Vector3){ 0.0f, 0.0f, -(b.length/2) }, (Vector3){ 0.0f, 0.0f, (b.length/2) }, b.radius, 16, 16, BodyColor);
+					DrawCapsuleWires((Vector3){ 0.0f, 0.0f, -(b.length/2) }, (Vector3){ 0.0f, 0.0f, (b.length/2) }, b.radius, 16, 16, BLACK);
+				} break;
+				case Cylinder: {
+					DrawCylinderEx((Vector3){ 0.0f, 0.0f, -(b.length/2) }, (Vector3){ 0.0f, 0.0f, (b.length/2) }, b.radius, b.radius, 16, BodyColor);
+					DrawCylinderWiresEx((Vector3){ 0.0f, 0.0f, -(b.length/2) }, (Vector3){ 0.0f, 0.0f, (b.length/2) }, b.radius, b.radius, 16, BLACK);
+				} break;
+			}
+			rlPopMatrix();
 		}
-		rlPopMatrix();
-	}
-
-	for (auto const& [joint_name, j] : joint) {
-		float angle;
-		Vector3 axis;
-		Quaternion q = {
-			j.freeze.orientation[1],
-			j.freeze.orientation[2],
-			j.freeze.orientation[3],
-			j.freeze.orientation[0]
-		};
-		QuaternionToAxisAngle(q, &axis, &angle);
-		rlPushMatrix();
-		rlTranslatef(
-			j.freeze.position[0],
-			j.freeze.position[1],
-			j.freeze.position[2]
-		);
-		rlRotatef(RAD2DEG * angle, axis.x, axis.y, axis.z);
-
-		switch(j.shape)
-		{
-			case Box: {
-				DrawCube((Vector3){ 0.0f, 0.0f, 0.0f }, j.sides[0], j.sides[1], j.sides[2], JointColor);
-				DrawCubeWires((Vector3){ 0.0f, 0.0f, 0.0f }, j.sides[0], j.sides[1], j.sides[2], BLACK);
-			} break;
-			case Sphere: {
-				if (j.name == game.selected_joint)
-					DrawSphere((Vector3){ 0.0f, 0.0f, 0.0f }, j.radius, RED);
-				else
-					DrawSphere((Vector3){ 0.0f, 0.0f, 0.0f }, j.radius, JointColor);
-				DrawSphereWires((Vector3){ 0.0f, 0.0f, 0.0f }, j.radius, 16, 16, BLACK);
-			} break;
-			case Capsule: {
-				// WTF is with the capsules hitbox
-				DrawCapsule((Vector3){ 0.0f, 0.0f, -(j.length/2) }, (Vector3){ 0.0f, 0.0f, (j.length/2) }, j.radius, 16, 16, JointColor);
-				DrawCapsuleWires((Vector3){ 0.0f, 0.0f, -(j.length/2) }, (Vector3){ 0.0f, 0.0f, (j.length/2) }, j.radius, 16, 16, BLACK);
-			} break;
-			case Cylinder: {
-				DrawCylinderEx((Vector3){ 0.0f, 0.0f, -(j.length/2) }, (Vector3){ 0.0f, 0.0f, (j.length/2) }, j.radius, j.radius, 16, JointColor);
-				DrawCylinderWiresEx((Vector3){ 0.0f, 0.0f, -(j.length/2) }, (Vector3){ 0.0f, 0.0f, (j.length/2) }, j.radius, j.radius, 16, BLACK);
-			} break;
+	
+		for (auto const& [joint_name, j] : p.joint) {
+			float angle;
+			Vector3 axis;
+			Quaternion q = {
+				j.freeze.orientation[1],
+				j.freeze.orientation[2],
+				j.freeze.orientation[3],
+				j.freeze.orientation[0]
+			};
+			QuaternionToAxisAngle(q, &axis, &angle);
+			rlPushMatrix();
+			rlTranslatef(
+				j.freeze.position[0],
+				j.freeze.position[1],
+				j.freeze.position[2]
+			);
+			rlRotatef(RAD2DEG * angle, axis.x, axis.y, axis.z);
+	
+			switch(j.shape)
+			{
+				case Box: {
+					DrawCube((Vector3){ 0.0f, 0.0f, 0.0f }, j.sides[0], j.sides[1], j.sides[2], JointColor);
+					DrawCubeWires((Vector3){ 0.0f, 0.0f, 0.0f }, j.sides[0], j.sides[1], j.sides[2], BLACK);
+				} break;
+				case Sphere: {
+					if (j.name == game.selected_joint)
+						DrawSphere((Vector3){ 0.0f, 0.0f, 0.0f }, j.radius, RED);
+					else
+						DrawSphere((Vector3){ 0.0f, 0.0f, 0.0f }, j.radius, JointColor);
+					DrawSphereWires((Vector3){ 0.0f, 0.0f, 0.0f }, j.radius, 16, 16, BLACK);
+				} break;
+				case Capsule: {
+					// WTF is with the capsules hitbox
+					DrawCapsule((Vector3){ 0.0f, 0.0f, -(j.length/2) }, (Vector3){ 0.0f, 0.0f, (j.length/2) }, j.radius, 16, 16, JointColor);
+					DrawCapsuleWires((Vector3){ 0.0f, 0.0f, -(j.length/2) }, (Vector3){ 0.0f, 0.0f, (j.length/2) }, j.radius, 16, 16, BLACK);
+				} break;
+				case Cylinder: {
+					DrawCylinderEx((Vector3){ 0.0f, 0.0f, -(j.length/2) }, (Vector3){ 0.0f, 0.0f, (j.length/2) }, j.radius, j.radius, 16, JointColor);
+					DrawCylinderWiresEx((Vector3){ 0.0f, 0.0f, -(j.length/2) }, (Vector3){ 0.0f, 0.0f, (j.length/2) }, j.radius, j.radius, 16, BLACK);
+				} break;
+			}
+			rlPopMatrix();
 		}
-		rlPopMatrix();
 	}
 }
 
@@ -2107,42 +2139,44 @@ void ReFreeze()
 			o.freeze.angularVel[2]);
 	}
 
-	for (auto const& [body_name, b] : body) {
-		dBodySetPosition(
-			b.dBody,
-			b.freeze.position[0],
-			b.freeze.position[1],
-			b.freeze.position[2]);
-		dBodySetQuaternion(b.dBody, b.freeze.orientation);
-		dBodySetLinearVel(
-			b.dBody,
-			b.freeze.linearVel[0],
-			b.freeze.linearVel[1],
-			b.freeze.linearVel[2]);
-		dBodySetAngularVel(
-			b.dBody,
-			b.freeze.angularVel[0],
-			b.freeze.angularVel[1],
-			b.freeze.angularVel[2]);
-	}
+	for (auto const& [player_name, p] : player) {
+		for (auto const& [body_name, b] : p.body) {
+			dBodySetPosition(
+				b.dBody,
+				b.freeze.position[0],
+				b.freeze.position[1],
+				b.freeze.position[2]);
+			dBodySetQuaternion(b.dBody, b.freeze.orientation);
+			dBodySetLinearVel(
+				b.dBody,
+				b.freeze.linearVel[0],
+				b.freeze.linearVel[1],
+				b.freeze.linearVel[2]);
+			dBodySetAngularVel(
+				b.dBody,
+				b.freeze.angularVel[0],
+				b.freeze.angularVel[1],
+				b.freeze.angularVel[2]);
+		}
 
-	for (auto const& [joint_name, j] : joint) {
-		dBodySetPosition(
-			j.dBody,
-			j.freeze.position[0],
-			j.freeze.position[1],
-			j.freeze.position[2]);
-		dBodySetQuaternion(j.dBody, j.freeze.orientation);
-		dBodySetLinearVel(
-			j.dBody,
-			j.freeze.linearVel[0],
-			j.freeze.linearVel[1],
-			j.freeze.linearVel[2]);
-		dBodySetAngularVel(
-			j.dBody,
-			j.freeze.angularVel[0],
-			j.freeze.angularVel[1],
-			j.freeze.angularVel[2]);
+		for (auto const& [joint_name, j] : p.joint) {
+			dBodySetPosition(
+				j.dBody,
+				j.freeze.position[0],
+				j.freeze.position[1],
+				j.freeze.position[2]);
+			dBodySetQuaternion(j.dBody, j.freeze.orientation);
+			dBodySetLinearVel(
+				j.dBody,
+				j.freeze.linearVel[0],
+				j.freeze.linearVel[1],
+				j.freeze.linearVel[2]);
+			dBodySetAngularVel(
+				j.dBody,
+				j.freeze.angularVel[0],
+				j.freeze.angularVel[1],
+				j.freeze.angularVel[2]);
+		}
 	}
 }
 
@@ -2191,10 +2225,10 @@ void TriggerPlayerPassiveStates(std::string player)
 }
 */
 
-void TriggerPlayerPassiveStates(PlayerPassiveStates state)
+void TriggerPlayerPassiveStates(std::string player_name, PlayerPassiveStates state)
 {
 	dReal strength = 0.00;
-	for (auto& [joint_name, j] : joint) {
+	for (auto& [joint_name, j] : player[player_name].joint) {
 		j.state = RELAX;
 		if (state == HOLD_ALL) {
 			strength = j.strength;
@@ -2228,10 +2262,10 @@ void TriggerPlayerPassiveStatesAlt(std::string player)
 }
 */
 
-void TriggerPlayerPassiveStatesAlt(PlayerPassiveStates state)
+void TriggerPlayerPassiveStatesAlt(std::string player_name, PlayerPassiveStates state)
 {
 	dReal strength = 0.00;
-	for (auto& [joint_name, j] : joint) {
+	for (auto& [joint_name, j] : player[player_name].joint) {
 		j.state_alt = RELAX;
 		if (state == HOLD_ALL) {
 			strength = j.strength_alt;
@@ -2261,15 +2295,15 @@ void TogglePlayerPassiveStates(std::string player)
 }
 */
 
-void TogglePlayerPassiveStates()
+void TogglePlayerPassiveStates(std::string player_name)
 {
 	ReFreeze();
-	if (player.passive_states == RELAX_ALL) {
-		TriggerPlayerPassiveStates(HOLD_ALL);
-		player.passive_states = HOLD_ALL;
+	if (player[player_name].passive_states == RELAX_ALL) {
+		TriggerPlayerPassiveStates(player_name, HOLD_ALL);
+		player[player_name].passive_states = HOLD_ALL;
 	} else {
-		TriggerPlayerPassiveStates(RELAX_ALL);
-		player.passive_states = RELAX_ALL;
+		TriggerPlayerPassiveStates(player_name, RELAX_ALL);
+		player[player_name].passive_states = RELAX_ALL;
 	}
 }
 
@@ -2280,221 +2314,212 @@ void TogglePlayerPassiveStatesAlt(std::string player)
 }
 */
 
-void TogglePlayerPassiveStatesAlt()
+void TogglePlayerPassiveStatesAlt(std::string player_name)
 {
 	ReFreeze();
-	if (player.passive_states_alt == RELAX_ALL) {
-		TriggerPlayerPassiveStatesAlt(HOLD_ALL);
-		player.passive_states_alt = HOLD_ALL;
+	if (player[player_name].passive_states_alt == RELAX_ALL) {
+		TriggerPlayerPassiveStatesAlt(player_name, HOLD_ALL);
+		player[player_name].passive_states_alt = HOLD_ALL;
 	} else {
-		TriggerPlayerPassiveStatesAlt(RELAX_ALL);
-		player.passive_states_alt = RELAX_ALL;
+		TriggerPlayerPassiveStatesAlt(player_name, RELAX_ALL);
+		player[player_name].passive_states_alt = RELAX_ALL;
 	}
 }
 
-/*
- * TODO: implement this per player
-void RelaxAll(std::string player)
-{
-
-}
-*/
-
-void RelaxAll()
+void RelaxAll(std::string player_name)
 {
 	ReFreeze();
-	TriggerPlayerPassiveStates(RELAX_ALL);
-	player.passive_states = RELAX_ALL;
+	TriggerPlayerPassiveStates(player_name, RELAX_ALL);
+	player[player_name].passive_states = RELAX_ALL;
 }
 
-void RelaxAllAlt()
+void RelaxAllAlt(std::string player_name)
 {
 	ReFreeze();
-	TriggerPlayerPassiveStatesAlt(RELAX_ALL);
-	player.passive_states_alt = RELAX_ALL;
+	TriggerPlayerPassiveStatesAlt(player_name, RELAX_ALL);
+	player[player_name].passive_states_alt = RELAX_ALL;
 }
 
-void TriggerActiveStateAlt(std::string joint_name, dReal direction)
+void TriggerActiveStateAlt(std::string player_name, std::string joint_name, dReal direction)
 {
-	switch(joint[joint_name].connectionType) {
+	switch(player[player_name].joint[joint_name].connectionType) {
 		case Hinge: {
 		} break;
 		case Slider: {
 		} break;
 		case Universal: {
-			dJointSetUniversalParam(joint[joint_name].dJoint[0], dParamFMax2, joint[joint_name].strength_alt);
-			dJointSetUniversalParam(joint[joint_name].dJoint[0], dParamVel2, direction * joint[joint_name].velocity_alt);
+			dJointSetUniversalParam(player[player_name].joint[joint_name].dJoint[0], dParamFMax2,player[player_name].joint[joint_name].strength_alt);
+			dJointSetUniversalParam(player[player_name].joint[joint_name].dJoint[0], dParamVel2, direction *player[player_name].joint[joint_name].velocity_alt);
 		} break;
 		case Hinge2: {
-			dJointSetHinge2Param(joint[joint_name].dJoint[0], dParamFMax2, joint[joint_name].strength_alt);
-			dJointSetHinge2Param(joint[joint_name].dJoint[0], dParamVel2, direction * joint[joint_name].velocity_alt);
+			dJointSetHinge2Param(player[player_name].joint[joint_name].dJoint[0], dParamFMax2,player[player_name].joint[joint_name].strength_alt);
+			dJointSetHinge2Param(player[player_name].joint[joint_name].dJoint[0], dParamVel2, direction *player[player_name].joint[joint_name].velocity_alt);
 		} break;
 	}
 }
 
-void TriggerPassiveStateAlt(std::string joint_name, dReal strength)
+void TriggerPassiveStateAlt(std::string player_name, std::string joint_name, dReal strength)
 {
-	switch(joint[joint_name].connectionType)
-	{
+	switch(player[player_name].joint[joint_name].connectionType) {
 		case Hinge: {
 		} break;
 		case Slider: {
 		} break;
 		case Universal: {
-			dJointSetUniversalParam(joint[joint_name].dJoint[0], dParamFMax2, strength);
-			dJointSetUniversalParam(joint[joint_name].dJoint[0], dParamVel2, 0.0f);
+			dJointSetUniversalParam(player[player_name].joint[joint_name].dJoint[0], dParamFMax2, strength);
+			dJointSetUniversalParam(player[player_name].joint[joint_name].dJoint[0], dParamVel2, 0.0f);
 		} break;
 		case Hinge2: {
-			dJointSetHinge2Param(joint[joint_name].dJoint[0], dParamFMax2, strength);
-			dJointSetHinge2Param(joint[joint_name].dJoint[0], dParamVel2, 0.0f);
+			dJointSetHinge2Param(player[player_name].joint[joint_name].dJoint[0], dParamFMax2, strength);
+			dJointSetHinge2Param(player[player_name].joint[joint_name].dJoint[0], dParamVel2, 0.0f);
 		} break;
 	}
 }
-void TriggerActiveState(std::string joint_name, dReal direction)
+void TriggerActiveState(std::string player_name, std::string joint_name, dReal direction)
 {
-	switch(joint[joint_name].connectionType) {
+	switch(player[player_name].joint[joint_name].connectionType) {
 		case Hinge: {
-			dJointSetHingeParam(joint[joint_name].dJoint[0], dParamFMax, joint[joint_name].strength);
-			dJointSetHingeParam(joint[joint_name].dJoint[0], dParamVel, direction * joint[joint_name].velocity);
+			dJointSetHingeParam(player[player_name].joint[joint_name].dJoint[0], dParamFMax,player[player_name].joint[joint_name].strength);
+			dJointSetHingeParam(player[player_name].joint[joint_name].dJoint[0], dParamVel, direction *player[player_name].joint[joint_name].velocity);
 		} break;
 		case Slider: {
-			dJointSetSliderParam(joint[joint_name].dJoint[0], dParamFMax, joint[joint_name].strength);
-			dJointSetSliderParam(joint[joint_name].dJoint[0], dParamVel, direction * joint[joint_name].velocity);
+			dJointSetSliderParam(player[player_name].joint[joint_name].dJoint[0], dParamFMax,player[player_name].joint[joint_name].strength);
+			dJointSetSliderParam(player[player_name].joint[joint_name].dJoint[0], dParamVel, direction *player[player_name].joint[joint_name].velocity);
 		} break;
 		case Universal: {
-			dJointSetUniversalParam(joint[joint_name].dJoint[0], dParamFMax, joint[joint_name].strength);
-			dJointSetUniversalParam(joint[joint_name].dJoint[0], dParamVel, direction * joint[joint_name].velocity);
+			dJointSetUniversalParam(player[player_name].joint[joint_name].dJoint[0], dParamFMax,player[player_name].joint[joint_name].strength);
+			dJointSetUniversalParam(player[player_name].joint[joint_name].dJoint[0], dParamVel, direction *player[player_name].joint[joint_name].velocity);
 		} break;
 		case Hinge2: {
-			dJointSetHinge2Param(joint[joint_name].dJoint[0], dParamFMax, joint[joint_name].strength);
-			dJointSetHinge2Param(joint[joint_name].dJoint[0], dParamVel, direction * joint[joint_name].velocity);
+			dJointSetHinge2Param(player[player_name].joint[joint_name].dJoint[0], dParamFMax,player[player_name].joint[joint_name].strength);
+			dJointSetHinge2Param(player[player_name].joint[joint_name].dJoint[0], dParamVel, direction *player[player_name].joint[joint_name].velocity);
 		} break;
 	}
 }
 
-void TriggerPassiveState(std::string joint_name, dReal strength)
+void TriggerPassiveState(std::string player_name, std::string joint_name, dReal strength)
 {
-	switch(joint[joint_name].connectionType) {
+	switch(player[player_name].joint[joint_name].connectionType) {
 		case Hinge: {
-			dJointSetHingeParam(joint[joint_name].dJoint[0], dParamFMax, strength);
-			dJointSetHingeParam(joint[joint_name].dJoint[0], dParamVel, 0.0f);
+			dJointSetHingeParam(player[player_name].joint[joint_name].dJoint[0], dParamFMax, strength);
+			dJointSetHingeParam(player[player_name].joint[joint_name].dJoint[0], dParamVel, 0.0f);
 		} break;
 		case Slider: {
-			dJointSetSliderParam(joint[joint_name].dJoint[0], dParamFMax, strength);
-			dJointSetSliderParam(joint[joint_name].dJoint[0], dParamVel, 0.0f);
+			dJointSetSliderParam(player[player_name].joint[joint_name].dJoint[0], dParamFMax, strength);
+			dJointSetSliderParam(player[player_name].joint[joint_name].dJoint[0], dParamVel, 0.0f);
 		} break;
 		case Universal: {
-			dJointSetUniversalParam(joint[joint_name].dJoint[0], dParamFMax, strength);
-			dJointSetUniversalParam(joint[joint_name].dJoint[0], dParamVel, 0.0f);
+			dJointSetUniversalParam(player[player_name].joint[joint_name].dJoint[0], dParamFMax, strength);
+			dJointSetUniversalParam(player[player_name].joint[joint_name].dJoint[0], dParamVel, 0.0f);
 		} break;
 		case Hinge2: {
-			dJointSetHinge2Param(joint[joint_name].dJoint[0], dParamFMax, strength);
-			dJointSetHinge2Param(joint[joint_name].dJoint[0], dParamVel, 0.0f);
+			dJointSetHinge2Param(player[player_name].joint[joint_name].dJoint[0], dParamFMax, strength);
+			dJointSetHinge2Param(player[player_name].joint[joint_name].dJoint[0], dParamVel, 0.0f);
 		} break;
 	}
 }
 
-void TogglePassiveState(std::string joint_name)
+void TogglePassiveState(std::string player_name, std::string joint_name)
 {
 	if (joint_name == "NONE") return;
 
 	ReFreeze();
 
-	if (joint[joint_name].state == RELAX) {
-		joint[joint_name].state = HOLD;
-		TriggerPassiveState(joint_name, joint[joint_name].strength);
+	if (player[player_name].joint[joint_name].state == RELAX) {
+		player[player_name].joint[joint_name].state = HOLD;
+		TriggerPassiveState(player_name, joint_name, player[player_name].joint[joint_name].strength);
 	} else {
-		joint[joint_name].state = RELAX;
-		TriggerPassiveState(joint_name, 0);
+		player[player_name].joint[joint_name].state = RELAX;
+		TriggerPassiveState(player_name, joint_name, 0);
 	}
 }
 
-void TogglePassiveStateAlt(std::string joint_name)
+void TogglePassiveStateAlt(std::string player_name, std::string joint_name)
 {
 	if (joint_name == "NONE") return;
 
 	ReFreeze();
 
-	if (joint[joint_name].state_alt == RELAX) {
-		joint[joint_name].state_alt = HOLD;
-		TriggerPassiveStateAlt(joint_name, joint[joint_name].strength);
+	if (player[player_name].joint[joint_name].state_alt == RELAX) {
+		player[player_name].joint[joint_name].state_alt = HOLD;
+		TriggerPassiveStateAlt(player_name, joint_name, player[player_name].joint[joint_name].strength);
 	} else {
-		joint[joint_name].state_alt = RELAX;
-		TriggerPassiveStateAlt(joint_name, 0);
+		player[player_name].joint[joint_name].state_alt = RELAX;
+		TriggerPassiveStateAlt(player_name, joint_name, 0);
 	}
 }
 
-void ToggleActiveState(std::string joint_name)
+void ToggleActiveState(std::string player_name, std::string joint_name)
 {
 	if (joint_name == "NONE") return;
 
 	ReFreeze();
 	
-	if (joint[joint_name].state == FORWARD) {
-		joint[joint_name].state = BACKWARD;
-		TriggerActiveState(joint_name, -1);
+	if (player[player_name].joint[joint_name].state == FORWARD) {
+		player[player_name].joint[joint_name].state = BACKWARD;
+		TriggerActiveState(player_name, joint_name, -1);
 	} else {
-		joint[joint_name].state = FORWARD;
-		TriggerActiveState(joint_name, 1);
+		player[player_name].joint[joint_name].state = FORWARD;
+		TriggerActiveState(player_name, joint_name, 1);
 	}
 }
 
-void ToggleActiveStateAlt(std::string joint_name)
+void ToggleActiveStateAlt(std::string player_name, std::string joint_name)
 {
 	if (joint_name == "NONE") return;
 
 	ReFreeze();
 	
-	if (joint[joint_name].state_alt == FORWARD) {
-		joint[joint_name].state_alt = BACKWARD;
-		TriggerActiveStateAlt(joint_name, -1);
+	if (player[player_name].joint[joint_name].state_alt == FORWARD) {
+		player[player_name].joint[joint_name].state_alt = BACKWARD;
+		TriggerActiveStateAlt(player_name, joint_name, -1);
 	} else {
-		joint[joint_name].state_alt = FORWARD;
-		TriggerActiveStateAlt(joint_name, 1);
+		player[player_name].joint[joint_name].state_alt = FORWARD;
+		TriggerActiveStateAlt(player_name, joint_name, 1);
 	}
 }
 
 
-void CycleState(std::string joint_name)
+void CycleState(std::string player_name, std::string joint_name)
 {
 	if (joint_name == "NONE") return;
 
 	ReFreeze();
 	
-	if (joint[joint_name].state == FORWARD) {
-		joint[joint_name].state = BACKWARD;
-		TriggerActiveState(joint_name, -1);
-	} else if (joint[joint_name].state == BACKWARD) {
-		joint[joint_name].state = HOLD;
-		TriggerPassiveState(joint_name, joint[joint_name].strength);
-	} else if (joint[joint_name].state == HOLD) {
-		joint[joint_name].state = RELAX;
-		TriggerPassiveState(joint_name, 0);
+	if (player[player_name].joint[joint_name].state == FORWARD) {
+		player[player_name].joint[joint_name].state = BACKWARD;
+		TriggerActiveState(player_name, joint_name, -1);
+	} else if (player[player_name].joint[joint_name].state == BACKWARD) {
+		player[player_name].joint[joint_name].state = HOLD;
+		TriggerPassiveState(player_name, joint_name, player[player_name].joint[joint_name].strength);
+	} else if (player[player_name].joint[joint_name].state == HOLD) {
+		player[player_name].joint[joint_name].state = RELAX;
+		TriggerPassiveState(player_name, joint_name, 0);
 	} else {
-		joint[joint_name].state = FORWARD;
-		TriggerActiveState(joint_name, 1);
+		player[player_name].joint[joint_name].state = FORWARD;
+		TriggerActiveState(player_name, joint_name, 1);
 	}
 }
 
 
-void CycleStateAlt(std::string joint_name)
+void CycleStateAlt(std::string player_name, std::string joint_name)
 {
 	if (joint_name == "NONE") return;
 
 	ReFreeze();
 	
-	if (joint[joint_name].state_alt == FORWARD) {
-		joint[joint_name].state_alt = BACKWARD;
-		TriggerActiveStateAlt(joint_name, -1);
-	} else if (joint[joint_name].state_alt == BACKWARD) {
-		joint[joint_name].state_alt = HOLD;
-		TriggerPassiveStateAlt(joint_name, joint[joint_name].strength_alt);
-	} else if (joint[joint_name].state_alt == HOLD) {
-		joint[joint_name].state_alt = RELAX;
-		TriggerPassiveStateAlt(joint_name, 0);
+	if (player[player_name].joint[joint_name].state_alt == FORWARD) {
+		player[player_name].joint[joint_name].state_alt = BACKWARD;
+		TriggerActiveStateAlt(player_name, joint_name, -1);
+	} else if (player[player_name].joint[joint_name].state_alt == BACKWARD) {
+		player[player_name].joint[joint_name].state_alt = HOLD;
+		TriggerPassiveStateAlt(player_name, joint_name, player[player_name].joint[joint_name].strength_alt);
+	} else if (player[player_name].joint[joint_name].state_alt == HOLD) {
+		player[player_name].joint[joint_name].state_alt = RELAX;
+		TriggerPassiveStateAlt(player_name, joint_name, 0);
 	} else {
-		joint[joint_name].state_alt = FORWARD;
-		TriggerActiveStateAlt(joint_name, 1);
+		player[player_name].joint[joint_name].state_alt = FORWARD;
+		TriggerActiveStateAlt(player_name, joint_name, 1);
 	}
 }
 
@@ -2528,60 +2553,62 @@ void Restart()
 		o.freeze.angularVel[2] = 0.00;
 	}
 	
-	for (auto& [body_name, b] : body) {
-		dBodySetPosition(
-			b.dBody,
-			b.position[0],
-			b.position[1],
-			b.position[2]);
-		dBodySetQuaternion(b.dBody, b.orientation);
-		dBodySetLinearVel(b.dBody, 0.00, 0.00, 0.00);
-		dBodySetAngularVel(b.dBody, 0.00, 0.00, 0.00);
-
-		b.freeze.position[0] = b.position[0];
-		b.freeze.position[1] = b.position[1];
-		b.freeze.position[2] = b.position[2];
-
-		b.freeze.orientation[0] = b.orientation[0];
-		b.freeze.orientation[1] = b.orientation[1];
-		b.freeze.orientation[2] = b.orientation[2];
-		b.freeze.orientation[3] = b.orientation[3];
-
-		b.freeze.linearVel[0] = 0.00;
-		b.freeze.linearVel[1] = 0.00;
-		b.freeze.linearVel[2] = 0.00;
-
-		b.freeze.angularVel[0] = 0.00;
-		b.freeze.angularVel[1] = 0.00;
-		b.freeze.angularVel[2] = 0.00;
-	}
+	for (auto& [player_name, p] : player) {
+		for (auto& [body_name, b] : p.body) {
+			dBodySetPosition(
+				b.dBody,
+				b.position[0],
+				b.position[1],
+				b.position[2]);
+			dBodySetQuaternion(b.dBody, b.orientation);
+			dBodySetLinearVel(b.dBody, 0.00, 0.00, 0.00);
+			dBodySetAngularVel(b.dBody, 0.00, 0.00, 0.00);
 	
-	for (auto& [joint_name, j] : joint) {
-		dBodySetPosition(
-			j.dBody,
-			j.position[0],
-			j.position[1],
-			j.position[2]);
-		dBodySetQuaternion(j.dBody, j.orientation);
-		dBodySetLinearVel(j.dBody, 0.00, 0.00, 0.00);
-		dBodySetAngularVel(j.dBody, 0.00, 0.00, 0.00);
-
-		j.freeze.position[0] = j.position[0];
-		j.freeze.position[1] = j.position[1];
-		j.freeze.position[2] = j.position[2];
-
-		j.freeze.orientation[0] = j.orientation[0];
-		j.freeze.orientation[1] = j.orientation[1];
-		j.freeze.orientation[2] = j.orientation[2];
-		j.freeze.orientation[3] = j.orientation[3];
-
-		j.freeze.linearVel[0] = 0.00;
-		j.freeze.linearVel[1] = 0.00;
-		j.freeze.linearVel[2] = 0.00;
-
-		j.freeze.angularVel[0] = 0.00;
-		j.freeze.angularVel[1] = 0.00;
-		j.freeze.angularVel[2] = 0.00;
+			b.freeze.position[0] = b.position[0];
+			b.freeze.position[1] = b.position[1];
+			b.freeze.position[2] = b.position[2];
+	
+			b.freeze.orientation[0] = b.orientation[0];
+			b.freeze.orientation[1] = b.orientation[1];
+			b.freeze.orientation[2] = b.orientation[2];
+			b.freeze.orientation[3] = b.orientation[3];
+	
+			b.freeze.linearVel[0] = 0.00;
+			b.freeze.linearVel[1] = 0.00;
+			b.freeze.linearVel[2] = 0.00;
+	
+			b.freeze.angularVel[0] = 0.00;
+			b.freeze.angularVel[1] = 0.00;
+			b.freeze.angularVel[2] = 0.00;
+		}
+		
+		for (auto& [joint_name, j] : p.joint) {
+			dBodySetPosition(
+				j.dBody,
+				j.position[0],
+				j.position[1],
+				j.position[2]);
+			dBodySetQuaternion(j.dBody, j.orientation);
+			dBodySetLinearVel(j.dBody, 0.00, 0.00, 0.00);
+			dBodySetAngularVel(j.dBody, 0.00, 0.00, 0.00);
+	
+			j.freeze.position[0] = j.position[0];
+			j.freeze.position[1] = j.position[1];
+			j.freeze.position[2] = j.position[2];
+	
+			j.freeze.orientation[0] = j.orientation[0];
+			j.freeze.orientation[1] = j.orientation[1];
+			j.freeze.orientation[2] = j.orientation[2];
+			j.freeze.orientation[3] = j.orientation[3];
+	
+			j.freeze.linearVel[0] = 0.00;
+			j.freeze.linearVel[1] = 0.00;
+			j.freeze.linearVel[2] = 0.00;
+	
+			j.freeze.angularVel[0] = 0.00;
+			j.freeze.angularVel[1] = 0.00;
+			j.freeze.angularVel[2] = 0.00;
+		}
 	}
 }
 
@@ -2747,13 +2774,13 @@ void CameraZoomOut(Camera3D *camera, Vector3 *CameraZoom, Vector3 *CameraOffset)
 
 void UpdatePlaycam(Camera3D *camera, Vector3 *CameraOffset)
 {
-	int size = body.size(); 
+	int size = player[game.selected_player].body.size(); 
 	if (size > 0) {
 		float x = 0.00;
 		float y = 0.00;
 		float z = 0.00;
 	
-		for (auto const [body_name, b] : body) {
+		for (auto const [body_name, b] : player[game.selected_player].body) {
 			if (game.freeze) {
 				x = x + b.freeze.position[0];
 				y = y + b.freeze.position[1];
@@ -2782,10 +2809,15 @@ void UpdatePlaycam(Camera3D *camera, Vector3 *CameraOffset)
 	}
 }
 
+void SelectPlayer ()
+{
+
+}
+
 void SelectJoint (Camera3D Camera, Ray MouseRay, RayCollision MouseCollision)
 {
 	MouseRay = GetMouseRay(GetMousePosition(), Camera);
-	for (auto const& [joint_name, j] : joint) {
+	for (auto const& [joint_name, j] : player[game.selected_player].joint) {
 		MouseCollision = GetRayCollisionSphere(MouseRay,
 			(Vector3){
 				j.freeze.position[0],
@@ -2810,60 +2842,69 @@ void RecordFrame(int gameframe)
 {
 	std::ofstream tempframefile("tempframefile.txt");
 	tempframefile << "FRAME " << gameframe << "\n";
-	for (auto const& [joint_name, j] : joint) {
-		RecordedFrames[gameframe].joint[joint_name] = j;
-		tempframefile << j.name << " " << j.state << " " << j.state_alt << "\n";
+	for (auto const& [player_name, p] : player) {
+		tempframefile << "PLAYER " << player_name << "\n";
+		RecordedFrames[gameframe].player[player_name] = p;
+		for (auto const& [joint_name, j] : p.joint) {
+			tempframefile << j.name << " " << j.state << " " << j.state_alt << "\n";
+		}
 	}
 	tempframefile.close();
 
 	std::ofstream tempreplayfile("tempreplayfile.txt", std::ios::app);
 	tempreplayfile << "FRAME " << gameframe << "\n";
-	for (auto const& [joint_name, j] : joint) {
-		RecordedFrames[gameframe].joint[joint_name] = j;
-		tempreplayfile << j.name << " " << j.state << " " << j.state_alt << "\n";
+	for (auto const& [player_name, p] : player) {
+		tempreplayfile << "PLAYER " << player_name << "\n";
+		RecordedFrames[gameframe].player[player_name] = p;
+		for (auto const& [joint_name, j] : p.joint) {
+			tempreplayfile << j.name << " " << j.state << " " << j.state_alt << "\n";
+		}
 	}
-	tempreplayfile.close();}
+	tempreplayfile.close();
+}
 
 void PlayFrame(int gameframe)
 {
 	FrameData frame = RecordedFrames[gameframe];
-	for (auto& [joint_name, j] : frame.joint) {
-		switch(j.state) {
-			case RELAX: {
-				j.state = RELAX;
-				TriggerPassiveState(j.name, 0);
-			} break;
-			case HOLD: {
-				j.state = HOLD;
-				TriggerPassiveState(j.name, j.strength);
-			} break;
-			case FORWARD: {
-				j.state = FORWARD;
-				TriggerActiveState(j.name, 1);
-			} break; 
-			case BACKWARD: {
-				j.state = BACKWARD;
-				TriggerActiveState(j.name, -1);
-			} break;
-		}
-	
-		switch(j.state_alt) {
-			case RELAX: {
-				j.state_alt = RELAX;
-				TriggerPassiveStateAlt(j.name, 0);
-			} break;
-			case HOLD: {
-				j.state_alt = HOLD;
-				TriggerPassiveStateAlt(j.name, j.strength_alt);
-			} break;
-			case FORWARD: {
-				j.state_alt = FORWARD;
-				TriggerActiveStateAlt(j.name, 1);
-			} break;
-			case BACKWARD: {
-				j.state_alt = BACKWARD;
-				TriggerActiveStateAlt(j.name, -1);
-			} break;
+	for (auto& [player_name, p] : frame.player) {
+		for (auto& [joint_name, j] : p.joint) {
+			switch(j.state) {
+				case RELAX: {
+					j.state = RELAX;
+					TriggerPassiveState(p.name, j.name, 0);
+				} break;
+				case HOLD: {
+					j.state = HOLD;
+					TriggerPassiveState(p.name, j.name, j.strength);
+				} break;
+				case FORWARD: {
+					j.state = FORWARD;
+					TriggerActiveState(p.name, j.name, 1);
+				} break; 
+				case BACKWARD: {
+					j.state = BACKWARD;
+					TriggerActiveState(p.name, j.name, -1);
+				} break;
+			}
+		
+			switch(j.state_alt) {
+				case RELAX: {
+					j.state_alt = RELAX;
+					TriggerPassiveStateAlt(p.name, j.name, 0);
+				} break;
+				case HOLD: {
+					j.state_alt = HOLD;
+					TriggerPassiveStateAlt(p.name, j.name, j.strength_alt);
+				} break;
+				case FORWARD: {
+					j.state_alt = FORWARD;
+					TriggerActiveStateAlt(p.name, j.name, 1);
+				} break;
+				case BACKWARD: {
+					j.state_alt = BACKWARD;
+					TriggerActiveStateAlt(p.name, j.name, -1);
+				} break;
+			}
 		}
 	}
 }
@@ -2877,8 +2918,11 @@ void EditReplay()
 
 	std::ofstream tempframefile("tempframefile.txt");
 	tempframefile << "FRAME " << game.gameframe << "\n";
-	for (auto const& [joint_name, j] : joint) {
-		tempframefile << j.name << " " << j.state << " " << j.state_alt << "\n";
+	for (auto const& [player_name, p] : player) {
+		tempframefile << "PLAYER " << player_name << "\n";
+		for (auto const& [joint_name, j] : p.joint) {
+			tempframefile << j.name << " " << j.state << " " << j.state_alt << "\n";
+		}
 	}
 	tempframefile.close();
 
@@ -2888,8 +2932,11 @@ void EditReplay()
 			break;
 		} else {
 			tempreplayfile << "FRAME " << gameframe << "\n";
-			for (auto const& [joint_name, j] : frame.joint) {
-				tempreplayfile << j.name << " " << j.state << " " << j.state_alt << "\n";
+			for (auto const& [player_name, p] : frame.player) {
+				tempreplayfile << "FRAME " << player_name << "\n";
+				for (auto const& [joint_name, j] : p.joint) {
+					tempreplayfile << j.name << " " << j.state << " " << j.state_alt << "\n";
+				}
 			}
 		}
 	}
@@ -2901,8 +2948,11 @@ void SaveReplay()
 	std::ofstream savedreplayfile("savedreplayfile.txt");
 	for (auto const& [gameframe, frame] : RecordedFrames) {
 		savedreplayfile << "FRAME " << gameframe << "\n";
-		for (auto const& [joint_name, j] : frame.joint) {
-			savedreplayfile << j.name << " " << j.state << " " << j.state_alt << "\n";
+		for (auto const& [player_name, p] : frame.player) {
+			savedreplayfile << "PLAYER " << player_name << "\n";
+			for (auto const& [joint_name, j] : p.joint) {
+				savedreplayfile << j.name << " " << j.state << " " << j.state_alt << "\n";
+			}
 		}
 	}
 	savedreplayfile.close();
@@ -2912,8 +2962,10 @@ void StartFreeplay()
 {
 	game.gamemode = FREEPLAY;
 
-	RelaxAll();
-	RelaxAllAlt();
+	for (auto const& [player_name, p] : player) {
+		RelaxAll(player_name);
+		RelaxAllAlt(player_name);
+	}
 
 	game.freeze = true;
 	game.gameframe = 0;
@@ -2926,9 +2978,12 @@ void StartFreeplay()
 
 	std::ofstream tempreplayfile("tempreplayfile.txt");
 	tempreplayfile << "FRAME 0\n";
-	for (auto const& [joint_name, j] : joint) {
-		RecordedFrames[0].joint[joint_name] = j;
-		tempreplayfile << j.name << " " << j.state << " " << j.state_alt << "\n";
+	for (auto const& [player_name, p] : player) {
+		tempreplayfile << "PLAYER " << player_name << "\n";
+		for (auto const& [joint_name, j] : p.joint) {
+			RecordedFrames[0].player[player_name].joint[joint_name] = j;
+			tempreplayfile << j.name << " " << j.state << " " << j.state_alt << "\n";
+		}
 	}
 	tempreplayfile.close();
 }
@@ -2937,8 +2992,10 @@ void StartReplay()
 {
 	game.gamemode = REPLAY;
 
-	RelaxAll();
-	RelaxAllAlt();
+	for (auto const& [player_name, p] : player) {
+		RelaxAll(player_name);
+		RelaxAllAlt(player_name);
+	}
 
 	game.freeze = false;
 	game.gameframe = 0;
@@ -3002,16 +3059,22 @@ int main()
 
 	std::ofstream tempframefile("tempframefile.txt");
 	tempframefile << "FRAME " << game.gameframe << "\n";
-	for (auto const& [joint_name, j] : joint) {
-		tempframefile << j.name << " " << j.state << " " << j.state_alt << "\n";
+	for (auto const& [player_name, p] : player) {
+		tempframefile << "PLAYER " << player_name << "\n";
+		for (auto const& [joint_name, j] : p.joint) {
+			tempframefile << j.name << " " << j.state << " " << j.state_alt << "\n";
+		}
 	}
 	tempframefile.close();
 
 
 	std::ofstream tempreplayfile("tempreplayfile.txt");
 	tempreplayfile << "FRAME " << game.gameframe << "\n";
-	for (auto const& [joint_name, j] : joint) {
-		tempreplayfile << j.name << " " << j.state << " " << j.state_alt << "\n";
+	for (auto const& [player_name, p] : player) {
+		tempreplayfile << "PLAYER " << player_name << "\n";
+		for (auto const& [joint_name, j] : p.joint) {
+			tempreplayfile << j.name << " " << j.state << " " << j.state_alt << "\n";
+		}
 	}
 	tempreplayfile.close();
 
@@ -3058,31 +3121,31 @@ int main()
 				}
 			} else {
 				if (IsKeyDown(KEY_LEFT_SHIFT)) {
-					ToggleActiveStateAlt(game.selected_joint);
+					ToggleActiveStateAlt(game.selected_player, game.selected_joint);
 				} else {
-					ToggleActiveState(game.selected_joint);
+					ToggleActiveState(game.selected_player, game.selected_joint);
 				}
 			}
 		}
 
 		if (IsKeyPressed(KEY_X)) {
 			if (IsKeyDown(KEY_LEFT_SHIFT)) {
-				TogglePassiveStateAlt(game.selected_joint);
+				TogglePassiveStateAlt(game.selected_player, game.selected_joint);
 			} else {
-				TogglePassiveState(game.selected_joint);
+				TogglePassiveState(game.selected_player, game.selected_joint);
 			}
 		}
 
 		if (IsKeyPressed(KEY_C)) {
-			TogglePlayerPassiveStates();
-			TogglePlayerPassiveStatesAlt();
+			TogglePlayerPassiveStates(game.selected_player);
+			TogglePlayerPassiveStatesAlt(game.selected_player);
 		}
 
 		if (IsMouseButtonPressed(0)) {
 			if (IsKeyDown(KEY_LEFT_SHIFT)) {
-				CycleStateAlt(game.selected_joint);
+				CycleStateAlt(game.selected_player, game.selected_joint);
 			} else {
-				CycleState(game.selected_joint);
+				CycleState(game.selected_player, game.selected_joint);
 			}
 		}
 
