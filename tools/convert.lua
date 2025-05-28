@@ -51,22 +51,25 @@ for _, line in pairs(source) do
         context = "joint"
         data = line:gsub(".*joint ", "")
     elseif line:match("shape ") then
+	    line = line:gsub(".*shape ", "")
 	    if context == "body" or context == "joint" then
-		mod.player[player_name][context][data].shape = line:gsub(".*shape ", "")
+		mod.player[player_name][context][data].shape = line
 	    else
-		mod[context][data].shape = line:gsub(".*shape ", "")
+		mod[context][data].shape = line
 	    end
     elseif line:match("pos ") then
+	    line = line:gsub(".*pos ", "")
 	    if context == "body" or context == "joint" then
-        	mod.player[player_name][context][data].pos = line:gsub(".*pos ", "")
+        	mod.player[player_name][context][data].pos = line:explode(" ")
 	    else
-        	mod[context][data].pos = line:gsub(".*pos ", "")
+        	mod[context][data].pos = line:explode(" ")
 	    end
     elseif line:match("rot ") then
+	    line = line:gsub(".*rot ", "")
 	    if context == "body" or context == "joint" then
-        	mod.player[player_name][context][data].pos = line:gsub(".*rot ", "")
+        	mod.player[player_name][context][data].rot = line
 	    else
-        	mod[context][data].rot = line:gsub(".*rot ", "")
+        	mod[context][data].rot = line
 	    end
     elseif line:match("%s+sides ") then
         if context == "body" or context == "env_obj"  then
@@ -96,48 +99,55 @@ for _, line in pairs(source) do
             end
         end
     elseif line:match("radius ") then
+	    line = line:gsub(".*radius ", "")
 	    if context == "body" or context == "joint" then
-        	mod.player[player_name][context][data].radius = line:gsub(".*radius ", "")
+        	mod.player[player_name][context][data].radius = line
 	    else
-        	mod[context][data].radius = line:gsub(".*radius ", "")
+        	mod[context][data].radius = line
 	    end
     elseif line:match("density ") then
+	    line = line:gsub(".*density ", "")
 	    if context == "body" or context == "joint" then
-        	mod.player[player_name][context][data].density = line:gsub(".*density ", "")
+        	mod.player[player_name][context][data].density = line
 	    else
-        	mod[context][data].density = line:gsub(".*density ", "")
+        	mod[context][data].density = line
 	    end
     elseif line:match("axis ") then
+	    line = line:gsub(".*axis ", "")
 	    if context == "body" or context == "joint" then
-        	mod.player[player_name][context][data].axis = line:gsub(".*axis ", "")
+        	mod.player[player_name][context][data].axis = line
 	    else
-        	mod[context][data].axis = line:gsub(".*axis ", "")
+        	mod[context][data].axis = line
 	    end
     elseif line:match("range ") then
+	    line = line:gsub(".*range ", "")
 	    if context == "body" or context == "joint" then
-        	mod.player[player_name][context][data].range = line:gsub(".*range ", "")
+        	mod.player[player_name][context][data].range = line
 	    else
-        	mod[context][data].range = line:gsub(".*range ", "")
+        	mod[context][data].range = line
 	    end
     elseif line:match("strength ") then
+	    line = line:gsub(".*strength ", "")
 	    if context == "body" or context == "joint" then
-        	mod.player[player_name][context][data].strength = line:gsub(".*strength ", "")
+        	mod.player[player_name][context][data].strength = line
 	    else
-        	mod[context][data].strength = line:gsub(".*strength ", "")
+        	mod[context][data].strength = line
 	    end
     elseif line:match("velocity ") then
+	    line = line:gsub(".*velocity ", "")
 	    if context == "body" or context == "joint" then
-		mod.player[player_name][context][data].velocity = line:gsub(".*velocity ", "")
+		mod.player[player_name][context][data].velocity = line 
 	    else
-		mod[context][data].velocity = line:gsub(".*velocity ", "")
+		mod[context][data].velocity = line 
 	    end
     elseif line:match("flag ") then
 	    if context == "" then
 	    else
+		line = line:gsub(".*flag ", "")
 	    	if context == "body" or context == "joint" then
-        		mod.player[player_name][context][data].flag = line:gsub(".*flag ", "")
+        		mod.player[player_name][context][data].flag = line
 		else
-        		mod[context][data].flag = line:gsub(".*flag ", "")
+        		mod[context][data].flag = line
 		end
 	    end
     end
@@ -164,7 +174,14 @@ for env_obj_num, env_obj in pairs(mod.env_obj) do
     else
         File.line("\tshape \"" .. env_obj.shape .. "\"")
     end
-    File.line("\tposition {" .. env_obj.pos:gsub(" ", ", ") .. "}")
+    local pos = {env_obj.pos[1], env_obj.pos[2], env_obj.pos[3]}
+    pos[1] = tonumber(pos[1]) + 1.00
+    pos[2] = tonumber(pos[2]) - 0.10
+    pos[3] = tonumber(pos[3]) + 0.00
+    File.line("\tposition {"
+    	.. pos[1] .. ", "
+    	.. pos[2] .. ", "
+    	.. pos[3] .. "}")
     if  env_obj.rot then
         local rot = env_obj.rot:explode(" ")
 	local RAD2DEG = Math.RAD2DEG
@@ -197,9 +214,9 @@ for player_name, player in pairs(mod.player) do
 	for body_name, body in pairs(player.body) do
 		File.line("\tbody \"" .. body_name .. "\"")
 		if body.shape == "cylinder" then
-		    File.line("\tshape \"capsule\"")
+		    File.line("\t\tshape \"capsule\"")
 		else
-		    File.line("\tshape \"" .. body.shape .. "\"")
+		    File.line("\t\tshape \"" .. body.shape .. "\"")
 		end
 		local connections = {}
 		connections["breast"] = "chest"
@@ -223,7 +240,7 @@ for player_name, player in pairs(mod.player) do
 		connections["l_leg"] = "l_knee"
 		connections["r_leg"] = "r_knee"
 
-		local pos = body.pos:explode(" ")
+		local pos = {body.pos[1], body.pos[2], body.pos[3]}
 		pos[1] = tonumber(pos[1]) + 1.00
 		pos[2] = tonumber(pos[2]) - 0.10
 		pos[3] = tonumber(pos[3]) + 0.00
@@ -235,10 +252,10 @@ for player_name, player in pairs(mod.player) do
 			local RAD2DEG = Math.RAD2DEG
 			local angel = {0.00, 0.00, 0.00}
 			if body_name:match("l_") then
-				angel[2] = -90.00
+				angel[2] = 90.00
 			end
 			if body_name:match("r_") then
-				angel[2] = 90.00
+				angel[2] = -90.00
 			end
 			if body_name == "breast" then
 				angel[1] = -90.00
@@ -255,10 +272,8 @@ for player_name, player in pairs(mod.player) do
 				RAD2DEG * angel[3]))
 			local q_inverse = {-q[1], q[2], q[3], q[4]}
 				
-			local jpos = player.joint[connections[body_name]].pos
-			if (jpos[1] == nil) then
-				jpos = jpos:explode(" ")
-			end
+			local joint_pos = player.joint[connections[body_name]].pos
+			local jpos = {joint_pos[1], joint_pos[2], joint_pos[3]}
 			jpos[1] = tonumber(jpos[1]) + 1.00
 			jpos[2] = tonumber(jpos[2]) - 0.10
 			jpos[3] = tonumber(jpos[3]) + 0.00
@@ -303,16 +318,14 @@ end
 		File.line("\tjoint \"" .. joint_name .. "\"")
 		File.line("\t\tshape \"sphere\"")
 		File.line("\t\tradius {" .. joint.radius .. "}")
-		if joint.pos[1] == nil then
-			joint.pos = joint.pos:explode(" ")
-		end
-		joint.pos[1] = tonumber(joint.pos[1]) + 1.00
-		joint.pos[2] = tonumber(joint.pos[2]) - 0.10
-		joint.pos[3] = tonumber(joint.pos[3]) + 0.00
+		local pos = {joint.pos[1], joint.pos[2], joint.pos[3]}
+		pos[1] = tonumber(pos[1]) + 1.00
+		pos[2] = tonumber(pos[2]) - 0.10
+		pos[3] = tonumber(pos[3]) + 0.00
 		File.line("\t\tposition {"
-		.. joint.pos[1] .. ", "
-		.. joint.pos[2] .. ", "
-		.. joint.pos[3] .. "}")
+		.. pos[1] .. ", "
+		.. pos[2] .. ", "
+		.. pos[3] .. "}")
 		File.line("\t\tdensity {0.0025}")
 		File.line("\t\tstrength {" .. tonumber(joint.strength) * 10*10*10 .. "}")
 		File.line("\t\tvelocity {" .. joint.velocity .. "}")
