@@ -64,6 +64,7 @@ struct game {
 	int gameframe;
 	int turnframes = 10;
 	int max_contacts = 8;
+	int numplayers = 1;
 	Gamemode gamemode = FREEPLAY;
 	std::string selected_player = "NONE";
 	std::string selected_joint = "NONE";
@@ -101,6 +102,9 @@ class Object {
 	bool static_state;
 	Color color;
 	Color ghost_color;
+	Color select_color;
+	bool select;
+	bool ghost;
 
 	unsigned long category_bits;
 	unsigned long collide_bits;
@@ -252,15 +256,37 @@ class Object {
 		);
 		rlRotatef(RAD2DEG * angle, axis.x, axis.y, axis.z);
 
-		draw_object(color);
+		if (select) {
+			draw_object(select_color);
+		} else {
+			draw_object(color);
+		}
 	};
 
 	void draw_ghost() {
-		draw(ghost_color);
+		if (ghost) {
+			draw(ghost_color);
+		}
 	};
 
 	void draw() {
 		draw(color);
+	};
+
+	void toggle_ghost() {
+		ghost = ghost == false;
+	};
+
+	RayCollision collide_mouse_ray(Ray ray, RayCollision collision) {
+		collision = GetRayCollisionSphere(ray,
+			(Vector3){
+				freeze.position[0],
+				freeze.position[1],
+				freeze.position[2],
+			},
+			radius
+		);
+		return collision;
 	};
 
 };
@@ -453,14 +479,22 @@ class Player {
 	PlayerPassiveStates passive_states;
 	PlayerPassiveStates passive_states_alt;
 	
+	dReal engagepos[3];
+	dReal engagerot[3];
+
+	bool use_engagepos;
+	bool use_engagerot;
+
 	unsigned long body_category_bits;
 	unsigned long body_collide_bits;
 	unsigned long joint_category_bits;
 	unsigned long joint_collide_bits;
 
-	Color joint_color;
-	Color body_color;
+	bool ghost;
 	Color ghost_color;
+	Color joint_color;
+	Color joint_select_color;
+	Color body_color;
 
 	Player() {
 		passive_states = RELAX_ALL;
@@ -531,12 +565,24 @@ class Player {
 	};
 
 	void draw_ghost() {
+		if (ghost) {
+			for (auto& [body_name, b] : body) {
+				b.draw_ghost();
+			}
+	
+			for (auto& [joint_name, j] : joint) {
+				j.draw_ghost();
+			}
+		}
+	};
+
+	void toggle_ghost() {
 		for (auto& [body_name, b] : body) {
-			b.draw_ghost();
+			b.toggle_ghost();
 		}
 	
 		for (auto& [joint_name, j] : joint) {
-			j.draw_ghost();
+			j.toggle_ghost();
 		}
 	};
 };
@@ -546,10 +592,10 @@ class FrameData : public FreezeData {
 	std::map<std::string, Player> player;
 };
 
+std::string MSG;
+
 std::map<std::string, Object> object;
 std::map<std::string, Player> player;
-
-std::string MSG;
 
 Color DynamicObjectColor = (Color){ 0, 255, 0, 255 };
 Color StaticObjectColor = (Color){ 51, 51, 51, 255 };
@@ -559,17 +605,11 @@ std::string player_key;
 std::string body_key;
 std::string joint_key;
 
-unsigned long StaticObjectCategoryBits = 0b0001;
-unsigned long StaticObjectCollideBits = 0b0000;
+unsigned long StaticObjectCategoryBits = 0x2^1;
+unsigned long StaticObjectCollideBits = 0x00;
 
-unsigned long DynamicObjectCategoryBits = 0b0010;
-unsigned long DynamicObjectCollideBits = 0b0001;
-
-unsigned long BodyCategoryBits = 0b0100;
-unsigned long BodyCollideBits = 0b0001;
-
-unsigned long JointCategoryBits = 0b1000;
-unsigned long JointCollideBits = 0b0001;
+unsigned long DynamicObjectCategoryBits = 0x2^1;
+unsigned long DynamicObjectCollideBits = 0x2^0;
 
 static void nearCallback (void *, dGeomID o1, dGeomID o2)
 {
@@ -603,12 +643,11 @@ static void nearCallback (void *, dGeomID o1, dGeomID o2)
 	}
 }
 
-int api_turnframes(lua_State* L)
+int turnframes(lua_State* L)
 {
-	lua_Number turnframes;
-
 	lua_rawgeti(L, -1, 1);
-	turnframes = lua_tonumber(L, -1);
+
+	lua_Number turnframes = lua_tonumber(L, -1);
 
 	switch(DataContext)
 	{
@@ -633,7 +672,35 @@ int api_turnframes(lua_State* L)
 	return 1;
 }
 
-int api_friction(lua_State* L)
+int numplayers(lua_State* L)
+{
+	lua_rawgeti(L, -1, 1);
+
+	lua_Number numplayers = lua_tonumber(L, -1); 
+
+	switch(DataContext)
+	{
+		case NoContext: {
+			game.numplayers = numplayers;
+		} break;
+		case ObjectContext: {
+			// Error Handling
+		} break;
+		case BodyContext: {
+			// Error Handling
+		} break;
+		case JointContext: {
+			// Error Handling
+		} break;
+	}
+
+	lua_Number result = 1;
+
+	lua_pushnumber(L, result);
+
+	return 1;
+}
+int friction(lua_State* L)
 {
 	lua_Number friction;
 
@@ -723,6 +790,82 @@ int engageheight(lua_State* L)
 	return 1;
 }
 
+int engagepos(lua_State* L)
+{
+	lua_Number pos[3];
+
+	lua_rawgeti(L, -1, 1);
+	pos[0] = lua_tonumber(L, -1);
+	lua_rawgeti(L, -2, 2);
+	pos[1] = lua_tonumber(L, -1);
+	lua_rawgeti(L, -3, 3);
+	pos[2] = lua_tonumber(L, -1);
+
+	switch(DataContext) {
+		case NoContext: {
+			// Error Handling
+		} break;
+		case PlayerContext: {
+			player[player_key].engagepos[0] = pos[0];
+			player[player_key].engagepos[1] = pos[1];
+			player[player_key].engagepos[2] = pos[2];
+		} break;
+		case ObjectContext: {
+			// Error Handling
+		} break;
+		case BodyContext: {
+			// Error Handling
+		} break;
+		case JointContext: {
+			// Error Handling
+		} break;
+	}
+
+	lua_Number result = 1;
+
+	lua_pushnumber(L, result);
+
+	return 1;
+}
+
+int engagerot(lua_State* L)
+{
+	lua_Number rot[3];
+
+	lua_rawgeti(L, -1, 1);
+	rot[0] = lua_tonumber(L, -1);
+	lua_rawgeti(L, -2, 2);
+	rot[1] = lua_tonumber(L, -1);
+	lua_rawgeti(L, -3, 3);
+	rot[2] = lua_tonumber(L, -1);
+
+	switch(DataContext) {
+		case NoContext: {
+			// Error Handling
+		} break;
+		case PlayerContext: {
+			player[player_key].engagerot[0] = rot[0];
+			player[player_key].engagerot[1] = rot[1];
+			player[player_key].engagerot[2] = rot[2];
+		} break;
+		case ObjectContext: {
+			// Error Handling
+		} break;
+		case BodyContext: {
+			// Error Handling
+		} break;
+		case JointContext: {
+			// Error Handling
+		} break;
+	}
+
+	lua_Number result = 1;
+
+	lua_pushnumber(L, result);
+
+	return 1;
+}
+
 int engageplayerpos(lua_State* L)
 {
 	lua_Number pos[3];
@@ -734,8 +877,7 @@ int engageplayerpos(lua_State* L)
 	lua_rawgeti(L, -3, 3);
 	pos[2] = lua_tonumber(L, -1);
 
-	switch(DataContext)
-	{
+	switch(DataContext) {
 		case NoContext: {
 			game.engageplayerpos[0] = pos[0];
 			game.engageplayerpos[1] = pos[1];
@@ -913,24 +1055,34 @@ int api_player(lua_State* L)
 		case 1: {
 			game.selected_player = player_key;
 			player[player_key].joint_color = MAROON;
+			player[player_key].body_category_bits = 1<<2;
+			player[player_key].joint_category_bits = 1<<3;
 		} break;
 		case 2: {
 			player[player_key].joint_color = DARKBLUE;
+			player[player_key].body_category_bits = 1<<4;
+			player[player_key].joint_category_bits = 1<<5;
 		} break;
 		case 3: {
 			player[player_key].joint_color = DARKGREEN;
+			player[player_key].body_category_bits = 1<<6;
+			player[player_key].joint_category_bits = 1<<7;
 		} break;
 		case 4: {
 			player[player_key].joint_color = DARKPURPLE;
+			player[player_key].body_category_bits = 1<<8;
+			player[player_key].joint_category_bits = 1<<9;
 		} break;
 	}
 
+	player[player_key].body_collide_bits = 3; 
+	player[player_key].joint_collide_bits = 3;
+
+	player[player_key].ghost = true;
+	player[player_key].ghost_color = player[player_key].joint_color;
 	player[player_key].ghost_color.a = 55;
 
-	player[player_key].body_category_bits = BodyCategoryBits;
-	player[player_key].body_collide_bits = BodyCollideBits;
-	player[player_key].joint_category_bits = JointCategoryBits;
-	player[player_key].joint_collide_bits = JointCollideBits;
+	player[player_key].joint_select_color = WHITE;
 
 	lua_Number result = 1;
 
@@ -973,6 +1125,7 @@ int api_body(lua_State* L)
 	player[player_key].body[body_key].category_bits = player[player_key].body_category_bits;
 	player[player_key].body[body_key].collide_bits = player[player_key].body_collide_bits;
 
+	player[player_key].body[body_key].ghost = true;
 	player[player_key].body[body_key].static_state = false;
 
 	lua_Number result = 1;
@@ -993,6 +1146,7 @@ int api_joint(lua_State* L)
 	player[player_key].joint[joint_key].name = name;
 	player[player_key].joint[joint_key].color = player[player_key].joint_color;
 	player[player_key].joint[joint_key].ghost_color = player[player_key].ghost_color;
+	player[player_key].joint[joint_key].select_color = player[player_key].joint_select_color;
 
 	player[player_key].joint[joint_key].orientation[0] = 1.00;
 	player[player_key].joint[joint_key].orientation[1] = 0.00;
@@ -1017,6 +1171,9 @@ int api_joint(lua_State* L)
 
 	player[player_key].joint[joint_key].state = RELAX;
 	player[player_key].joint[joint_key].state_alt = RELAX;
+
+	player[player_key].joint[joint_key].ghost = true;
+	player[player_key].joint[joint_key].static_state= false;
 
 	lua_Number result = 1;
 
@@ -1106,39 +1263,30 @@ int position(lua_State* L)
 			object[object_key].freeze.position[2] = position[2];
 		} break;
 		case BodyContext: {
-			if (game.engageplayerpos) {
-				player[player_key].body[body_key].position[0] = position[0] + game.engageplayerpos[0];
-				player[player_key].body[body_key].position[1] = position[1] + game.engageplayerpos[1];
-				player[player_key].body[body_key].position[2] = position[2] + game.engageplayerpos[2];
-				player[player_key].body[body_key].freeze.position[0] = position[0] + game.engageplayerpos[0];
-				player[player_key].body[body_key].freeze.position[1] = position[1] + game.engageplayerpos[1];
-				player[player_key].body[body_key].freeze.position[2] = position[2] + game.engageplayerpos[2];
-
-			} else {
-				player[player_key].body[body_key].position[0] = position[0];
-				player[player_key].body[body_key].position[1] = position[1];
-				player[player_key].body[body_key].position[2] = position[2];
-				player[player_key].body[body_key].freeze.position[0] = position[0];
-				player[player_key].body[body_key].freeze.position[1] = position[1];
-				player[player_key].body[body_key].freeze.position[2] = position[2];
+			if (player[player_key].engagepos) {
+				position[0] = position[0] + player[player_key].engagepos[0];
+				position[1] = position[1] + player[player_key].engagepos[1];
+				position[2] = position[2] + player[player_key].engagepos[2];
 			}
+			player[player_key].body[body_key].position[0] = position[0];
+			player[player_key].body[body_key].position[1] = position[1];
+			player[player_key].body[body_key].position[2] = position[2];
+			player[player_key].body[body_key].freeze.position[0] = position[0];
+			player[player_key].body[body_key].freeze.position[1] = position[1];
+			player[player_key].body[body_key].freeze.position[2] = position[2];
 		} break;
 		case JointContext: {
-			if (game.engageplayerpos) {
-				player[player_key].joint[joint_key].position[0] = position[0] + game.engageplayerpos[0];
-				player[player_key].joint[joint_key].position[1] = position[1] + game.engageplayerpos[1];
-				player[player_key].joint[joint_key].position[2] = position[2] + game.engageplayerpos[2];
-				player[player_key].joint[joint_key].freeze.position[0] = position[0] + game.engageplayerpos[0];
-				player[player_key].joint[joint_key].freeze.position[1] = position[1] + game.engageplayerpos[1];
-				player[player_key].joint[joint_key].freeze.position[2] = position[2] + game.engageplayerpos[2];
-			} else {
-				player[player_key].joint[joint_key].position[0] = position[0];
-				player[player_key].joint[joint_key].position[1] = position[1];
-				player[player_key].joint[joint_key].position[2] = position[2];
-				player[player_key].joint[joint_key].freeze.position[0] = position[0];
-				player[player_key].joint[joint_key].freeze.position[1] = position[1];
-				player[player_key].joint[joint_key].freeze.position[2] = position[2];
+			if (player[player_key].engagepos) {
+				position[0] = position[0] + player[player_key].engagepos[0];
+				position[1] = position[1] + player[player_key].engagepos[1];
+				position[2] = position[2] + player[player_key].engagepos[2];
 			}
+			player[player_key].joint[joint_key].position[0] = position[0];
+			player[player_key].joint[joint_key].position[1] = position[1];
+			player[player_key].joint[joint_key].position[2] = position[2];
+			player[player_key].joint[joint_key].freeze.position[0] = position[0];
+			player[player_key].joint[joint_key].freeze.position[1] = position[1];
+			player[player_key].joint[joint_key].freeze.position[2] = position[2];
 		} break;
 	}
 
@@ -1644,8 +1792,17 @@ void init_api()
 	lua_State* L = luaL_newstate();
 	luaL_openlibs(L);
 	
-	lua_pushcfunction(L, api_turnframes);
+	lua_pushcfunction(L, turnframes);
 	lua_setglobal(L, "turnframes");
+
+	lua_pushcfunction(L, numplayers);
+	lua_setglobal(L, "numplayers");
+
+	lua_pushcfunction(L, engagepos);
+	lua_setglobal(L, "engageposition");
+
+	lua_pushcfunction(L, engagerot);
+	lua_setglobal(L, "engagerotation");
 
 	lua_pushcfunction(L, engageplayerpos);
 	lua_setglobal(L, "engageplayerpos");
@@ -1653,7 +1810,7 @@ void init_api()
 	lua_pushcfunction(L, engageplayerrot);
 	lua_setglobal(L, "engageplayerrot");
 
-	lua_pushcfunction(L, api_friction);
+	lua_pushcfunction(L, friction);
 	lua_setglobal(L, "friction");
 
 	lua_pushcfunction(L, gravity);
@@ -1746,22 +1903,19 @@ void init_api()
 	lua_close(L);
 }
 
-void GameStart()
+void GameSetup()
 {
 	init_api();
 
 	dMass mass;
 
-	dInitODE2(0);
-
 	game.gameframe = 0;
 	game.freeze = true;
-	game.freeze_time = 40;
+	game.freeze_time = 50;
 	game.freeze_t = 0;
 	game.unfreeze_time = 0;
 	game.unfreeze_t = 0;
 
-	game.world = dWorldCreate();
 	game.space = dHashSpaceCreate(0);
   	game.contactgroup = dJointGroupCreate(0);
 	game.floor = dCreatePlane(game.space, 0, 0, 1, 0);
@@ -1778,6 +1932,30 @@ void GameStart()
 	for (auto& [player_name, p] : player) {
 		p.create(mass);
 	}
+}
+
+void GameReset()
+{
+	dJointGroupDestroy(game.contactgroup);
+	dSpaceDestroy(game.space);
+
+	std::map<std::string, Object> new_object_map;
+	object = new_object_map;
+
+	std::map<std::string, Player> new_player_map;
+	player = new_player_map;
+
+	GameSetup();
+}
+
+
+void GameStart()
+{
+	dInitODE2(0);
+
+	game.world = dWorldCreate();
+
+	GameSetup();
 }
 
 void UpdateFreeze()
@@ -1818,6 +1996,15 @@ void DrawFloor()
 	rlRotatef(RAD2DEG * angle, axis.x, axis.y, axis.z);
 	DrawGrid(20, 1.0f);
 	rlPopMatrix();
+}
+
+void ToggleGhosts()
+{
+	for (auto& [player_name, p] : player) {
+		if (player_name != game.selected_player) {
+			p.toggle_ghost();
+		}
+	}
 }
 
 void DrawFrame()
@@ -2427,24 +2614,29 @@ void SelectPlayer ()
 
 void SelectJoint (Camera3D Camera, Ray MouseRay, RayCollision MouseCollision)
 {
+	RayCollision collision = { 0 };
 	MouseRay = GetMouseRay(GetMousePosition(), Camera);
-	for (auto const& [joint_name, j] : player[game.selected_player].joint) {
-		MouseCollision = GetRayCollisionSphere(MouseRay,
-			(Vector3){
-				j.freeze.position[0],
-				j.freeze.position[1],
-				j.freeze.position[2],
-			},
-			j.radius
-		);
-
+	for (auto& [joint_name, j] : player[game.selected_player].joint) {
+		MouseCollision = j.collide_mouse_ray(MouseRay, MouseCollision);
 		if (MouseCollision.hit) {
-			game.selected_joint = j.name;
-			break;
+			std::cout << "c1 " << MouseCollision.distance << std::endl;
+			std::cout << "c2 " << collision.distance << std::endl;
+			if (MouseCollision.distance < collision.distance) {
+				collision = MouseCollision;
+				game.selected_joint = j.name;
+				j.select = true;
+				break;
+			}
+			if (collision.distance == 0){
+				collision = MouseCollision;
+			}
 		} else {
 			game.selected_joint = "NONE";
+			j.select = false;
 		}
 	}
+	
+
 }
 
 std::map<int, FrameData> RecordedFrames;
@@ -2653,8 +2845,8 @@ void UpdateFrame()
 int main()
 {
 	SetTraceLogLevel(LOG_ERROR);
-
 	InitWindow(1600, 900, "TOBAS");
+	SetExitKey(0);
 
 	Camera3D camera = { 0 };
 	camera.up = (Vector3){ 0.00, 0.00, 1.00 };
@@ -2788,6 +2980,14 @@ int main()
 
 		if (IsKeyPressed(KEY_P)) {
 			game.pause = game.pause == false;
+		}
+
+		if (IsKeyPressed(KEY_G)) {
+			ToggleGhosts();
+		}
+
+		if (IsKeyPressed(KEY_ESCAPE)) {
+			GameReset();
 		}
 
 		UpdateFrame();
