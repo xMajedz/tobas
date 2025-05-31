@@ -3,12 +3,72 @@
 #include <string>
 #include <map>
 
+#include <lua.h>
+#include <lualib.h>
+#include <luacode.h>
+
 #include <raylib.h>
 #include <rlgl.h>
 #include <raymath.h>
 
 #include <ode/ode.h>
-#include <lua.hpp>
+
+struct Bytecode {
+	size_t size;
+	char* data;
+};
+
+char* read_file(const char* file_name)
+{
+	FILE* f;
+
+	f = fopen(file_name, "rb");
+
+	fseek(f, 0, SEEK_END);
+	long fsize = ftell(f);
+	fseek(f, 0, SEEK_SET);
+	char* content = (char*) malloc(fsize + 1);
+	fread(content, fsize, 1, f);
+
+	content[fsize] = '\0';
+
+	fclose(f);
+
+	return content;
+}
+
+int luau_do(lua_State* L, const char* string, const char* chunkname)
+{
+	Bytecode bytecode = { 0 };
+	bytecode.data = luau_compile(string, strlen(string), NULL, &bytecode.size);
+
+	int result = luau_load(L, chunkname, bytecode.data, bytecode.size, 0);
+
+	free(bytecode.data);
+
+	if (result != LUA_OK)
+		return 1;
+
+	lua_resume(L, NULL, 0);
+
+	return 0;
+}
+
+int luau_dostring(lua_State* L, const char* string)
+{
+	return luau_do(L, string,"=luaugame_dostring");
+}
+
+int luau_dofile(lua_State* L, const char* file_name)
+{
+	return luau_do(L, read_file(file_name),"=luaugame_dofile");
+}
+
+void lua_setglobalcfunction(lua_State* L, lua_CFunction fn,const char* fn_name)
+{
+	lua_pushcfunction(L, fn, fn_name);
+	lua_setglobal(L, fn_name);
+}
 
 enum GameContext {
 	NoContext,
@@ -1791,114 +1851,47 @@ void init_api()
 {
 	lua_State* L = luaL_newstate();
 	luaL_openlibs(L);
-	
-	lua_pushcfunction(L, turnframes);
-	lua_setglobal(L, "turnframes");
 
-	lua_pushcfunction(L, numplayers);
-	lua_setglobal(L, "numplayers");
+	lua_setglobalcfunction(L, turnframes, "turnframes");
+	lua_setglobalcfunction(L, numplayers, "numplayers");
+	lua_setglobalcfunction(L, engagepos, "engageposition");
+	lua_setglobalcfunction(L, engagerot, "engagerotation");
+	lua_setglobalcfunction(L, engageplayerpos, "engageplayerpos");
+	lua_setglobalcfunction(L, engageplayerrot, "engageplayerrot");
+	lua_setglobalcfunction(L, friction, "friction");
+	lua_setglobalcfunction(L, gravity, "gravity");
+	lua_setglobalcfunction(L, api_object, "object");
+	lua_setglobalcfunction(L, api_player, "player");
+	lua_setglobalcfunction(L, api_body, "body");
+	lua_setglobalcfunction(L, api_joint, "joint");
+	lua_setglobalcfunction(L, shape, "shape");
+	lua_setglobalcfunction(L, position, "position");
+	lua_setglobalcfunction(L, orientation, "orientation");
+	lua_setglobalcfunction(L, sides, "sides");
+	lua_setglobalcfunction(L, density, "density");
+	lua_setglobalcfunction(L, api_static_state, "static");
+	lua_setglobalcfunction(L, radius, "radius");
+	lua_setglobalcfunction(L, length, "length");
+	lua_setglobalcfunction(L, composite, "composite");
+	lua_setglobalcfunction(L, strength, "strength");
+	lua_setglobalcfunction(L, strength_alt, "strength_alt");
+	lua_setglobalcfunction(L, velocity, "velocity");
+	lua_setglobalcfunction(L, velocity_alt, "velocity_alt");
+	lua_setglobalcfunction(L, axis, "axis");
+	lua_setglobalcfunction(L, axis_alt, "axis_alt");
+	lua_setglobalcfunction(L, axis, "axis");
+	lua_setglobalcfunction(L, axis_alt, "axis_alt");
+	lua_setglobalcfunction(L, range, "range");
+	lua_setglobalcfunction(L, range_alt, "range_alt");
+	lua_setglobalcfunction(L, connections, "connections");
+	lua_setglobalcfunction(L, connectionType, "connectionType");
 
-	lua_pushcfunction(L, engagepos);
-	lua_setglobal(L, "engageposition");
-
-	lua_pushcfunction(L, engagerot);
-	lua_setglobal(L, "engagerotation");
-
-	lua_pushcfunction(L, engageplayerpos);
-	lua_setglobal(L, "engageplayerpos");
-
-	lua_pushcfunction(L, engageplayerrot);
-	lua_setglobal(L, "engageplayerrot");
-
-	lua_pushcfunction(L, friction);
-	lua_setglobal(L, "friction");
-
-	lua_pushcfunction(L, gravity);
-	lua_setglobal(L, "gravity");
-
-	lua_pushcfunction(L, globalplane);
-	lua_setglobal(L, "globalplane");
-
-	lua_pushcfunction(L, api_object);
-	lua_setglobal(L, "object");
-
-	lua_pushcfunction(L, api_player);
-	lua_setglobal(L, "player");
-
-	lua_pushcfunction(L, api_body);
-	lua_setglobal(L, "body");
-
-	lua_pushcfunction(L, api_joint);
-	lua_setglobal(L, "joint");
-
-	lua_pushcfunction(L, shape);
-	lua_setglobal(L, "shape");
-
-	lua_pushcfunction(L, position);
-	lua_setglobal(L, "position");
-
-	lua_pushcfunction(L, orientation);
-	lua_setglobal(L, "orientation");
-
-	lua_pushcfunction(L, sides);
-	lua_setglobal(L, "sides");
-
-	lua_pushcfunction(L, density);
-	lua_setglobal(L, "density");
-
-	lua_pushcfunction(L, api_static_state);
-	lua_setglobal(L, "static");
-
-	lua_pushcfunction(L, radius);
-	lua_setglobal(L, "radius");
-
-	lua_pushcfunction(L, length);
-	lua_setglobal(L, "length");
-
-	lua_pushcfunction(L, composite);
-	lua_setglobal(L, "composite");
-
-	lua_pushcfunction(L, strength);
-	lua_setglobal(L, "strength");
-
-	lua_pushcfunction(L, strength_alt);
-	lua_setglobal(L, "strength_alt");
-
-	lua_pushcfunction(L, velocity);
-	lua_setglobal(L, "velocity");
-
-	lua_pushcfunction(L, velocity_alt);
-	lua_setglobal(L, "velocity_alt");
-
-	lua_pushcfunction(L, axis);
-	lua_setglobal(L, "axis");
-
-	lua_pushcfunction(L, axis_alt);
-	lua_setglobal(L, "axis_alt");
-
-	lua_pushcfunction(L, axis);
-	lua_setglobal(L, "axis");
-
-	lua_pushcfunction(L, axis_alt);
-	lua_setglobal(L, "axis_alt");
-
-	lua_pushcfunction(L, range);
-	lua_setglobal(L, "range");
-
-	lua_pushcfunction(L, range_alt);
-	lua_setglobal(L, "range_alt");
-
-	lua_pushcfunction(L, connections);
-	lua_setglobal(L, "connections");
-
-	lua_pushcfunction(L, connectionType);
-	lua_setglobal(L, "connectionType");
-
-	if (luaL_dofile(L, "game.lua") != LUA_OK)
-	{
+	if (luau_dofile(L, "game.lua") != LUA_OK) {
 		MSG = "[C] Error reading script";
 		luaL_error(L, "Error: %s\n", lua_tostring(L, -1));
-	} else MSG = "[C] Executed game.lua";	
+	} else {
+		MSG = "[C] Executed game.lua";	
+	}
 
 	lua_close(L);
 }
