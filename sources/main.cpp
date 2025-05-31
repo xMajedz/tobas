@@ -2612,17 +2612,10 @@ void SelectJoint (Camera3D Camera, Ray MouseRay, RayCollision MouseCollision)
 	for (auto& [joint_name, j] : player[game.selected_player].joint) {
 		MouseCollision = j.collide_mouse_ray(MouseRay, MouseCollision);
 		if (MouseCollision.hit) {
-			std::cout << "c1 " << MouseCollision.distance << std::endl;
-			std::cout << "c2 " << collision.distance << std::endl;
-			if (MouseCollision.distance < collision.distance) {
-				collision = MouseCollision;
-				game.selected_joint = j.name;
-				j.select = true;
-				break;
-			}
-			if (collision.distance == 0){
-				collision = MouseCollision;
-			}
+			collision = MouseCollision;
+			game.selected_joint = j.name;
+			j.select = true;
+			break;
 		} else {
 			game.selected_joint = "NONE";
 			j.select = false;
