@@ -1,12 +1,28 @@
 # Depends on
-* Open Dynamics Engine => 0.16.0 ([odedevs/ode](https://bitbucket.org/odedevs/ode)) 
-* Raylib >= 5.0 ([raysan5/raylib](https://github.com/raysan5/raylib))
-* LuaJIT >= 2.1 ([LuaJIT/LuaJIT](https://github.com/LuaJIT/LuaJIT))
+* Luau ([luau-lang/luau](https://github.com/luau-lang/luau))
+* Raylib ([raysan5/raylib](https://github.com/raysan5/raylib))
+* Open Dynamics Engine ([odedevs/ode](https://bitbucket.org/odedevs/ode)) 
 # Building
 clone tobas
 ```
 git clone https://github.com/xMajedz/tobas.git
 cd tobas
+```
+clone Luau
+```
+git clone https://github.com/luau-lang/luau.git
+```
+build Luau
+```
+make -C luau config=release luau
+```
+clone Raylib
+```
+git clone https://github.com/raysan5/raylib.git
+```
+build Raylib
+```
+make -C raylib/src
 ```
 clone ODE
 ```
@@ -18,22 +34,6 @@ cd ode
 ./bootstrap
 ./configure
 make
-```
-clone Raylib
-```
-git clone https://github.com/raysan5/raylib.git
-```
-build Raylib
-```
-make -C raylib/src
-```
-clone LuaJIT
-```
-git clone https://luajit.org/git/luajit.git
-```
-build LuaJIT
-```
-make -C luajit/src
 ```
 build tobas
 ```
