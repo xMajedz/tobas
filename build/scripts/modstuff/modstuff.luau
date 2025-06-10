@@ -13,13 +13,13 @@ ms.connections = {}
 ms.connections["breast"] = "chest"
 ms.connections["chest"] = "lumbar"
 ms.connections["stomach"] = "abs"
+ms.connections["groin"] = "abs"
 ms.connections["l_pecs"] = "l_pecs"
 ms.connections["r_pecs"] = "r_pecs"
 ms.connections["l_biceps"] = "l_shoulder"
 ms.connections["r_biceps"] = "r_shoulder"
 ms.connections["l_triceps"] = "l_elbow"
 ms.connections["r_triceps"] = "r_elbow"
-ms.connections["groin"] = "abs"
 ms.connections["l_thigh"] = "l_hip"
 ms.connections["r_thigh"] = "r_hip"
 ms.connections["l_leg"] = "l_knee"
@@ -60,8 +60,11 @@ function ms.loadTBM(TBM)
 		end
 		position {env_obj["pos"][1] + 0, env_obj["pos"][2] + 0, env_obj["pos"][3] + 0}
 		if  env_obj["rot"] then
-			local RAD2DEG = Math.RAD2DEG
-			local q = euler2quat(env_obj["rot"][1] * RAD2DEG, env_obj["rot"][2] * RAD2DEG, env_obj["rot"][3] * RAD2DEG)
+			local q = euler2quat(
+				env_obj["rot"][1] * Math.DEG2RAD,
+				env_obj["rot"][2] * Math.DEG2RAD,
+				env_obj["rot"][3] * Math.DEG2RAD
+			)
 			orientation {q[1], q[2], q[3], q[4]}
 		end
 		if env_obj["shape"] == "sphere" then
@@ -101,8 +104,11 @@ function ms.loadTBM(TBM)
 			 end
 			position {b["pos"][1] + 0, b["pos"][2] + 0, b["pos"][3] + 0}
 			if b["rot"] then
-				local RAD2DEG = Math.RAD2DEG	
-				local q = euler2quat(b["rot"][1] * RAD2DEG, b["rot"][2] * RAD2DEG, b["rot"][3] * RAD2DEG)
+				local q = euler2quat(
+					b["rot"][1] * Math.DEG2RAD,
+					b["rot"][2] * Math.DEG2RAD,
+					b["rot"][3] * Math.DEG2RAD
+				)
 				orientation {q[1], q[2], q[3], q[4]}
 			end
 			if body_name == "head" or b["shape"] == "sphere" then
@@ -122,32 +128,48 @@ function ms.loadTBM(TBM)
 			joint(joint_name)
 			shape "sphere"
 			radius {j["radius"]}
-       if type(j["pos"]) == "string" then
-							 j["pos"] = j["pos"]:split(" ")
-			 end
+       			if type(j["pos"]) == "string" then
+				 j["pos"] = j["pos"]:split(" ")
+			end
 			position {j["pos"][1], j["pos"][2], j["pos"][3]}
 			density {0.0025}
 			strength {j["strength"]}
+			if j["strength_alt"] then
+				strength_alt {j["strength_alt"]}
+			end
 			velocity {j["velocity"]}
-       if type(j["axis"]) == "string" then
-							 j["axis"] = j["axis"]:split(" ")
-			 end
+			if j["strength_alt"] then
+				velocity_alt {j["velocity_alt"]}
+			end
+       			if type(j["axis"]) == "string" then
+				 j["axis"] = j["axis"]:split(" ")
+			end
 			axis {j["axis"][1], j["axis"][2], j["axis"][3]}
-       if type(j["range"]) == "string" then
-							 j["range"] = j["range"]:split(" ")
-			 end
+			if j["axis_alt"] then
+				axis_alt {j["axis_alt"][1], j["axis_alt"][2], j["axis_alt"][3]}
+			end
+       			if type(j["range"]) == "string" then
+				 j["range"] = j["range"]:split(" ")
+			end
 			range {j["range"][1], j["range"][2]}
-       if type(j["connections"]) == "string" then
-			j["connections"] = j["connections"]:split(" ")
+			if j["range_alt"] then
+				range_alt {j["range_alt"][1], j["range_alt"][2]}
+			end
+       			if type(j["connections"]) == "string" then
+				j["connections"] = j["connections"]:split(" ")
 			end
 			connections {j["connections"][1], j["connections"][2]}
-			connectionType "hinge"
+			if j["connectionType"] then
+				connectionType(j["connectionType"])
+			else 
+				connectionType "hinge"
+			end
 		end
 	end
 end
 
 function ms.parseTBM(filename)
-	fs.readfile("mods/" .. filename:gsub(".tbm", "") .. ".tbm")
+	local file_lines = fs.readfile("mods/" .. filename:gsub(".tbm", "") .. ".tbm")
 	local TBM = table.clone(default)
 	local env_obj_num = ""
 	local env_obj_joint_num = ""
@@ -156,7 +178,7 @@ function ms.parseTBM(filename)
 	local joint_name = ""
 	local context = ""
 	local data = ""
-	for _, line in fs.lines do
+	for _, line in file_lines do
 		if line:match("version ") then
 			TBM["version"] = line:gsub(".*version ", "")
 		elseif line:match("turnframes ") then

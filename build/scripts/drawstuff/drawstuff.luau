@@ -1,10 +1,13 @@
 -- a simple library to help with ui stuff
 DS_COLOR_RED = {0, 255, 0 ,255}
 DS_COLOR_GREEN = {0, 255, 0 ,255}
-DS_COLOR_BLUE = {0, 255, 0 ,255}
+DS_COLOR_BLUE = {0, 0, 255 ,255}
 DS_COLOR_BLACK = {0, 0, 0 ,255}
 
-ds = {objects = {}}
+ds = {
+	objects = {},
+	interactive_objects = {},
+}
 ds.__index = ds
 
 function ds.new(o)
@@ -15,18 +18,38 @@ function ds.new(o)
 	o.width = o.width or 0
 	o.height = o.height or 0
 	o.color = o.color or DS_COLOR_GREEN
+	o.borderColor = o.borderColor
 	o.text = o.text
 	o.textColor = o.textColor or DS_COLOR_BLACK
 	o.fontSize = o.fontSize or 1.00
-	o.update_func = o.update_func
+	o.update_callback = o.update_callback
+	o.interactive = o.interactive
+	o.click_callback = o.click_callback
+	o.pressed = false
+	o.released = true
+	o.clicked = false
+	o.mouse_down = false
+	o.mouse_up = true
+	o.children = o.children or {}
 	setmetatable(o, ds)
 	table.insert(ds.objects, o)
+	if o.interactive then
+		table.insert(ds.interactive_objects, o)
+	end
+	if o.parent then
+		table.insert(o.parent.children, o)
+	end
 	return o
 end
 
+function ds:new_child(o)
+	o.parent = o.parent or self
+	return ds.new(o)
+end
+
 function ds:update()
-	if self.update_func then
-		self.update_func()
+	if self.update_callback then
+		self:update_callback()
 	end
 end
 
@@ -40,6 +63,15 @@ function ds:draw()
 			self.color
 		)
 	end
+	if self.borderColor then
+		DrawRectangleLines(
+			self.posX,
+			self.posY,
+			self.width,
+			self.height,
+			self.borderColor
+		)
+	end
 	if self.text then
 		DrawText(
 			self.text,
@@ -49,17 +81,43 @@ function ds:draw()
 			self.textColor
 		)
 	end
-end
-
-function ds:drawstuff()
-	for i, o in ds.objects do
+	for i, o in self.children do
 		o:update()
 		o:draw()
 	end
 end
 
-function draw2d()
-	ds.drawstuff()
+function ds:drawstuff()
+	for i, o in self.objects do
+		o:update()
+		o:draw()
+	end
+end
+
+function Draw2D.drawstuff()
+	ds:drawstuff()
+end
+
+function MouseButtonDown.drawstuff()
+	local MousePosition = GetMousePosition()
+	for i, o in ds.interactive_objects do
+		local conditionX = MousePosition.x > o.posX and MousePosition.x < o.posX + o.width
+		local conditionY = MousePosition.y > o.posY and MousePosition.y < o.posY + o.height
+		if conditionX and conditionY then
+			if not o.pressed then
+				o.pressed = true
+				o:click_callback()
+			end
+		end
+	end
+end
+
+function MouseButtonUp.drawstuff()
+	for i, o in ds.interactive_objects do
+		if o.pressed then
+			o.pressed = false
+		end
+	end
 end
 
 return ds

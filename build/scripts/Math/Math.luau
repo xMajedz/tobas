@@ -1,4 +1,4 @@
-Math = {RAD2DEG = math.pi/180}
+Math = {DEG2RAD = math.pi/180}
 
 function Math.MatrixMultiply(A, B)
 	local M = {}

@@ -7,10 +7,9 @@ end
 
 function fs.readfile(pathtofile)
     if (pathtofile) then
-	    fs.content = readfile(pathtofile)
-	    fs.content = fs.content:gsub("\r", "")
-	    fs.lines = fs.content:split("\n")
-        return fs.lines
+	    fs.content = LoadFileText(pathtofile)
+	    fs.content = fs.content:gsub("\r", "") 
+        return fs.content:split("\n")
     end
 end
 

@@ -13,36 +13,29 @@
 
 #include <ode/ode.h>
 
-struct Bytecode {
-	size_t size;
-	char* data;
-};
+struct Window {
+	int width;
+	int height;
+} window;
 
-char* readfile(const char* filename)
-{
-	FILE* f = fopen(filename, "rb");
-	fseek(f, 0, SEEK_END);
-	long fsize = ftell(f);
-	fseek(f, 0, SEEK_SET);
-	char* content = (char*) malloc(fsize + 1);
-	fread(content, fsize, 1, f);
-	content[fsize] = '\0';
-	fclose(f);
-	return content;
-}
+struct Bytecode {
+	char* data;
+	size_t size;
+};
 
 int luau_do(lua_State* L, const char* string, const char* chunkname)
 {
 	Bytecode bytecode = { 0 };
 	bytecode.data = luau_compile(string, strlen(string), NULL, &bytecode.size);
 	int result = luau_load(L, chunkname, bytecode.data, bytecode.size, 0);
+	int status = lua_pcall(L, 0, 0, 0);
 	free(bytecode.data);
-	return lua_pcall(L, 0, 0, 0);
+	return status;
 }
 
 int luau_dostring(lua_State* L, const char* string)
 {
-  return luau_do(L, string, "=dostring");
+	return luau_do(L, string, "=dostring");
 }
 
 int luau_dostring(lua_State* L, const char* string, const char* chunkname)
@@ -52,32 +45,70 @@ int luau_dostring(lua_State* L, const char* string, const char* chunkname)
 
 int luau_dofile(lua_State* L, const char* filename)
 {
-	return luau_dostring(L, readfile(filename), "=dofile");
+	char* text = LoadFileText(filename);
+	int status = luau_dostring(L, text, "=dofile");
+	UnloadFileText(text);
+	return status;
 }
 
 int luau_dofile(lua_State* L, const char* filename, const char* chunkname)
 {
-	return luau_dostring(L, readfile(filename), chunkname);
+	char* text = LoadFileText(filename);
+	int status = luau_dostring(L, text, chunkname);
+	UnloadFileText(text);
+	return status;
 }
 
-void lua_setglobalcfunction(lua_State* L, lua_CFunction fn ,const char* fn_name)
+void api_set(lua_State* L, lua_CFunction fn ,const char* fn_name)
 {
 	lua_pushcfunction(L, fn, fn_name);
 	lua_setglobal(L, fn_name);
 }
 
-int api_readfile(lua_State* L)
+int api_LoadFileText(lua_State* L)
 {
 	const char* filename = lua_tostring(L, -1);
-	const char* result = readfile(filename);
-	lua_pushstring(L, result);
+	char* text = LoadFileText(filename);
+	lua_pushstring(L, text);
+	UnloadFileText(text);
+	return 1;
+}
+
+int api_LoadDirectoryFilesEx(lua_State* L)
+{
+	const char* path = lua_tostring(L, -1);
+	const char* filter = lua_tostring(L, -2);
+	//bool scanSubdirs = lua_tostring(L, -3);
+	FilePathList list = LoadDirectoryFilesEx(path, filter, false);
+	lua_newtable(L);
+	for (int i = 0; i <= list.count; ++i) {
+		lua_pushstring(L, list.paths[i]);
+		lua_rawseti(L, -2, i + 1);
+		//lua_rawset(L, -2);
+	}
+	UnloadDirectoryFiles(list);
+	return 1;
+}
+
+int api_LoadDirectoryFiles(lua_State* L)
+{
+	const char* path = lua_tostring(L, -1);
+	FilePathList list = LoadDirectoryFiles(path);
+	lua_newtable(L);
+	for (int i = 0; i <= list.count; ++i) {
+		lua_pushstring(L, list.paths[i]);
+		lua_rawseti(L, -2, i + 1);
+		//lua_rawset(L, -2);
+	}
+	UnloadDirectoryFiles(list);
 	return 1;
 }
 
 int api_dofile(lua_State* L)
 {
-	const char* filename = lua_tostring(L, -1);
-	lua_Number result = luau_dofile(L, filename);
+	std::string filename = lua_tostring(L, -1);
+	std::string chunkname = "=dofile:" + filename;
+	lua_Number result = luau_dofile(L, filename.c_str(), chunkname.c_str());
 	lua_pushnumber(L, result);
 	return 1;
 }
@@ -124,24 +155,28 @@ struct game {
 	dGeomID floor;
 	dReal engagedistance;
 	dReal engageheight;
-	dReal engageplayerpos[3];
-	dReal engageplayerrot[3];
 	dReal gravity[3];
 	dReal friction = 1000.00;
-	dReal freeze_time;
-	dReal freeze_t;
-	dReal unfreeze_time;
-	dReal unfreeze_t;
+
 	dReal step = 0.01;
-	int gameframe;
+	dReal reaction_time = 10;
+	dReal reaction_count = 0;
+
+	dReal freeze_time;
+	dReal freeze_frames;
+	dReal freeze_count;
+	dReal step_frames;
+	dReal step_count;
+
+	int game_frame;
 	int turnframes = 10;
 	int max_contacts = 8;
 	int numplayers = 1;
+	bool freeze;
+	bool pause = false;
 	Gamemode gamemode = FREEPLAY;
 	std::string selected_player = "NONE";
 	std::string selected_joint = "NONE";
-	bool freeze;
-	bool pause = false;
 } game;
 
 class FreezeData {
@@ -257,6 +292,7 @@ class Object {
 			freeze.position[1],
 			freeze.position[2]);
 		dGeomSetQuaternion(dGeom, freeze.orientation);
+
 		dBodySetLinearVel(
 			dBody,
 			freeze.linear_vel[0],
@@ -362,17 +398,15 @@ class Object {
 
 class Body : public Object {
 	public:
-	std::string owner;
 };
 
 class Joint : public Object {
 	public:
-	std::string owner;
 	std::string connections[2];
 	JointType connectionType;
 	JointState state;
 	JointState state_alt;
-	dJointID dJoint[2];
+	dJointID dJoint;
 	dReal axis[3];
 	dReal axis_alt[3];
 	dReal range[2];
@@ -382,144 +416,273 @@ class Joint : public Object {
 	dReal velocity;
 	dReal velocity_alt;
 
-	void create_joint(dBodyID b1, dBodyID b2) {
+	void refreeze_joint() {
+		dGeomSetPosition(
+			dGeom,
+			freeze.position[0],
+			freeze.position[1],
+			freeze.position[2]);
+		dGeomSetQuaternion(dGeom, freeze.orientation);
+
+		dBodySetLinearVel(
+			dBody,
+			freeze.linear_vel[0],
+			freeze.linear_vel[1],
+			freeze.linear_vel[2]);
+		dBodySetAngularVel(
+			dBody,
+			freeze.angular_vel[0],
+			freeze.angular_vel[1],
+			freeze.angular_vel[2]);
+	};
+
+	void update_joint_freeze() {
+		dQuaternion orientation;
+		dGeomGetQuaternion(dGeom, orientation);
+
+		const dReal *position = dGeomGetPosition(dGeom);
+		freeze.position[0] = position[0];
+		freeze.position[1] = position[1];
+		freeze.position[2] = position[2];
+
+		freeze.orientation[0] = orientation[0];
+		freeze.orientation[1] = orientation[1];
+		freeze.orientation[2] = orientation[2];
+		freeze.orientation[3] = orientation[3];
+
+		const dReal *linear_vel = dBodyGetLinearVel(dBody);
+		const dReal *angular_vel = dBodyGetAngularVel(dBody);
+
+		freeze.linear_vel[0] = linear_vel[0];
+		freeze.linear_vel[1] = linear_vel[1];
+		freeze.linear_vel[2] = linear_vel[2];
+
+		freeze.angular_vel[0] = angular_vel[0];
+		freeze.angular_vel[1] = angular_vel[1];
+		freeze.angular_vel[2] = angular_vel[2];
+	};
+
+	void create_joint(dMass mass, Body b1, Body b2) {
+		dBody = b1.dBody;
+
+		switch(shape) {
+			case Box: {
+				dGeom = dCreateBox(game.space, sides[0], sides[1], sides[2]);
+				dMassSetBox(&mass, density, sides[0], sides[1], sides[2]);
+			} break;
+			case Sphere: {
+				dGeom = dCreateSphere(game.space, radius);
+				dMassSetSphere(&mass, density, radius);
+			} break;
+			case Capsule: {
+				dGeom = dCreateCapsule(game.space, radius, length);
+				dMassSetCapsule(&mass, density, 1, length, radius);
+			} break;
+			case Cylinder: {
+				dGeom = dCreateCylinder(game.space, radius, length);
+				dMassSetCylinder(&mass, density, 1, length, radius);
+			} break;
+		}
+
+		dGeomSetBody(dGeom, dBody);
+		
+		dGeomSetOffsetPosition(dGeom,
+			position[0] - b1.position[0],
+			position[1] - b1.position[1],
+			position[2] - b1.position[2]
+		);
+
+		dGeomSetOffsetQuaternion(dGeom, orientation);
+
 		switch(connectionType) {
 			case Hinge: {
-				dJoint[0] = dJointCreateHinge(game.world, 0);
-				dJointAttach(dJoint[0], b1, dBody);
+				dJoint = dJointCreateHinge(game.world, 0);
+				dJointAttach(dJoint, dBody, b2.dBody);
 				dJointSetHingeAnchor(
-					dJoint[0],
+					dJoint,
 					position[0],
 					position[1],
 					position[2]);
 				dJointSetHingeAxis(
-					dJoint[0],
+					dJoint,
 					axis[0],
 					axis[1],
 					axis[2]);
 		
 				dJointSetHingeParam(
-					dJoint[0],
+					dJoint,
 					dParamHiStop,
 					range[0]);
 				dJointSetHingeParam(
-					dJoint[0],
+					dJoint,
 					dParamLoStop,
 					range[1]);
 			} break;
 			case Slider: {
-				dJoint[0] = dJointCreateSlider(game.world, 0);
-				dJointAttach(dJoint[0], b1, dBody);
+				dJoint = dJointCreateSlider(game.world, 0);
+				dJointAttach(dJoint, dBody, b2.dBody);
 				dJointSetSliderAxis(
-					dJoint[0],
+					dJoint,
 					axis[0],
 					axis[1],
 					axis[2]);
 		
 				dJointSetSliderParam(
-					dJoint[0],
+					dJoint,
 					dParamHiStop,
 					range[0]);
 				dJointSetSliderParam(
-					dJoint[0],
+					dJoint,
 					dParamLoStop,
 					range[1]);
 			} break;
 			case Universal: {
-				dJoint[0] = dJointCreateUniversal(game.world, 0);
-				dJointAttach(dJoint[0], b1, dBody);
+				dJoint = dJointCreateUniversal(game.world, 0);
+				dJointAttach(dJoint, dBody, b2.dBody);
 				dJointSetUniversalAnchor(
-					dJoint[0],
+					dJoint,
 					position[0],
 					position[1],
 					position[2]);
 		
 				dJointSetUniversalAnchor(
-					dJoint[0],
+					dJoint,
 					position[0],
 					position[1],
 					position[2]);
 		
 				dJointSetUniversalAxis1(
-					dJoint[0],
+					dJoint,
 					axis[0],
 					axis[1],
 					axis[2]);
 				dJointSetUniversalAxis2(
-					dJoint[0],
+					dJoint,
 					axis_alt[0],
 					axis_alt[1],
 					axis_alt[2]);
 		
 				dJointSetUniversalParam(
-					dJoint[0],
+					dJoint,
 					dParamHiStop,
 					range[0]);
 		
 				dJointSetUniversalParam(
-					dJoint[0],
+					dJoint,
 					dParamHiStop2,
 					range_alt[0]);
 		
 				dJointSetUniversalParam(
-					dJoint[0],
+					dJoint,
 					dParamLoStop,
 					range[1]);
 		
 				dJointSetUniversalParam(
-					dJoint[0],
+					dJoint,
 					dParamLoStop2,
 					range_alt[1]);
 			} break;
 			case Hinge2: {
-				dJoint[0] = dJointCreateHinge2(game.world, 0);
-				dJointAttach(dJoint[0], b1, dBody);
+				dJoint = dJointCreateHinge2(game.world, 0);
+				dJointAttach(dJoint, dBody, b2.dBody);
 				dJointSetHinge2Anchor(
-					dJoint[0],
+					dJoint,
 					position[0],
 					position[1],
 					position[2]);
 		
 				dJointSetHinge2Anchor(
-					dJoint[0],
+					dJoint,
 					position[0],
 					position[1],
 					position[2]);
 			
-				dJointSetHinge2Axes(dJoint[0], axis, axis_alt);
+				dJointSetHinge2Axes(dJoint, axis, axis_alt);
 		
 				dJointSetHinge2Param(
-					dJoint[0],
+					dJoint,
 					dParamHiStop,
 					range[0]);
 		
 				dJointSetHinge2Param(
-					dJoint[0],
+					dJoint,
 					dParamHiStop2,
 					range_alt[0]);
 		
 				dJointSetHinge2Param(
-					dJoint[0],
+					dJoint,
 					dParamLoStop,
 					range[1]);
 		
 				dJointSetHinge2Param(
-					dJoint[0],
+					dJoint,
 					dParamLoStop2,
 					range_alt[1]);
 			} break;
 			default:
-				dJoint[0] = dJointCreateFixed(game.world, 0);
-				dJointAttach(dJoint[0], b1, dBody);
-				dJointSetFixed(dJoint[0]);
+				dJoint = dJointCreateFixed(game.world, 0);
+				dJointAttach(dJoint, dBody, b2.dBody);
+				dJointSetFixed(dJoint);
 		}
 
-		dJoint[1] = dJointCreateFixed(game.world, 0);
+		/*dJoint[1] = dJointCreateFixed(game.world, 0);
 		dJointAttach(dJoint[1], dBody, b2);
-		dJointSetFixed(dJoint[1]);
+		dJointSetFixed(dJoint[1]);*/
 
 		dGeomSetCategoryBits(dGeom, category_bits);
 		dGeomSetCollideBits(dGeom, collide_bits);
+	};
+
+	void draw_joint(Color draw_color) {
+		dQuaternion dQ;
+		dRtoQ(dGeomGetRotation(dGeom), dQ);
+
+		float angle;
+		Vector3 axis;
+		Quaternion q = { dQ[1], dQ[2], dQ[3], dQ[0] };
+		QuaternionToAxisAngle(q, &axis, &angle);
+
+		const dReal *position = dGeomGetPosition(dGeom);
+		rlPushMatrix();
+		rlTranslatef(position[0], position[1], position[2]);
+		rlRotatef(RAD2DEG * angle, axis.x, axis.y, axis.z);
+
+		draw_object(draw_color);
+	};
+
+	void draw_joint_freeze() {
+		float angle;
+		Vector3 axis;
+		Quaternion q = {
+			freeze.orientation[1],
+			freeze.orientation[2],
+			freeze.orientation[3],
+			freeze.orientation[0]
+		};
+		QuaternionToAxisAngle(q, &axis, &angle);
+		rlPushMatrix();
+		rlTranslatef(
+			freeze.position[0],
+			freeze.position[1],
+			freeze.position[2]
+		);
+		rlRotatef(RAD2DEG * angle, axis.x, axis.y, axis.z);
+		
+		if (select) {
+			draw_object(select_color);
+		} else {
+			draw_object(color);
+		}
+	};
+
+	void draw_joint_ghost() {
+		if (ghost) {
+			draw(ghost_color);
+		}
+	};
+
+	void draw_joint() {
+		draw_joint(color);
 	};
 };
 
@@ -539,9 +702,6 @@ class Player {
 	
 	dReal engagepos[3];
 	dReal engagerot[3];
-
-	bool use_engagepos;
-	bool use_engagerot;
 
 	unsigned long body_category_bits;
 	unsigned long body_collide_bits;
@@ -574,11 +734,7 @@ class Player {
 		}
 	
 		for (auto& [joint_name, j] : joint) {
-			j.create(mass);
-			j.create_joint(
-				body[j.connections[0]].dBody,
-				body[j.connections[1]].dBody
-			);
+			j.create_joint(mass, body[j.connections[0]], body[j.connections[1]]);
 		}
 	};
 
@@ -588,7 +744,7 @@ class Player {
 		}
 
 		for (auto& [joint_name, j] : joint) {
-			j.update_freeze();
+			j.update_joint_freeze();
 		}
 	};
 
@@ -598,7 +754,7 @@ class Player {
 		}
 
 		for (auto& [joint_name, j] : joint) {
-			j.refreeze();
+			j.refreeze_joint();
 		}
 	};
 
@@ -608,7 +764,7 @@ class Player {
 		}
 	
 		for (auto& [joint_name, j] : joint) {
-			j.draw();
+			j.draw_joint();
 		}
 	};
 
@@ -618,7 +774,7 @@ class Player {
 		}
 	
 		for (auto& [joint_name, j] : joint) {
-			j.draw_freeze();
+			j.draw_joint_freeze();
 		}
 	};
 
@@ -629,7 +785,7 @@ class Player {
 			}
 	
 			for (auto& [joint_name, j] : joint) {
-				j.draw_ghost();
+				j.draw_joint_ghost();
 			}
 		}
 	};
@@ -758,6 +914,7 @@ int numplayers(lua_State* L)
 
 	return 1;
 }
+
 int friction(lua_State* L)
 {
 	lua_Number friction;
@@ -905,76 +1062,6 @@ int engagerot(lua_State* L)
 			player[player_key].engagerot[0] = rot[0];
 			player[player_key].engagerot[1] = rot[1];
 			player[player_key].engagerot[2] = rot[2];
-		} break;
-		case ObjectContext: {
-			// Error Handling
-		} break;
-		case BodyContext: {
-			// Error Handling
-		} break;
-		case JointContext: {
-			// Error Handling
-		} break;
-	}
-
-	lua_Number result = 1;
-
-	lua_pushnumber(L, result);
-
-	return 1;
-}
-
-int engageplayerpos(lua_State* L)
-{
-	lua_Number pos[3];
-
-	lua_rawgeti(L, -1, 1);
-	pos[0] = lua_tonumber(L, -1);
-	lua_rawgeti(L, -2, 2);
-	pos[1] = lua_tonumber(L, -1);
-	lua_rawgeti(L, -3, 3);
-	pos[2] = lua_tonumber(L, -1);
-
-	switch(DataContext) {
-		case NoContext: {
-			game.engageplayerpos[0] = pos[0];
-			game.engageplayerpos[1] = pos[1];
-			game.engageplayerpos[2] = pos[2];
-		} break;
-		case ObjectContext: {
-			// Error Handling
-		} break;
-		case BodyContext: {
-			// Error Handling
-		} break;
-		case JointContext: {
-			// Error Handling
-		} break;
-	}
-
-	lua_Number result = 1;
-
-	lua_pushnumber(L, result);
-
-	return 1;
-}
-
-int engageplayerrot(lua_State* L)
-{
-	lua_Number rot[3];
-
-	lua_rawgeti(L, -1, 1);
-	rot[0] = lua_tonumber(L, -1);
-	lua_rawgeti(L, -2, 2);
-	rot[1] = lua_tonumber(L, -1);
-	lua_rawgeti(L, -3, 3);
-	rot[2] = lua_tonumber(L, -1);
-
-	switch(DataContext) {
-		case NoContext: {
-			game.engageplayerrot[0] = rot[0];
-			game.engageplayerrot[1] = rot[1];
-			game.engageplayerrot[2] = rot[2];
 		} break;
 		case ObjectContext: {
 			// Error Handling
@@ -1163,7 +1250,6 @@ int api_body(lua_State* L)
 	body_key = name;
 
 	player[player_key].body[body_key].name = name;
-	player[player_key].body[body_key].owner = player_key;
 
 	player[player_key].body[body_key].color = player[player_key].body_color;
 	player[player_key].body[body_key].ghost_color = player[player_key].ghost_color;
@@ -1208,7 +1294,6 @@ int api_joint(lua_State* L)
 	joint_key = name;
 
 	player[player_key].joint[joint_key].name = name;
-	player[player_key].joint[joint_key].owner = player_key;
 
 	player[player_key].joint[joint_key].color = player[player_key].joint_color;
 	player[player_key].joint[joint_key].ghost_color = player[player_key].ghost_color;
@@ -1899,85 +1984,189 @@ int api_DrawRectangleLines(lua_State* L)
 
 void api_draw_functions(lua_State* L)
 {
-	lua_setglobalcfunction(L, api_DrawText, "DrawText");
-	lua_setglobalcfunction(L, api_DrawRectangle, "DrawRectangle");
-	lua_setglobalcfunction(L, api_DrawRectangleLines, "DrawRectangleLines");
+	api_set(L, api_DrawText, "DrawText");
+	api_set(L, api_DrawRectangle, "DrawRectangle");
+	api_set(L, api_DrawRectangleLines, "DrawRectangleLines");
 }
 
-void api_draw2d(lua_State* L)
+void MouseButtonDownCallback(lua_State* L)
 {
-	lua_getglobal(L, "draw2d");
-	if (lua_isfunction(L, -1)) {
-		if (lua_pcall(L, 0, 0, 0) == LUA_OK) {
+	lua_getglobal(L, "MouseButtonDown");
+	if (lua_istable(L, -1)) {
+		lua_pushnil(L);
+		while (lua_next(L, -2) != 0) {
+			if (lua_isfunction(L, -1)) {
+				if (lua_pcall(L, 0, 0, 0) == LUA_OK) {
+				}
+			}
 		}
+		lua_pop(L, 1);
 	}
+}
+
+void MouseButtonUpCallback(lua_State* L)
+{
+	lua_getglobal(L, "MouseButtonUp");
+	if (lua_istable(L, -1)) {
+		lua_pushnil(L);
+		while (lua_next(L, -2) != 0) {
+			if (lua_isfunction(L, -1)) {
+				if (lua_pcall(L, 0, 0, 0) == LUA_OK) {
+				}
+			}
+		}
+		lua_pop(L, 1);
+	}
+}
+
+void FileDroppedCallback(lua_State* L, char* dropped_file)
+{
+	lua_getglobal(L, "FileDropped");
+	if (lua_istable(L, -1)) {
+		lua_pushnil(L);
+		while (lua_next(L, -2) != 0) {
+			if (lua_isfunction(L, -1)) {
+				lua_pushstring(L, dropped_file);
+				if (lua_pcall(L, 1, 0, 0) == LUA_OK) {
+				}
+			}
+		}
+		lua_pop(L, 1);
+	}
+}
+
+void Draw2DCallback(lua_State* L)
+{
+	lua_getglobal(L, "Draw2D");
+	if (lua_istable(L, -1)) {
+		lua_pushnil(L);
+		while (lua_next(L, -2) != 0) {
+			if (lua_isfunction(L, -1)) {
+				if (lua_pcall(L, 0, 0, 0) == LUA_OK) {
+				}
+			}
+		}
+		lua_pop(L, 1);
+	}
+}
+
+int api_GetMousePosition(lua_State* L)
+{
+	Vector2 MousePosition = GetMousePosition();
+	lua_newtable(L);
+	lua_pushnumber(L, MousePosition.x);
+	lua_setfield(L, -2, "x");
+	lua_pushnumber(L, MousePosition.y);
+	lua_setfield(L, -2, "y");
+	return 1;
+}
+
+void api_raylib_getters(lua_State* L)
+{
+	api_set(L, api_GetMousePosition,"GetMousePosition");
 }
 
 // api state getters
 
-int api_get_gameframe(lua_State* L)
+int api_get_game_frame(lua_State* L)
 {
-	lua_pushnumber(L, game.gameframe);
+	lua_pushnumber(L, game.game_frame);
+	return 1;
+}
+
+int api_get_reaction_time(lua_State* L)
+{
+	lua_pushnumber(L, game.reaction_time);
+	return 1;
+}
+
+int api_get_reaction_count(lua_State* L)
+{
+	lua_pushnumber(L, game.reaction_count);
+	return 1;
+}
+
+int api_GetWindowSize(lua_State* L)
+{
+	int WindowSize[] = {window.width, window.height};
+	lua_newtable(L);
+	lua_pushnumber(L, WindowSize[0]);
+	lua_setfield(L, -2, "width");
+	lua_pushnumber(L, WindowSize[1]);
+	lua_setfield(L, -2, "height");
 	return 1;
 }
 
 void api_state_getters(lua_State* L)
 {
-	lua_setglobalcfunction(L, api_get_gameframe, "get_gameframe");
+	api_set(L, api_GetWindowSize, "GetWindowSize");
+
+	api_set(L, api_get_game_frame, "get_game_frame");
+	api_set(L, api_get_reaction_time, "get_reaction_time");
+	api_set(L, api_get_reaction_count, "get_reaction_count");
 }
 
 // api main
 void api_init(lua_State* L)
 {	
-	lua_setglobalcfunction(L, turnframes, "turnframes");
-	lua_setglobalcfunction(L, numplayers, "numplayers");
-	lua_setglobalcfunction(L, engageheight, "engageheight");
-	lua_setglobalcfunction(L, engagedistance, "engagedistance");
-	lua_setglobalcfunction(L, engagepos, "engageposition");
-	lua_setglobalcfunction(L, engagerot, "engagerotation");
-	lua_setglobalcfunction(L, engageplayerpos, "engageplayerpos");
-	lua_setglobalcfunction(L, engageplayerrot, "engageplayerrot");
-	lua_setglobalcfunction(L, friction, "friction");
-	lua_setglobalcfunction(L, gravity, "gravity");
-	lua_setglobalcfunction(L, api_object, "object");
-	lua_setglobalcfunction(L, api_player, "player");
-	lua_setglobalcfunction(L, api_body, "body");
-	lua_setglobalcfunction(L, api_joint, "joint");
-	lua_setglobalcfunction(L, shape, "shape");
-	lua_setglobalcfunction(L, position, "position");
-	lua_setglobalcfunction(L, orientation, "orientation");
-	lua_setglobalcfunction(L, sides, "sides");
-	lua_setglobalcfunction(L, density, "density");
-	lua_setglobalcfunction(L, api_static_state, "static");
-	lua_setglobalcfunction(L, radius, "radius");
-	lua_setglobalcfunction(L, length, "length");
-	lua_setglobalcfunction(L, strength, "strength");
-	lua_setglobalcfunction(L, strength_alt, "strength_alt");
-	lua_setglobalcfunction(L, velocity, "velocity");
-	lua_setglobalcfunction(L, velocity_alt, "velocity_alt");
-	lua_setglobalcfunction(L, axis, "axis");
-	lua_setglobalcfunction(L, axis_alt, "axis_alt");
-	lua_setglobalcfunction(L, axis, "axis");
-	lua_setglobalcfunction(L, axis_alt, "axis_alt");
-	lua_setglobalcfunction(L, range, "range");
-	lua_setglobalcfunction(L, range_alt, "range_alt");
-	lua_setglobalcfunction(L, connections, "connections");
-	lua_setglobalcfunction(L, connectionType, "connectionType");
+	api_set(L, api_object, "object");
+	api_set(L, api_player, "player");
 
-	lua_setglobalcfunction(L, api_dofile, "dofile");
-	lua_setglobalcfunction(L, api_readfile, "readfile");
+	api_set(L, api_body, "body");
+	api_set(L, api_joint, "joint");
+
+	api_set(L, turnframes, "turnframes");
+	api_set(L, numplayers, "numplayers");
+	api_set(L, engageheight, "engageheight");
+	api_set(L, engagedistance, "engagedistance");
+	api_set(L, engagepos, "engageposition");
+	api_set(L, engagerot, "engagerotation");
+	api_set(L, gravity, "gravity");
+	api_set(L, friction, "friction");
+
+	api_set(L, shape, "shape");
+	api_set(L, position, "position");
+	api_set(L, orientation, "orientation");
+	api_set(L, sides, "sides");
+	api_set(L, density, "density");
+	api_set(L, radius, "radius");
+	api_set(L, length, "length");
+	api_set(L, api_static_state, "static");
+
+	api_set(L, strength, "strength");
+	api_set(L, strength_alt, "strength_alt");
+
+	api_set(L, velocity, "velocity");
+	api_set(L, velocity_alt, "velocity_alt");
+
+	api_set(L, axis, "axis");
+	api_set(L, axis_alt, "axis_alt");
+
+	api_set(L, range, "range");
+	api_set(L, range_alt, "range_alt");
+
+	api_set(L, connections, "connections");
+	api_set(L, connectionType, "connectionType");
+
+	api_set(L, api_dofile, "dofile");
+	api_set(L, api_LoadFileText, "LoadFileText");
+	api_set(L, api_LoadDirectoryFiles, "LoadDirectoryFiles");
+	api_set(L, api_LoadDirectoryFilesEx, "LoadDirectoryFilesEx");
 }
 
 void GameSetup()
 {
 	dMass mass;
 
-	game.gameframe = 0;
+	game.game_frame = 0;
+
 	game.freeze = true;
-	game.freeze_time = 50;
-	game.freeze_t = 0;
-	game.unfreeze_time = 0;
-	game.unfreeze_t = 0;
+	game.freeze_time = GetTime();
+	game.freeze_frames = 50;
+	game.freeze_count = 0;
+
+	game.step_frames = 0;
+	game.step_count = 0;
 
 	game.space = dHashSpaceCreate(0);
   	game.contactgroup = dJointGroupCreate(0);
@@ -1986,7 +2175,7 @@ void GameSetup()
 	dGeomSetCategoryBits(game.floor, StaticObjectCategoryBits);
 	dGeomSetCollideBits(game.floor, StaticObjectCollideBits);
 
-  dWorldSetGravity(game.world, game.gravity[0], game.gravity[1], game.gravity[2]);
+  	dWorldSetGravity(game.world, game.gravity[0], game.gravity[1], game.gravity[2]);
 
 	for (auto& [object_name, o] : object) {
 		o.create(mass);
@@ -2120,7 +2309,8 @@ void GameStart()
 void UpdateFreeze()
 {
 	game.freeze = true;
-	game.unfreeze_t = 0;
+	game.freeze_time = GetTime();
+	game.step_count = 0;
 
 	for (auto& [object_name, o] : object) {
 		o.update_freeze();
@@ -2133,7 +2323,7 @@ void UpdateFreeze()
 
 void ReFreeze()
 {
-	game.freeze_t = 0;
+	game.freeze_count = 0;
 
 	for (auto& [object_name, o] : object) {
 		o.refreeze();
@@ -2198,8 +2388,8 @@ void GameEnd()
 
 void GameStep(int frame_count)
 {
-	game.unfreeze_time = frame_count;
 	game.freeze = false;
+	game.step_frames = frame_count;
 	ReFreeze();
 }
 
@@ -2214,20 +2404,20 @@ void TriggerPlayerPassiveStates(std::string player_name, PlayerPassiveStates sta
 		}
 		switch(j.connectionType) {
 			case Hinge: {
-				dJointSetHingeParam(j.dJoint[0], dParamFMax, strength);
-				dJointSetHingeParam(j.dJoint[0], dParamVel, 0.0f);
+				dJointSetHingeParam(j.dJoint, dParamFMax, strength);
+				dJointSetHingeParam(j.dJoint, dParamVel, 0.0f);
 			} break;
 			case Slider: {
-				dJointSetSliderParam(j.dJoint[0], dParamFMax, strength);
-				dJointSetSliderParam(j.dJoint[0], dParamVel, 0.0f);
+				dJointSetSliderParam(j.dJoint, dParamFMax, strength);
+				dJointSetSliderParam(j.dJoint, dParamVel, 0.0f);
 			} break;
 			case Universal: {
-				dJointSetUniversalParam(j.dJoint[0], dParamFMax, strength);
-				dJointSetUniversalParam(j.dJoint[0], dParamVel, 0.0f);
+				dJointSetUniversalParam(j.dJoint, dParamFMax, strength);
+				dJointSetUniversalParam(j.dJoint, dParamVel, 0.0f);
 			} break;
 			case Hinge2: {
-				dJointSetHinge2Param(j.dJoint[0], dParamFMax, strength);
-				dJointSetHinge2Param(j.dJoint[0], dParamVel, 0.0f);
+				dJointSetHinge2Param(j.dJoint, dParamFMax, strength);
+				dJointSetHinge2Param(j.dJoint, dParamVel, 0.0f);
 			} break;
 		}
 	}
@@ -2248,12 +2438,12 @@ void TriggerPlayerPassiveStatesAlt(std::string player_name, PlayerPassiveStates 
 			case Slider: {
 			} break;
 			case Universal: {
-				dJointSetUniversalParam(j.dJoint[0], dParamFMax2, strength);
-				dJointSetUniversalParam(j.dJoint[0], dParamVel2, 0.0f);
+				dJointSetUniversalParam(j.dJoint, dParamFMax2, strength);
+				dJointSetUniversalParam(j.dJoint, dParamVel2, 0.0f);
 			} break;
 			case Hinge2: {
-				dJointSetHinge2Param(j.dJoint[0], dParamFMax2, strength);
-				dJointSetHinge2Param(j.dJoint[0], dParamVel2, 0.0f);
+				dJointSetHinge2Param(j.dJoint, dParamFMax2, strength);
+				dJointSetHinge2Param(j.dJoint, dParamVel2, 0.0f);
 			} break;
 		}
 	}
@@ -2305,12 +2495,12 @@ void TriggerActiveStateAlt(std::string player_name, std::string joint_name, dRea
 		case Slider: {
 		} break;
 		case Universal: {
-			dJointSetUniversalParam(player[player_name].joint[joint_name].dJoint[0], dParamFMax2,player[player_name].joint[joint_name].strength_alt);
-			dJointSetUniversalParam(player[player_name].joint[joint_name].dJoint[0], dParamVel2, direction *player[player_name].joint[joint_name].velocity_alt);
+			dJointSetUniversalParam(player[player_name].joint[joint_name].dJoint, dParamFMax2,player[player_name].joint[joint_name].strength_alt);
+			dJointSetUniversalParam(player[player_name].joint[joint_name].dJoint, dParamVel2, direction *player[player_name].joint[joint_name].velocity_alt);
 		} break;
 		case Hinge2: {
-			dJointSetHinge2Param(player[player_name].joint[joint_name].dJoint[0], dParamFMax2,player[player_name].joint[joint_name].strength_alt);
-			dJointSetHinge2Param(player[player_name].joint[joint_name].dJoint[0], dParamVel2, direction *player[player_name].joint[joint_name].velocity_alt);
+			dJointSetHinge2Param(player[player_name].joint[joint_name].dJoint, dParamFMax2,player[player_name].joint[joint_name].strength_alt);
+			dJointSetHinge2Param(player[player_name].joint[joint_name].dJoint, dParamVel2, direction *player[player_name].joint[joint_name].velocity_alt);
 		} break;
 	}
 }
@@ -2323,12 +2513,12 @@ void TriggerPassiveStateAlt(std::string player_name, std::string joint_name, dRe
 		case Slider: {
 		} break;
 		case Universal: {
-			dJointSetUniversalParam(player[player_name].joint[joint_name].dJoint[0], dParamFMax2, strength);
-			dJointSetUniversalParam(player[player_name].joint[joint_name].dJoint[0], dParamVel2, 0.0f);
+			dJointSetUniversalParam(player[player_name].joint[joint_name].dJoint, dParamFMax2, strength);
+			dJointSetUniversalParam(player[player_name].joint[joint_name].dJoint, dParamVel2, 0.0f);
 		} break;
 		case Hinge2: {
-			dJointSetHinge2Param(player[player_name].joint[joint_name].dJoint[0], dParamFMax2, strength);
-			dJointSetHinge2Param(player[player_name].joint[joint_name].dJoint[0], dParamVel2, 0.0f);
+			dJointSetHinge2Param(player[player_name].joint[joint_name].dJoint, dParamFMax2, strength);
+			dJointSetHinge2Param(player[player_name].joint[joint_name].dJoint, dParamVel2, 0.0f);
 		} break;
 	}
 }
@@ -2336,20 +2526,20 @@ void TriggerActiveState(std::string player_name, std::string joint_name, dReal d
 {
 	switch(player[player_name].joint[joint_name].connectionType) {
 		case Hinge: {
-			dJointSetHingeParam(player[player_name].joint[joint_name].dJoint[0], dParamFMax,player[player_name].joint[joint_name].strength);
-			dJointSetHingeParam(player[player_name].joint[joint_name].dJoint[0], dParamVel, direction *player[player_name].joint[joint_name].velocity);
+			dJointSetHingeParam(player[player_name].joint[joint_name].dJoint, dParamFMax,player[player_name].joint[joint_name].strength);
+			dJointSetHingeParam(player[player_name].joint[joint_name].dJoint, dParamVel, direction *player[player_name].joint[joint_name].velocity);
 		} break;
 		case Slider: {
-			dJointSetSliderParam(player[player_name].joint[joint_name].dJoint[0], dParamFMax,player[player_name].joint[joint_name].strength);
-			dJointSetSliderParam(player[player_name].joint[joint_name].dJoint[0], dParamVel, direction *player[player_name].joint[joint_name].velocity);
+			dJointSetSliderParam(player[player_name].joint[joint_name].dJoint, dParamFMax,player[player_name].joint[joint_name].strength);
+			dJointSetSliderParam(player[player_name].joint[joint_name].dJoint, dParamVel, direction *player[player_name].joint[joint_name].velocity);
 		} break;
 		case Universal: {
-			dJointSetUniversalParam(player[player_name].joint[joint_name].dJoint[0], dParamFMax,player[player_name].joint[joint_name].strength);
-			dJointSetUniversalParam(player[player_name].joint[joint_name].dJoint[0], dParamVel, direction *player[player_name].joint[joint_name].velocity);
+			dJointSetUniversalParam(player[player_name].joint[joint_name].dJoint, dParamFMax,player[player_name].joint[joint_name].strength);
+			dJointSetUniversalParam(player[player_name].joint[joint_name].dJoint, dParamVel, direction *player[player_name].joint[joint_name].velocity);
 		} break;
 		case Hinge2: {
-			dJointSetHinge2Param(player[player_name].joint[joint_name].dJoint[0], dParamFMax,player[player_name].joint[joint_name].strength);
-			dJointSetHinge2Param(player[player_name].joint[joint_name].dJoint[0], dParamVel, direction *player[player_name].joint[joint_name].velocity);
+			dJointSetHinge2Param(player[player_name].joint[joint_name].dJoint, dParamFMax,player[player_name].joint[joint_name].strength);
+			dJointSetHinge2Param(player[player_name].joint[joint_name].dJoint, dParamVel, direction *player[player_name].joint[joint_name].velocity);
 		} break;
 	}
 }
@@ -2358,20 +2548,20 @@ void TriggerPassiveState(std::string player_name, std::string joint_name, dReal 
 {
 	switch(player[player_name].joint[joint_name].connectionType) {
 		case Hinge: {
-			dJointSetHingeParam(player[player_name].joint[joint_name].dJoint[0], dParamFMax, strength);
-			dJointSetHingeParam(player[player_name].joint[joint_name].dJoint[0], dParamVel, 0.0f);
+			dJointSetHingeParam(player[player_name].joint[joint_name].dJoint, dParamFMax, strength);
+			dJointSetHingeParam(player[player_name].joint[joint_name].dJoint, dParamVel, 0.0f);
 		} break;
 		case Slider: {
-			dJointSetSliderParam(player[player_name].joint[joint_name].dJoint[0], dParamFMax, strength);
-			dJointSetSliderParam(player[player_name].joint[joint_name].dJoint[0], dParamVel, 0.0f);
+			dJointSetSliderParam(player[player_name].joint[joint_name].dJoint, dParamFMax, strength);
+			dJointSetSliderParam(player[player_name].joint[joint_name].dJoint, dParamVel, 0.0f);
 		} break;
 		case Universal: {
-			dJointSetUniversalParam(player[player_name].joint[joint_name].dJoint[0], dParamFMax, strength);
-			dJointSetUniversalParam(player[player_name].joint[joint_name].dJoint[0], dParamVel, 0.0f);
+			dJointSetUniversalParam(player[player_name].joint[joint_name].dJoint, dParamFMax, strength);
+			dJointSetUniversalParam(player[player_name].joint[joint_name].dJoint, dParamVel, 0.0f);
 		} break;
 		case Hinge2: {
-			dJointSetHinge2Param(player[player_name].joint[joint_name].dJoint[0], dParamFMax, strength);
-			dJointSetHinge2Param(player[player_name].joint[joint_name].dJoint[0], dParamVel, 0.0f);
+			dJointSetHinge2Param(player[player_name].joint[joint_name].dJoint, dParamFMax, strength);
+			dJointSetHinge2Param(player[player_name].joint[joint_name].dJoint, dParamVel, 0.0f);
 		} break;
 	}
 }
@@ -2810,12 +3000,12 @@ void SelectJoint (Camera3D Camera, Ray MouseRay, RayCollision MouseCollision)
 
 std::map<int, FrameData> RecordedFrames;
 
-void RecordFrame(int gameframe)
+void RecordFrame(int game_frame)
 {
 	std::ofstream tempframefile("tempframefile.txt");
-	tempframefile << "FRAME " << gameframe << "\n";
+	tempframefile << "FRAME " << game_frame << "\n";
 	for (auto const& [player_name, p] : player) {
-		RecordedFrames[gameframe].player[player_name] = p;
+		RecordedFrames[game_frame].player[player_name] = p;
 		for (auto const& [joint_name, j] : p.joint) {
 			tempframefile << "JOINT " <<
 				player_name << " " <<
@@ -2854,10 +3044,10 @@ void RecordFrame(int gameframe)
 	tempframefile.close();
 
 	std::ofstream tempreplayfile("tempreplayfile.txt", std::ios::app);
-	tempreplayfile << "FRAME " << gameframe << "\n";
+	tempreplayfile << "FRAME " << game_frame << "\n";
 	for (auto const& [player_name, p] : player) {
 		tempreplayfile << "PLAYER " << player_name << "\n";
-		RecordedFrames[gameframe].player[player_name] = p;
+		RecordedFrames[game_frame].player[player_name] = p;
 		for (auto const& [joint_name, j] : p.joint) {
 			tempreplayfile << j.name << " " << j.state << " " << j.state_alt << "\n";
 		}
@@ -2865,9 +3055,9 @@ void RecordFrame(int gameframe)
 	tempreplayfile.close();
 }
 
-void PlayFrame(int gameframe)
+void PlayFrame(int game_frame)
 {
-	FrameData frame = RecordedFrames[gameframe];
+	FrameData frame = RecordedFrames[game_frame];
 	for (auto& [player_name, p] : frame.player) {
 		for (auto& [joint_name, j] : p.joint) {
 			switch(j.state) {
@@ -2915,11 +3105,10 @@ void EditReplay()
 {
 	game.gamemode = FREEPLAY;
 
-	game.freeze = true;
 	UpdateFreeze();
 
 	std::ofstream tempframefile("tempframefile.txt");
-	tempframefile << "FRAME " << game.gameframe << "\n";
+	tempframefile << "FRAME " << game.game_frame << "\n";
 	for (auto const& [player_name, p] : player) {
 		tempframefile << "PLAYER " << player_name << "\n";
 		for (auto const& [joint_name, j] : p.joint) {
@@ -2929,11 +3118,11 @@ void EditReplay()
 	tempframefile.close();
 
 	std::ofstream tempreplayfile("tempreplayfile.txt");
-	for (auto const& [gameframe, frame] : RecordedFrames) {
-		if (gameframe > game.gameframe) {
+	for (auto const& [game_frame, frame] : RecordedFrames) {
+		if (game_frame > game.game_frame) {
 			break;
 		} else {
-			tempreplayfile << "FRAME " << gameframe << "\n";
+			tempreplayfile << "FRAME " << game_frame << "\n";
 			for (auto const& [player_name, p] : frame.player) {
 				tempreplayfile << "FRAME " << player_name << "\n";
 				for (auto const& [joint_name, j] : p.joint) {
@@ -2948,8 +3137,8 @@ void EditReplay()
 void SaveReplay()
 {
 	std::ofstream savedreplayfile("savedreplayfile.txt");
-	for (auto const& [gameframe, frame] : RecordedFrames) {
-		savedreplayfile << "FRAME " << gameframe << "\n";
+	for (auto const& [game_frame, frame] : RecordedFrames) {
+		savedreplayfile << "FRAME " << game_frame << "\n";
 		for (auto const& [player_name, p] : frame.player) {
 			savedreplayfile << "PLAYER " << player_name << "\n";
 			for (auto const& [joint_name, j] : p.joint) {
@@ -2969,10 +3158,10 @@ void StartFreeplay()
 		RelaxAllAlt(player_name);
 	}
 
-	game.freeze = true;
-	game.gameframe = 0;
-	game.freeze_t = 0;
-	game.unfreeze_t = 0;
+	game.game_frame = 0;
+	game.reaction_count = 0;
+	game.freeze_count = 0;
+	game.step_count = 0;
 	
 	Restart();
 
@@ -3000,9 +3189,10 @@ void StartReplay()
 	}
 
 	game.freeze = false;
-	game.gameframe = 0;
-	game.freeze_t = 0;
-	game.unfreeze_t = 0;
+	game.game_frame = 0;
+	game.reaction_count = 0;
+	game.freeze_count = 0;
+	game.step_count = 0;
 	
 	Restart();
 }
@@ -3010,28 +3200,40 @@ void StartReplay()
 
 void UpdateFrame()
 {
-	if (game.freeze) {
-		if (!(++game.freeze_t < game.freeze_time)) {
-			ReFreeze();
-		}
-	} else {
-		if (game.gamemode == FREEPLAY) {
-			if (!(++game.unfreeze_t < game.unfreeze_time)) {
-				UpdateFreeze();
-			}
-		}
-		++game.gameframe;
-	}
-
 	if (!game.pause) {
-		if(!game.freeze && game.gamemode == FREEPLAY) {
-			RecordFrame(game.gameframe);
-		} else if (game.gamemode == REPLAY) {
-			float size = RecordedFrames.size();
-			if (game.gameframe < size) {
-				PlayFrame(game.gameframe);
-			} else if (game.gameframe > size + 100) {
-				StartReplay();
+		if (!game.freeze) {
+			++game.game_frame;
+			switch (game.gamemode) {
+				case FREEPLAY: {
+					if (++game.step_count >= game.step_frames) {
+						UpdateFreeze();
+					}
+
+					RecordFrame(game.game_frame);
+				} break;
+				case REPLAY: {
+					dReal size = RecordedFrames.size();
+					if (game.game_frame > size + 100) {
+						StartReplay();
+					} else if (game.game_frame < size) {
+						PlayFrame(game.game_frame);
+					}
+				} break;
+			}
+		} else {
+			switch (game.gamemode) {
+				case FREEPLAY: {
+					if (++game.freeze_count >= game.freeze_frames) {
+						ReFreeze();
+					}
+	
+					if (game.reaction_time != 0) {
+						game.reaction_count = GetTime() - game.freeze_time;
+						if (game.reaction_count >= game.reaction_time) {
+							GameStep(game.turnframes);
+						}
+					}
+				} break;
 			}
 		}
 
@@ -3043,21 +3245,44 @@ void UpdateFrame()
 
 int main()
 {
+	window.width = 1600;
+	window.height = 900;
+	SetTraceLogLevel(LOG_ERROR);
+	InitWindow(window.width, window.height, "TOBAS");
+	SetTargetFPS(60);
+	SetExitKey(0);
+
 	lua_State* L = luaL_newstate();
+	luaL_openlibs(L);
 	api_init(L);
 	api_state_getters(L);
+	api_raylib_getters(L);
 	api_draw_functions(L);
-	luaL_openlibs(L);
 
-	if (luau_dofile(L, "scripts/init.luau") != LUA_OK) {
+	lua_newtable(L);
+	lua_setglobal(L, "Draw2D");
+	lua_newtable(L);
+	lua_setglobal(L, "FileDropped");
+	lua_newtable(L);
+	lua_setglobal(L, "MouseButtonDown");
+	lua_newtable(L);
+	lua_setglobal(L, "MouseButtonUp");
+
+	#define MAX_FILEPATH_RECORDED   4096
+	#define MAX_FILEPATH_SIZE       2048
+
+	int filePathCounter = 0;
+    	char *filePaths[MAX_FILEPATH_RECORDED] = { 0 };
+	for (int i = 0; i < MAX_FILEPATH_RECORDED; i++) {
+		filePaths[i] = (char *)RL_CALLOC(MAX_FILEPATH_SIZE, 1);
+	}
+
+	if (luau_dofile(L, "scripts/init.luau", "=dofile:init.luau") != LUA_OK) {
 		luaL_error(L, "Error: %s\n", lua_tostring(L, -1));
 	}
 
-	//luaL_sandbox(L);
-
-	SetTraceLogLevel(LOG_ERROR);
-	InitWindow(1600, 900, "TOBAS");
-	SetExitKey(0);
+	luaL_sandbox(L);
+	luaL_sandboxthread(L);
 
 	Camera3D camera = { 0 };
 	camera.up = (Vector3){ 0.00, 0.00, 1.00 };
@@ -3067,12 +3292,10 @@ int main()
 	Vector3 CameraOffset = (Vector3){ 0.00, -5.00, 0.00 };
 	Vector3 CameraZoom = (Vector3){ 0.00, 0.00, 0.00 };
 
-	SetTargetFPS(60);
-	
-	GameStart();
-
 	Ray MouseRay = { 0 };
 	RayCollision MouseCollision = { 0 };
+
+	GameStart();
 
 	while (!WindowShouldClose()) {
 		SetWindowTitle(TextFormat("TOBAS %dFPS", GetFPS()));
@@ -3110,7 +3333,7 @@ int main()
 		if (IsKeyPressed(KEY_Z)) {
 			if (IsKeyDown(KEY_LEFT_CONTROL)) {
 				if (game.freeze && game.gamemode == FREEPLAY) {
-					PlayFrame(game.gameframe - 1);
+					PlayFrame(game.game_frame - 1);
 				}
 			} else {
 				if (IsKeyDown(KEY_LEFT_SHIFT)) {
@@ -3181,6 +3404,35 @@ int main()
 			GameReset();
 		}
 
+		if (IsKeyPressed(KEY_ESCAPE)) {
+			//GetKeyPressed();
+			//KeyPressedCallback(L);
+		}
+
+		if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+			//MouseButtonPressedCallback(L);
+		}
+
+		if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
+			MouseButtonDownCallback(L);
+		}
+
+		if (IsMouseButtonUp(MOUSE_BUTTON_LEFT)) {
+			MouseButtonUpCallback(L);
+		}
+
+		if (IsFileDropped()) {
+			FilePathList dropped_files = LoadDroppedFiles();
+			for (int i = 0, offset = filePathCounter; i < (int)dropped_files.count; i++) {
+				if (filePathCounter < (MAX_FILEPATH_RECORDED - 1)) {
+					TextCopy(filePaths[offset + i], dropped_files.paths[i]);
+					filePathCounter++;
+				}
+			}
+			UnloadDroppedFiles(dropped_files);
+			FileDroppedCallback(L, filePaths[0]);
+        	}
+
 		UpdateFrame();
 	
 		BeginDrawing();
@@ -3188,10 +3440,12 @@ int main()
 			BeginMode3D(camera);
 				DrawFrame();
 			EndMode3D();
-			api_draw2d(L);
+			Draw2DCallback(L);
 		EndDrawing();
 	}
-	
+	for (int i = 0; i < MAX_FILEPATH_RECORDED; i++) {
+        	RL_FREE(filePaths[i]);
+    	}
 	GameEnd();
 	CloseWindow();
 	lua_close(L);
