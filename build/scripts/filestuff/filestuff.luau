@@ -7,7 +7,7 @@ end
 
 function fs.readfile(pathtofile)
     if (pathtofile) then
-	    fs.content = LoadFileText(pathtofile)
+	    fs.content = RL.LoadFileText(pathtofile)
 	    fs.content = fs.content:gsub("\r", "") 
         return fs.content:split("\n")
     end

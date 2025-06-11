@@ -4,7 +4,7 @@ DS_COLOR_GREEN = {0, 255, 0 ,255}
 DS_COLOR_BLUE = {0, 0, 255 ,255}
 DS_COLOR_BLACK = {0, 0, 0 ,255}
 
-ds = {
+ds = ds or {
 	objects = {},
 	interactive_objects = {},
 }
@@ -55,7 +55,7 @@ end
 
 function ds:draw()
 	if self.shape == "rectangle" then
-		DrawRectangle(
+		RL.DrawRectangle(
 			self.posX,
 			self.posY,
 			self.width,
@@ -64,7 +64,7 @@ function ds:draw()
 		)
 	end
 	if self.borderColor then
-		DrawRectangleLines(
+		RL.DrawRectangleLines(
 			self.posX,
 			self.posY,
 			self.width,
@@ -73,7 +73,7 @@ function ds:draw()
 		)
 	end
 	if self.text then
-		DrawText(
+		RL.DrawText(
 			self.text,
 			self.posX,
 			self.posY,
@@ -94,28 +94,17 @@ function ds:drawstuff()
 	end
 end
 
-function Draw2D.drawstuff()
+function Draw2D.DS()
 	ds:drawstuff()
 end
 
-function MouseButtonDown.drawstuff()
-	local MousePosition = GetMousePosition()
+function MouseButtonPressed.DS()
+	local MousePosition = RL.GetMousePosition()
 	for i, o in ds.interactive_objects do
 		local conditionX = MousePosition.x > o.posX and MousePosition.x < o.posX + o.width
 		local conditionY = MousePosition.y > o.posY and MousePosition.y < o.posY + o.height
 		if conditionX and conditionY then
-			if not o.pressed then
-				o.pressed = true
-				o:click_callback()
-			end
-		end
-	end
-end
-
-function MouseButtonUp.drawstuff()
-	for i, o in ds.interactive_objects do
-		if o.pressed then
-			o.pressed = false
+			o:click_callback()
 		end
 	end
 end

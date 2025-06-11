@@ -2,828 +2,58 @@
 #include <fstream>
 #include <string>
 #include <map>
-
-#include <lua.h>
-#include <lualib.h>
-#include <luacode.h>
-
-#include <raylib.h>
-#include <rlgl.h>
-#include <raymath.h>
-
+#include <cstdlib>
+#include <cstring>
 #include <ode/ode.h>
+#include <game.hpp>
+#include <body.hpp>
+#include <joint.hpp>
+#include <player.hpp>
+#include <luau.hpp>
+#include <api.hpp>
+#include <api_raylib.hpp>
+#include <api_raymath.hpp>
+#include <api_gamerule.hpp>
+#include <callbacks.hpp>
+
+struct Console {
+	char* messages[1024];
+	char* last_message;
+} console;
+
+void ConsoleCallback(lua_State* L, const char* message)
+{
+	lua_getglobal(L, "Console");
+	if (lua_istable(L, -1)) {
+		lua_pushnil(L);
+		while (lua_next(L, -2) != 0) {
+			if (lua_isfunction(L, -1)) {
+				lua_pushstring(L, message);
+				if (lua_pcall(L, 1, 0, 0) == LUA_OK) {
+				}
+			}
+		}
+		lua_pop(L, 1);
+	}
+}
+
+void ConsoleLog(lua_State* L, char* message)
+{
+	console.last_message = message;
+	ConsoleCallback(L, console.last_message);
+}
 
 struct Window {
 	int width;
 	int height;
 } window;
 
-struct Bytecode {
-	char* data;
-	size_t size;
-};
-
-int luau_do(lua_State* L, const char* string, const char* chunkname)
-{
-	Bytecode bytecode = { 0 };
-	bytecode.data = luau_compile(string, strlen(string), NULL, &bytecode.size);
-	int result = luau_load(L, chunkname, bytecode.data, bytecode.size, 0);
-	int status = lua_pcall(L, 0, 0, 0);
-	free(bytecode.data);
-	return status;
-}
-
-int luau_dostring(lua_State* L, const char* string)
-{
-	return luau_do(L, string, "=dostring");
-}
-
-int luau_dostring(lua_State* L, const char* string, const char* chunkname)
-{
-	return luau_do(L, string, chunkname);
-}
-
-int luau_dofile(lua_State* L, const char* filename)
-{
-	char* text = LoadFileText(filename);
-	int status = luau_dostring(L, text, "=dofile");
-	UnloadFileText(text);
-	return status;
-}
-
-int luau_dofile(lua_State* L, const char* filename, const char* chunkname)
-{
-	char* text = LoadFileText(filename);
-	int status = luau_dostring(L, text, chunkname);
-	UnloadFileText(text);
-	return status;
-}
-
-void api_set(lua_State* L, lua_CFunction fn ,const char* fn_name)
-{
-	lua_pushcfunction(L, fn, fn_name);
-	lua_setglobal(L, fn_name);
-}
-
-int api_LoadFileText(lua_State* L)
-{
-	const char* filename = lua_tostring(L, -1);
-	char* text = LoadFileText(filename);
-	lua_pushstring(L, text);
-	UnloadFileText(text);
-	return 1;
-}
-
-int api_LoadDirectoryFilesEx(lua_State* L)
-{
-	const char* path = lua_tostring(L, -1);
-	const char* filter = lua_tostring(L, -2);
-	//bool scanSubdirs = lua_tostring(L, -3);
-	FilePathList list = LoadDirectoryFilesEx(path, filter, false);
-	lua_newtable(L);
-	for (int i = 0; i <= list.count; ++i) {
-		lua_pushstring(L, list.paths[i]);
-		lua_rawseti(L, -2, i + 1);
-		//lua_rawset(L, -2);
-	}
-	UnloadDirectoryFiles(list);
-	return 1;
-}
-
-int api_LoadDirectoryFiles(lua_State* L)
-{
-	const char* path = lua_tostring(L, -1);
-	FilePathList list = LoadDirectoryFiles(path);
-	lua_newtable(L);
-	for (int i = 0; i <= list.count; ++i) {
-		lua_pushstring(L, list.paths[i]);
-		lua_rawseti(L, -2, i + 1);
-		//lua_rawset(L, -2);
-	}
-	UnloadDirectoryFiles(list);
-	return 1;
-}
-
-int api_dofile(lua_State* L)
-{
-	std::string filename = lua_tostring(L, -1);
-	std::string chunkname = "=dofile:" + filename;
-	lua_Number result = luau_dofile(L, filename.c_str(), chunkname.c_str());
-	lua_pushnumber(L, result);
-	return 1;
-}
-
-enum GameContext {
-	NoContext,
-	ObjectContext,
-	PlayerContext,
-	BodyContext,
-	JointContext
-} DataContext = NoContext;
-
-enum Shape {
-	Box,
-	Sphere,
-	Capsule,
-	Cylinder,
-	Composite,
-};
-
-enum JointType {
-	Hinge,
-	Slider,
-	Universal,
-	Hinge2,
-};
-
-enum JointState {
-	RELAX,
-	HOLD,
-	FORWARD,
-	BACKWARD,
-};
-
-enum Gamemode {
-	FREEPLAY,
-	REPLAY,
-};
-
-struct game {
-	dWorldID world;
-	dSpaceID space;
-	dJointGroupID contactgroup;
-	dGeomID floor;
-	dReal engagedistance;
-	dReal engageheight;
-	dReal gravity[3];
-	dReal friction = 1000.00;
-
-	dReal step = 0.01;
-	dReal reaction_time = 10;
-	dReal reaction_count = 0;
-
-	dReal freeze_time;
-	dReal freeze_frames;
-	dReal freeze_count;
-	dReal step_frames;
-	dReal step_count;
-
-	int game_frame;
-	int turnframes = 10;
-	int max_contacts = 8;
-	int numplayers = 1;
-	bool freeze;
-	bool pause = false;
-	Gamemode gamemode = FREEPLAY;
-	std::string selected_player = "NONE";
-	std::string selected_joint = "NONE";
-} game;
-
-class FreezeData {
-	public:
-	dReal position[3];
-	dReal orientation[4];
-	dReal angular_vel[3];
-	dReal linear_vel[3];
-};
-
-class Object {
-	public:
-	std::string name;
-	Shape shape;
-	dReal position[3];
-	dReal orientation[4];
-	dReal sides[3];
-	dReal radius;
-	dReal length;
-	dReal density;
-	dBodyID dBody;
-	dGeomID dGeom;
-	FreezeData freeze;
-	bool static_state;
-	Color color;
-	Color ghost_color;
-	Color select_color;
-	bool select;
-	bool ghost;
-
-	unsigned long category_bits;
-	unsigned long collide_bits;
-
-	Object() {
-		ghost_color = (Color){51, 51, 51, 51};
-	};
-
-	void make_static() {
-		if (static_state) {
-			dJointID fixed = dJointCreateFixed(game.world ,0);
-			dJointAttach(fixed, dBody, 0);
-			dJointSetFixed(fixed);
-		}
-	};
-
-	void create(dMass mass) {
-		dBody = dBodyCreate(game.world);
-		dBodySetPosition(
-			dBody,
-			position[0],
-			position[1],
-			position[2]
-		);
-
-		dBodySetQuaternion(dBody, orientation);
-		
-		switch(shape) {
-			case Box: {
-				dGeom = dCreateBox(game.space, sides[0], sides[1], sides[2]);
-				dMassSetBox(&mass, density, sides[0], sides[1], sides[2]);
-			} break;
-			case Sphere: {
-				dGeom = dCreateSphere(game.space, radius);
-				dMassSetSphere(&mass, density, radius);
-			} break;
-			case Capsule: {
-				dGeom = dCreateCapsule(game.space, radius, length);
-				dMassSetCapsule(&mass, density, 1, length, radius);
-			} break;
-			case Cylinder: {
-				dGeom = dCreateCylinder(game.space, radius, length);
-				dMassSetCylinder(&mass, density, 1, length, radius);
-			} break;
-		}
-
-		dMassAdjust(&mass, 0.5);
-		dBodySetMass(dBody, &mass);
-		dGeomSetBody(dGeom, dBody);
-
-		dGeomSetCategoryBits(dGeom, category_bits);
-		dGeomSetCollideBits(dGeom, collide_bits);
-	};
-
-	void update_freeze() {
-		const dReal *linear_vel = dBodyGetLinearVel(dBody);
-		const dReal *angular_vel = dBodyGetAngularVel(dBody);
-		const dReal *position = dGeomGetPosition(dGeom);
-		dQuaternion orientation;
-		dGeomGetQuaternion(dGeom, orientation);
-
-		freeze.position[0] = position[0];
-		freeze.position[1] = position[1];
-		freeze.position[2] = position[2];
-
-		freeze.orientation[0] = orientation[0];
-		freeze.orientation[1] = orientation[1];
-		freeze.orientation[2] = orientation[2];
-		freeze.orientation[3] = orientation[3];
-
-		freeze.linear_vel[0] = linear_vel[0];
-		freeze.linear_vel[1] = linear_vel[1];
-		freeze.linear_vel[2] = linear_vel[2];
-
-		freeze.angular_vel[0] = angular_vel[0];
-		freeze.angular_vel[1] = angular_vel[1];
-		freeze.angular_vel[2] = angular_vel[2];
-	};
-
-	void refreeze() {
-		dGeomSetPosition(
-			dGeom,
-			freeze.position[0],
-			freeze.position[1],
-			freeze.position[2]);
-		dGeomSetQuaternion(dGeom, freeze.orientation);
-
-		dBodySetLinearVel(
-			dBody,
-			freeze.linear_vel[0],
-			freeze.linear_vel[1],
-			freeze.linear_vel[2]);
-		dBodySetAngularVel(
-			dBody,
-			freeze.angular_vel[0],
-			freeze.angular_vel[1],
-			freeze.angular_vel[2]);
-	};
-
-	void draw_object(Color draw_color) {
-		switch(shape) {
-			case Box: {
-				DrawCube((Vector3){ 0.0f, 0.0f, 0.0f }, sides[0], sides[1], sides[2], draw_color);
-				DrawCubeWires((Vector3){ 0.0f, 0.0f, 0.0f }, sides[0], sides[1], sides[2], BLACK);
-			} break;
-			case Sphere: {
-				DrawSphere((Vector3){ 0.0f, 0.0f, 0.0f }, radius, draw_color);
-				DrawSphereWires((Vector3){ 0.0f, 0.0f, 0.0f }, radius, 16, 16, BLACK);
-			} break;
-			case Capsule: {
-				DrawCapsule((Vector3){ 0.0f, 0.0f, -(length/2) }, (Vector3){ 0.0f, 0.0f, (length/2) }, radius, 16, 16, draw_color);
-				DrawCapsuleWires((Vector3){ 0.0f, 0.0f, -(length/2) }, (Vector3){ 0.0f, 0.0f, (length/2) }, radius, 16, 16, BLACK);
-			} break;
-			case Cylinder: {
-				DrawCylinderEx((Vector3){ 0.0f, 0.0f, -(length/2) }, (Vector3){ 0.0f, 0.0f, (length/2) }, radius, radius, 16, draw_color);
-				DrawCylinderWiresEx((Vector3){ 0.0f, 0.0f, -(length/2) }, (Vector3){ 0.0f, 0.0f, (length/2) }, radius, radius, 16, BLACK);
-			} break;
-		}
-		rlPopMatrix();
-	}
-
-	void draw(Color draw_color) {
-		dQuaternion dQ;
-		dRtoQ(dGeomGetRotation(dGeom), dQ);
-
-		float angle;
-		Vector3 axis;
-		Quaternion q = { dQ[1], dQ[2], dQ[3], dQ[0] };
-		QuaternionToAxisAngle(q, &axis, &angle);
-		const dReal *pos = dGeomGetPosition(dGeom);
-		rlPushMatrix();
-		rlTranslatef(pos[0], pos[1], pos[2]);
-		rlRotatef(RAD2DEG * angle, axis.x, axis.y, axis.z);
-
-		draw_object(draw_color);
-	};
-
-	void draw_freeze() {
-		float angle;
-		Vector3 axis;
-		Quaternion q = {
-			freeze.orientation[1],
-			freeze.orientation[2],
-			freeze.orientation[3],
-			freeze.orientation[0]
-		};
-		QuaternionToAxisAngle(q, &axis, &angle);
-		rlPushMatrix();
-		rlTranslatef(
-			freeze.position[0],
-			freeze.position[1],
-			freeze.position[2]
-		);
-		rlRotatef(RAD2DEG * angle, axis.x, axis.y, axis.z);
-		
-		if (select) {
-			draw_object(select_color);
-		} else {
-			draw_object(color);
-		}
-	};
-
-	void draw_ghost() {
-		if (ghost) {
-			draw(ghost_color);
-		}
-	};
-
-	void draw() {
-		draw(color);
-	};
-
-	void toggle_ghost() {
-		ghost = ghost == false;
-	};
-
-	RayCollision collide_mouse_ray(Ray ray, RayCollision collision) {
-		collision = GetRayCollisionSphere(ray,
-			(Vector3){
-				freeze.position[0],
-				freeze.position[1],
-				freeze.position[2],
-			},
-			radius
-		);
-		return collision;
-	};
-
-};
-
-class Body : public Object {
-	public:
-};
-
-class Joint : public Object {
-	public:
-	std::string connections[2];
-	JointType connectionType;
-	JointState state;
-	JointState state_alt;
-	dJointID dJoint;
-	dReal axis[3];
-	dReal axis_alt[3];
-	dReal range[2];
-	dReal range_alt[2];
-	dReal strength;
-	dReal strength_alt;
-	dReal velocity;
-	dReal velocity_alt;
-
-	void refreeze_joint() {
-		dGeomSetPosition(
-			dGeom,
-			freeze.position[0],
-			freeze.position[1],
-			freeze.position[2]);
-		dGeomSetQuaternion(dGeom, freeze.orientation);
-
-		dBodySetLinearVel(
-			dBody,
-			freeze.linear_vel[0],
-			freeze.linear_vel[1],
-			freeze.linear_vel[2]);
-		dBodySetAngularVel(
-			dBody,
-			freeze.angular_vel[0],
-			freeze.angular_vel[1],
-			freeze.angular_vel[2]);
-	};
-
-	void update_joint_freeze() {
-		dQuaternion orientation;
-		dGeomGetQuaternion(dGeom, orientation);
-
-		const dReal *position = dGeomGetPosition(dGeom);
-		freeze.position[0] = position[0];
-		freeze.position[1] = position[1];
-		freeze.position[2] = position[2];
-
-		freeze.orientation[0] = orientation[0];
-		freeze.orientation[1] = orientation[1];
-		freeze.orientation[2] = orientation[2];
-		freeze.orientation[3] = orientation[3];
-
-		const dReal *linear_vel = dBodyGetLinearVel(dBody);
-		const dReal *angular_vel = dBodyGetAngularVel(dBody);
-
-		freeze.linear_vel[0] = linear_vel[0];
-		freeze.linear_vel[1] = linear_vel[1];
-		freeze.linear_vel[2] = linear_vel[2];
-
-		freeze.angular_vel[0] = angular_vel[0];
-		freeze.angular_vel[1] = angular_vel[1];
-		freeze.angular_vel[2] = angular_vel[2];
-	};
-
-	void create_joint(dMass mass, Body b1, Body b2) {
-		dBody = b1.dBody;
-
-		switch(shape) {
-			case Box: {
-				dGeom = dCreateBox(game.space, sides[0], sides[1], sides[2]);
-				dMassSetBox(&mass, density, sides[0], sides[1], sides[2]);
-			} break;
-			case Sphere: {
-				dGeom = dCreateSphere(game.space, radius);
-				dMassSetSphere(&mass, density, radius);
-			} break;
-			case Capsule: {
-				dGeom = dCreateCapsule(game.space, radius, length);
-				dMassSetCapsule(&mass, density, 1, length, radius);
-			} break;
-			case Cylinder: {
-				dGeom = dCreateCylinder(game.space, radius, length);
-				dMassSetCylinder(&mass, density, 1, length, radius);
-			} break;
-		}
-
-		dGeomSetBody(dGeom, dBody);
-		
-		dGeomSetOffsetPosition(dGeom,
-			position[0] - b1.position[0],
-			position[1] - b1.position[1],
-			position[2] - b1.position[2]
-		);
-
-		dGeomSetOffsetQuaternion(dGeom, orientation);
-
-		switch(connectionType) {
-			case Hinge: {
-				dJoint = dJointCreateHinge(game.world, 0);
-				dJointAttach(dJoint, dBody, b2.dBody);
-				dJointSetHingeAnchor(
-					dJoint,
-					position[0],
-					position[1],
-					position[2]);
-				dJointSetHingeAxis(
-					dJoint,
-					axis[0],
-					axis[1],
-					axis[2]);
-		
-				dJointSetHingeParam(
-					dJoint,
-					dParamHiStop,
-					range[0]);
-				dJointSetHingeParam(
-					dJoint,
-					dParamLoStop,
-					range[1]);
-			} break;
-			case Slider: {
-				dJoint = dJointCreateSlider(game.world, 0);
-				dJointAttach(dJoint, dBody, b2.dBody);
-				dJointSetSliderAxis(
-					dJoint,
-					axis[0],
-					axis[1],
-					axis[2]);
-		
-				dJointSetSliderParam(
-					dJoint,
-					dParamHiStop,
-					range[0]);
-				dJointSetSliderParam(
-					dJoint,
-					dParamLoStop,
-					range[1]);
-			} break;
-			case Universal: {
-				dJoint = dJointCreateUniversal(game.world, 0);
-				dJointAttach(dJoint, dBody, b2.dBody);
-				dJointSetUniversalAnchor(
-					dJoint,
-					position[0],
-					position[1],
-					position[2]);
-		
-				dJointSetUniversalAnchor(
-					dJoint,
-					position[0],
-					position[1],
-					position[2]);
-		
-				dJointSetUniversalAxis1(
-					dJoint,
-					axis[0],
-					axis[1],
-					axis[2]);
-				dJointSetUniversalAxis2(
-					dJoint,
-					axis_alt[0],
-					axis_alt[1],
-					axis_alt[2]);
-		
-				dJointSetUniversalParam(
-					dJoint,
-					dParamHiStop,
-					range[0]);
-		
-				dJointSetUniversalParam(
-					dJoint,
-					dParamHiStop2,
-					range_alt[0]);
-		
-				dJointSetUniversalParam(
-					dJoint,
-					dParamLoStop,
-					range[1]);
-		
-				dJointSetUniversalParam(
-					dJoint,
-					dParamLoStop2,
-					range_alt[1]);
-			} break;
-			case Hinge2: {
-				dJoint = dJointCreateHinge2(game.world, 0);
-				dJointAttach(dJoint, dBody, b2.dBody);
-				dJointSetHinge2Anchor(
-					dJoint,
-					position[0],
-					position[1],
-					position[2]);
-		
-				dJointSetHinge2Anchor(
-					dJoint,
-					position[0],
-					position[1],
-					position[2]);
-			
-				dJointSetHinge2Axes(dJoint, axis, axis_alt);
-		
-				dJointSetHinge2Param(
-					dJoint,
-					dParamHiStop,
-					range[0]);
-		
-				dJointSetHinge2Param(
-					dJoint,
-					dParamHiStop2,
-					range_alt[0]);
-		
-				dJointSetHinge2Param(
-					dJoint,
-					dParamLoStop,
-					range[1]);
-		
-				dJointSetHinge2Param(
-					dJoint,
-					dParamLoStop2,
-					range_alt[1]);
-			} break;
-			default:
-				dJoint = dJointCreateFixed(game.world, 0);
-				dJointAttach(dJoint, dBody, b2.dBody);
-				dJointSetFixed(dJoint);
-		}
-
-		/*dJoint[1] = dJointCreateFixed(game.world, 0);
-		dJointAttach(dJoint[1], dBody, b2);
-		dJointSetFixed(dJoint[1]);*/
-
-		dGeomSetCategoryBits(dGeom, category_bits);
-		dGeomSetCollideBits(dGeom, collide_bits);
-	};
-
-	void draw_joint(Color draw_color) {
-		dQuaternion dQ;
-		dRtoQ(dGeomGetRotation(dGeom), dQ);
-
-		float angle;
-		Vector3 axis;
-		Quaternion q = { dQ[1], dQ[2], dQ[3], dQ[0] };
-		QuaternionToAxisAngle(q, &axis, &angle);
-
-		const dReal *position = dGeomGetPosition(dGeom);
-		rlPushMatrix();
-		rlTranslatef(position[0], position[1], position[2]);
-		rlRotatef(RAD2DEG * angle, axis.x, axis.y, axis.z);
-
-		draw_object(draw_color);
-	};
-
-	void draw_joint_freeze() {
-		float angle;
-		Vector3 axis;
-		Quaternion q = {
-			freeze.orientation[1],
-			freeze.orientation[2],
-			freeze.orientation[3],
-			freeze.orientation[0]
-		};
-		QuaternionToAxisAngle(q, &axis, &angle);
-		rlPushMatrix();
-		rlTranslatef(
-			freeze.position[0],
-			freeze.position[1],
-			freeze.position[2]
-		);
-		rlRotatef(RAD2DEG * angle, axis.x, axis.y, axis.z);
-		
-		if (select) {
-			draw_object(select_color);
-		} else {
-			draw_object(color);
-		}
-	};
-
-	void draw_joint_ghost() {
-		if (ghost) {
-			draw(ghost_color);
-		}
-	};
-
-	void draw_joint() {
-		draw_joint(color);
-	};
-};
-
-enum PlayerPassiveStates {
-	HOLD_ALL,
-	RELAX_ALL,
-	MIXED,
-}; 
-
-class Player {
-	public:
-	std::string name;
-	std::map<std::string, Body> body;
-	std::map<std::string, Joint> joint;
-	PlayerPassiveStates passive_states;
-	PlayerPassiveStates passive_states_alt;
-	
-	dReal engagepos[3];
-	dReal engagerot[3];
-
-	unsigned long body_category_bits;
-	unsigned long body_collide_bits;
-	unsigned long joint_category_bits;
-	unsigned long joint_collide_bits;
-
-	bool ghost;
-	Color ghost_color;
-	Color joint_color;
-	Color joint_select_color;
-	Color body_color;
-
-	Player() {
-		passive_states = RELAX_ALL;
-		passive_states_alt = RELAX_ALL;
-
-		body_color = (Color){ 255, 255, 255, 255 };
-		joint_color = BLACK;
-		ghost_color = (Color){
-			joint_color.r,
-			joint_color.g,
-			joint_color.b,
-			55,
-		};
-	};
-
-	void create(dMass mass) {
-		for (auto& [body_name, b] : body) {
-			b.create(mass);
-		}
-	
-		for (auto& [joint_name, j] : joint) {
-			j.create_joint(mass, body[j.connections[0]], body[j.connections[1]]);
-		}
-	};
-
-	void update_freeze() {
-		for (auto& [body_name, b] : body) {
-			b.update_freeze();
-		}
-
-		for (auto& [joint_name, j] : joint) {
-			j.update_joint_freeze();
-		}
-	};
-
-	void refreeze() {
-		for (auto& [body_name, b] : body) {
-			b.refreeze();
-		}
-
-		for (auto& [joint_name, j] : joint) {
-			j.refreeze_joint();
-		}
-	};
-
-	void draw() {
-		for (auto& [body_name, b] : body) {
-			b.draw();
-		}
-	
-		for (auto& [joint_name, j] : joint) {
-			j.draw_joint();
-		}
-	};
-
-	void draw_freeze() {
-		for (auto& [body_name, b] : body) {
-			b.draw_freeze();
-		}
-	
-		for (auto& [joint_name, j] : joint) {
-			j.draw_joint_freeze();
-		}
-	};
-
-	void draw_ghost() {
-		if (ghost) {
-			for (auto& [body_name, b] : body) {
-				b.draw_ghost();
-			}
-	
-			for (auto& [joint_name, j] : joint) {
-				j.draw_joint_ghost();
-			}
-		}
-	};
-
-	void toggle_ghost() {
-		for (auto& [body_name, b] : body) {
-			b.toggle_ghost();
-		}
-	
-		for (auto& [joint_name, j] : joint) {
-			j.toggle_ghost();
-		}
-	};
-};
-
 class FrameData : public FreezeData {
 	public:
 	std::map<std::string, Player> player;
 };
 
-std::string MSG;
-
-std::map<std::string, Object> object;
-std::map<std::string, Player> player;
-
-Color DynamicObjectColor = (Color){ 0, 255, 0, 255 };
-Color StaticObjectColor = (Color){ 51, 51, 51, 255 };
-
-std::string object_key;
-std::string player_key;
-std::string body_key;
-std::string joint_key;
-
-unsigned long StaticObjectCategoryBits = 0b0001;
-unsigned long StaticObjectCollideBits = 0b0000;
-
-unsigned long DynamicObjectCategoryBits = 0b0001;
-unsigned long DynamicObjectCollideBits = 0b0001;
+std::map<int, FrameData> RecordedFrames;
 
 static void nearCallback (void *, dGeomID o1, dGeomID o2)
 {
@@ -837,1253 +67,24 @@ static void nearCallback (void *, dGeomID o1, dGeomID o2)
 		return;
 	}
 
-	int i;
 
 	dBodyID b1 = dGeomGetBody(o1);
 	dBodyID b2 = dGeomGetBody(o2);
 
-	dContact contact[game.max_contacts];
+	dContact contact[game.rules.max_contacts];
 
-	for (i = 0; i < game.max_contacts; i++) {
+	int i;
+	for (i = 0; i < game.rules.max_contacts; i++) {
 		contact[i].surface.mode = dContactApprox1;
-		contact[i].surface.mu = game.friction;
+		contact[i].surface.mu = game.rules.friction;
 	}
 
-	if (int numc = dCollide(o1, o2, game.max_contacts, &contact[0].geom, sizeof(dContact))) {
+	if (int numc = dCollide(o1, o2, game.rules.max_contacts, &contact[0].geom, sizeof(dContact))) {
 		for (i = 0; i < numc; i++) {
 			dJointID c = dJointCreateContact(game.world, game.contactgroup, contact + i);
 			dJointAttach(c, b1, b2);
 		}
 	}
-}
-
-int turnframes(lua_State* L)
-{
-	lua_rawgeti(L, -1, 1);
-
-	lua_Number turnframes = lua_tonumber(L, -1);
-
-	switch(DataContext)
-	{
-		case NoContext: {
-			game.turnframes = turnframes;
-		} break;
-		case ObjectContext: {
-			// Error Handling
-		} break;
-		case BodyContext: {
-			// Error Handling
-		} break;
-		case JointContext: {
-			// Error Handling
-		} break;
-	}
-
-	lua_Number result = 1;
-
-	lua_pushnumber(L, result);
-
-	return 1;
-}
-
-int numplayers(lua_State* L)
-{
-	lua_rawgeti(L, -1, 1);
-
-	lua_Number numplayers = lua_tonumber(L, -1); 
-
-	switch(DataContext)
-	{
-		case NoContext: {
-			game.numplayers = numplayers;
-		} break;
-		case ObjectContext: {
-			// Error Handling
-		} break;
-		case BodyContext: {
-			// Error Handling
-		} break;
-		case JointContext: {
-			// Error Handling
-		} break;
-	}
-
-	lua_Number result = 1;
-
-	lua_pushnumber(L, result);
-
-	return 1;
-}
-
-int friction(lua_State* L)
-{
-	lua_Number friction;
-
-	lua_rawgeti(L, -1, 1);
-	friction = lua_tonumber(L, -1);
-
-	switch(DataContext)
-	{
-		case NoContext: {
-			game.friction = friction;
-		} break;
-		case ObjectContext: {
-			// Error Handling
-		} break;
-		case BodyContext: {
-			// Error Handling
-		} break;
-		case JointContext: {
-			// Error Handling
-		} break;
-	}
-
-	lua_Number result = 1;
-
-	lua_pushnumber(L, result);
-
-	return 1;
-}
-
-int engagedistance(lua_State* L)
-{
-	lua_Number distance;
-
-	lua_rawgeti(L, -1, 1);
-	distance = lua_tonumber(L, -1);
-
-	switch(DataContext)
-	{
-		case NoContext: {
-			game.engagedistance = distance;
-		} break;
-		case ObjectContext: {
-			// Error Handling
-		} break;
-		case BodyContext: {
-			// Error Handling
-		} break;
-		case JointContext: {
-			// Error Handling
-		} break;
-	}
-
-	lua_Number result = 1;
-
-	lua_pushnumber(L, result);
-
-	return 1;
-}
-
-int engageheight(lua_State* L)
-{
-	lua_Number height;
-
-	lua_rawgeti(L, -1, 1);
-	height = lua_tonumber(L, -1);
-
-	switch(DataContext)
-	{
-		case NoContext: {
-			game.engageheight = height;
-		} break;
-		case ObjectContext: {
-			// Error Handling
-		} break;
-		case BodyContext: {
-			// Error Handling
-		} break;
-		case JointContext: {
-			// Error Handling
-		} break;
-	}
-
-	lua_Number result = 1;
-
-	lua_pushnumber(L, result);
-
-	return 1;
-}
-
-int engagepos(lua_State* L)
-{
-	lua_Number pos[3];
-
-	lua_rawgeti(L, -1, 1);
-	pos[0] = lua_tonumber(L, -1);
-	lua_rawgeti(L, -2, 2);
-	pos[1] = lua_tonumber(L, -1);
-	lua_rawgeti(L, -3, 3);
-	pos[2] = lua_tonumber(L, -1);
-
-	switch(DataContext) {
-		case NoContext: {
-			// Error Handling
-		} break;
-		case PlayerContext: {
-			player[player_key].engagepos[0] = pos[0];
-			player[player_key].engagepos[1] = pos[1];
-			player[player_key].engagepos[2] = pos[2];
-		} break;
-		case ObjectContext: {
-			// Error Handling
-		} break;
-		case BodyContext: {
-			// Error Handling
-		} break;
-		case JointContext: {
-			// Error Handling
-		} break;
-	}
-
-	lua_Number result = 1;
-
-	lua_pushnumber(L, result);
-
-	return 1;
-}
-
-int engagerot(lua_State* L)
-{
-	lua_Number rot[3];
-
-	lua_rawgeti(L, -1, 1);
-	rot[0] = lua_tonumber(L, -1);
-	lua_rawgeti(L, -2, 2);
-	rot[1] = lua_tonumber(L, -1);
-	lua_rawgeti(L, -3, 3);
-	rot[2] = lua_tonumber(L, -1);
-
-	switch(DataContext) {
-		case NoContext: {
-			// Error Handling
-		} break;
-		case PlayerContext: {
-			player[player_key].engagerot[0] = rot[0];
-			player[player_key].engagerot[1] = rot[1];
-			player[player_key].engagerot[2] = rot[2];
-		} break;
-		case ObjectContext: {
-			// Error Handling
-		} break;
-		case BodyContext: {
-			// Error Handling
-		} break;
-		case JointContext: {
-			// Error Handling
-		} break;
-	}
-
-	lua_Number result = 1;
-
-	lua_pushnumber(L, result);
-
-	return 1;
-}
-
-int gravity(lua_State* L)
-{
-	lua_Number gravity[3];
-		
-	lua_rawgeti(L, -1, 1);
-	gravity[0] = lua_tonumber(L, -1); 
-
-	lua_rawgeti(L, -2, 2);
-	gravity[1] = lua_tonumber(L, -1); 
-
-	lua_rawgeti(L, -3, 3);
-	gravity[2] = lua_tonumber(L, -1); 
-
-	switch(DataContext)
-	{
-		case NoContext: {
-			game.gravity[0] = gravity[0];
-			game.gravity[1] = gravity[1];
-			game.gravity[2] = gravity[2];
-		} break;
-		case ObjectContext: {
-			// Error Handling	
-		} break;
-		case BodyContext: {
-			// Error Handling	
-		} break;
-		case JointContext: {
-			// Error Handling	
-		} break;
-	}
-
-	lua_Number result = 1;
-
-	lua_pushnumber(L, result);
-
-	return 1;
-}
-
-int globalplane(lua_State* L)
-{
-	switch(DataContext)
-	{
-		case NoContext: {
-			// Error Handling	
-		} break;
-		case ObjectContext: {
-			// Error Handling	
-		} break;
-		case BodyContext: {
-			// Error Handling	
-		} break;
-		case JointContext: {
-			// Error Handling	
-		} break;
-	}
-
-	lua_Number result = 1;
-
-	lua_pushnumber(L, result);
-
-	return 1;
-}
-
-int api_object(lua_State* L)
-{
-	DataContext = ObjectContext;
-
-	std::string name = lua_tostring(L, -1);
-	
-	object_key = name;
-
-	object[object_key].name = name;
-
-	object[object_key].color = DynamicObjectColor;
-
-	object[object_key].orientation[0] = 1.00;
-	object[object_key].orientation[1] = 0.00;
-	object[object_key].orientation[2] = 0.00;
-	object[object_key].orientation[3] = 0.00;
-
-	object[object_key].freeze.orientation[0] = 1.00;
-	object[object_key].freeze.orientation[1] = 0.00;
-	object[object_key].freeze.orientation[2] = 0.00;
-	object[object_key].freeze.orientation[3] = 0.00;
-
-	object[object_key].freeze.linear_vel[0] = 0.00;
-	object[object_key].freeze.linear_vel[1] = 0.00;
-	object[object_key].freeze.linear_vel[2] = 0.00;
-
-	object[object_key].freeze.angular_vel[0] = 0.00;
-	object[object_key].freeze.angular_vel[1] = 0.00;
-	object[object_key].freeze.angular_vel[2] = 0.00;
-
-	object[object_key].category_bits = DynamicObjectCategoryBits;
-	object[object_key].collide_bits = DynamicObjectCollideBits;
-
-	object[object_key].select = false;
-	object[object_key].static_state = false;
-
-	lua_Number result = 1;
-
-	lua_pushnumber(L, result);
-
-	return 1;
-}
-
-int api_player(lua_State* L)
-{
-	DataContext = PlayerContext;
-
-	std::string name = lua_tostring(L, -1);
-
-	if (player.size() > game.numplayers + 1) {
-		lua_Number result = 1;
-		lua_pushnumber(L, result);
-		return 1;
-	}
-
-	player_key = name;
-	
-	player[player_key].name = name;
-
-	switch (player.size()) {
-		case 1: {
-			game.selected_player = player_key;
-			player[player_key].joint_color = MAROON;
-			player[player_key].body_category_bits = 1<<2;
-			player[player_key].joint_category_bits = 1<<3;
-		} break;
-		case 2: {
-			player[player_key].joint_color = DARKBLUE;
-			player[player_key].body_category_bits = 1<<4;
-			player[player_key].joint_category_bits = 1<<5;
-		} break;
-		case 3: {
-			player[player_key].joint_color = DARKGREEN;
-			player[player_key].body_category_bits = 1<<6;
-			player[player_key].joint_category_bits = 1<<7;
-		} break;
-		case 4: {
-			player[player_key].joint_color = DARKPURPLE;
-			player[player_key].body_category_bits = 1<<8;
-			player[player_key].joint_category_bits = 1<<9;
-		} break;
-	}
-
-	player[player_key].body_collide_bits = 0b0001; 
-	player[player_key].joint_collide_bits = 0b0001;
-
-	player[player_key].ghost = true;
-	player[player_key].ghost_color = player[player_key].joint_color;
-	player[player_key].ghost_color.a = 55;
-
-	player[player_key].joint_select_color = WHITE;
-
-	lua_Number result = 1;
-	lua_pushnumber(L, result);
-	return 1;
-}
-
-int api_body(lua_State* L)
-{
-	DataContext = BodyContext;
-
-	std::string name = lua_tostring(L, -1);
-	
-	body_key = name;
-
-	player[player_key].body[body_key].name = name;
-
-	player[player_key].body[body_key].color = player[player_key].body_color;
-	player[player_key].body[body_key].ghost_color = player[player_key].ghost_color;
-
-	player[player_key].body[body_key].orientation[0] = 1.00;
-	player[player_key].body[body_key].orientation[1] = 0.00;
-	player[player_key].body[body_key].orientation[2] = 0.00;
-	player[player_key].body[body_key].orientation[3] = 0.00;
-
-	player[player_key].body[body_key].freeze.orientation[0] = 1.00;
-	player[player_key].body[body_key].freeze.orientation[1] = 0.00;
-	player[player_key].body[body_key].freeze.orientation[2] = 0.00;
-	player[player_key].body[body_key].freeze.orientation[3] = 0.00;
-
-	player[player_key].body[body_key].freeze.linear_vel[0] = 0.00;
-	player[player_key].body[body_key].freeze.linear_vel[1] = 0.00;
-	player[player_key].body[body_key].freeze.linear_vel[2] = 0.00;
-
-	player[player_key].body[body_key].freeze.angular_vel[0] = 0.00;
-	player[player_key].body[body_key].freeze.angular_vel[1] = 0.00;
-	player[player_key].body[body_key].freeze.angular_vel[2] = 0.00;
-
-	player[player_key].body[body_key].category_bits = player[player_key].body_category_bits;
-	player[player_key].body[body_key].collide_bits = player[player_key].body_collide_bits;
-
-	player[player_key].body[body_key].ghost = true;
-	player[player_key].body[body_key].static_state = false;
-
-	lua_Number result = 1;
-
-	lua_pushnumber(L, result);
-
-	return 1;
-}
-
-int api_joint(lua_State* L)
-{
-	DataContext = JointContext;
-
-	std::string name = lua_tostring(L, -1);
-
-	joint_key = name;
-
-	player[player_key].joint[joint_key].name = name;
-
-	player[player_key].joint[joint_key].color = player[player_key].joint_color;
-	player[player_key].joint[joint_key].ghost_color = player[player_key].ghost_color;
-	player[player_key].joint[joint_key].select_color = player[player_key].joint_select_color;
-
-	player[player_key].joint[joint_key].orientation[0] = 1.00;
-	player[player_key].joint[joint_key].orientation[1] = 0.00;
-	player[player_key].joint[joint_key].orientation[2] = 0.00;
-	player[player_key].joint[joint_key].orientation[3] = 0.00;
-
-	player[player_key].joint[joint_key].freeze.orientation[0] = 1.00;
-	player[player_key].joint[joint_key].freeze.orientation[1] = 0.00;
-	player[player_key].joint[joint_key].freeze.orientation[2] = 0.00;
-	player[player_key].joint[joint_key].freeze.orientation[3] = 0.00;
-
-	player[player_key].joint[joint_key].freeze.linear_vel[0] = 0.00;
-	player[player_key].joint[joint_key].freeze.linear_vel[1] = 0.00;
-	player[player_key].joint[joint_key].freeze.linear_vel[2] = 0.00;
-
-	player[player_key].joint[joint_key].freeze.angular_vel[0] = 0.00;
-	player[player_key].joint[joint_key].freeze.angular_vel[1] = 0.00;
-	player[player_key].joint[joint_key].freeze.angular_vel[2] = 0.00;
-
-	player[player_key].joint[joint_key].category_bits = player[player_key].joint_category_bits;
-	player[player_key].joint[joint_key].collide_bits = player[player_key].joint_collide_bits;
-
-	player[player_key].joint[joint_key].state = RELAX;
-	player[player_key].joint[joint_key].state_alt = RELAX;
-
-	player[player_key].joint[joint_key].ghost = true;
-	player[player_key].joint[joint_key].static_state= false;
-
-	lua_Number result = 1;
-
-	lua_pushnumber(L, result);
-
-	return 1;
-}
-
-int shape(lua_State* L)
-{
-	std::string shape = lua_tostring(L, -1);
-
-	switch(DataContext)
-	{
-		case NoContext: {
-			// Error Handling
-		} break;
-		case ObjectContext: {
-			if ("box" == shape) {
-				object[object_key].shape = Box;
-			} else if ("sphere" == shape) {
-					object[object_key].shape = Sphere;
-			} else if ("capsule" == shape) {
-					object[object_key].shape = Capsule;
-			} else if ("cylinder" == shape) {
-					object[object_key].shape = Cylinder;
-			} else  {
-				//Error Handling
-			}
-		} break;
-		case BodyContext: {
-			if ("box" == shape) {
-				player[player_key].body[body_key].shape = Box;
-			} else if ("sphere" == shape) {
-				player[player_key].body[body_key].shape = Sphere;
-			} else if ("capsule" == shape) {
-				player[player_key].body[body_key].shape = Capsule;
-			} else if ("cylinder" == shape) {
-				player[player_key].body[body_key].shape = Cylinder;
-			} else  {
-				//Error Handling
-			}
-		} break;
-		case JointContext: {
-			if ("box"  == shape) {
-				player[player_key].joint[joint_key].shape = Box;
-			} else if ("sphere" == shape) {
-				player[player_key].joint[joint_key].shape = Sphere;
-			} else if ("capsule" == shape) {
-				player[player_key].joint[joint_key].shape = Capsule;
-			} else if ("cylinder" == shape) {
-				player[player_key].joint[joint_key].shape = Cylinder;
-			} else  {
-				//Error Handling
-			}
-		} break;
-	}
-
-	lua_Number result = 1;
-
-	lua_pushnumber(L, result);
-
-	return 1;
-}
-
-int position(lua_State* L)
-{
-	lua_Number position[3];
-		
-	lua_rawgeti(L, -1, 1);
-	position[0] = lua_tonumber(L, -1); 
-	lua_rawgeti(L, -2, 2);
-	position[1] = lua_tonumber(L, -1); 
-	lua_rawgeti(L, -3, 3);
-	position[2] = lua_tonumber(L, -1); 
-	
-	switch(DataContext) {
-		case NoContext: {
-			// Error Handling
-		} break;
-		case ObjectContext: {
-			object[object_key].position[0] = position[0];
-			object[object_key].position[1] = position[1];
-			object[object_key].position[2] = position[2];
-			object[object_key].freeze.position[0] = position[0];
-			object[object_key].freeze.position[1] = position[1];
-			object[object_key].freeze.position[2] = position[2];
-		} break;
-		case BodyContext: {
-			if (player[player_key].engagepos) {
-				position[0] = position[0] + player[player_key].engagepos[0];
-				position[1] = position[1] + player[player_key].engagepos[1];
-				position[2] = position[2] + player[player_key].engagepos[2];
-			}
-			player[player_key].body[body_key].position[0] = position[0];
-			player[player_key].body[body_key].position[1] = position[1];
-			player[player_key].body[body_key].position[2] = position[2];
-			player[player_key].body[body_key].freeze.position[0] = position[0];
-			player[player_key].body[body_key].freeze.position[1] = position[1];
-			player[player_key].body[body_key].freeze.position[2] = position[2];
-		} break;
-		case JointContext: {
-			if (player[player_key].engagepos) {
-				position[0] = position[0] + player[player_key].engagepos[0];
-				position[1] = position[1] + player[player_key].engagepos[1];
-				position[2] = position[2] + player[player_key].engagepos[2];
-			}
-			player[player_key].joint[joint_key].position[0] = position[0];
-			player[player_key].joint[joint_key].position[1] = position[1];
-			player[player_key].joint[joint_key].position[2] = position[2];
-			player[player_key].joint[joint_key].freeze.position[0] = position[0];
-			player[player_key].joint[joint_key].freeze.position[1] = position[1];
-			player[player_key].joint[joint_key].freeze.position[2] = position[2];
-		} break;
-	}
-
-	lua_Number result = 1;
-
-	lua_pushnumber(L, result);
-
-	return 1;
-}
-
-int orientation(lua_State* L)
-{
-	lua_Number orientation[4];
-		
-	lua_rawgeti(L, -1, 1);
-	orientation[0] = lua_tonumber(L, -1); 
-
-	lua_rawgeti(L, -2, 2);
-	orientation[1] = lua_tonumber(L, -1); 
-
-	lua_rawgeti(L, -3, 3);
-	orientation[2] = lua_tonumber(L, -1); 
-
-	lua_rawgeti(L, -4, 4);
-	orientation[3] = lua_tonumber(L, -1);
-
-	switch(DataContext)
-	{
-		case NoContext: {
-			// Error Handling
-		} break;
-		case ObjectContext: {
-			object[object_key].orientation[0] = orientation[0];
-			object[object_key].orientation[1] = orientation[1];
-			object[object_key].orientation[2] = orientation[2];
-			object[object_key].orientation[3] = orientation[3];
-
-			object[object_key].freeze.orientation[0] = orientation[0];
-			object[object_key].freeze.orientation[1] = orientation[1];
-			object[object_key].freeze.orientation[2] = orientation[2];
-			object[object_key].freeze.orientation[3] = orientation[3];
-		} break;
-		case BodyContext: {
-			player[player_key].body[body_key].orientation[0] = orientation[0];
-			player[player_key].body[body_key].orientation[1] = orientation[1];
-			player[player_key].body[body_key].orientation[2] = orientation[2];
-			player[player_key].body[body_key].orientation[3] = orientation[3];
-
-			player[player_key].body[body_key].freeze.orientation[0] = orientation[0];
-			player[player_key].body[body_key].freeze.orientation[1] = orientation[1];
-			player[player_key].body[body_key].freeze.orientation[2] = orientation[2];
-			player[player_key].body[body_key].freeze.orientation[3] = orientation[3];
-		} break;
-		case JointContext: {
-			player[player_key].joint[joint_key].orientation[0] = orientation[0];
-			player[player_key].joint[joint_key].orientation[1] = orientation[1];
-			player[player_key].joint[joint_key].orientation[2] = orientation[2];
-			player[player_key].joint[joint_key].orientation[3] = orientation[3];
-	
-			player[player_key].joint[joint_key].freeze.orientation[0] = orientation[0];
-			player[player_key].joint[joint_key].freeze.orientation[1] = orientation[1];
-			player[player_key].joint[joint_key].freeze.orientation[2] = orientation[2];
-			player[player_key].joint[joint_key].freeze.orientation[3] = orientation[3];
-		} break;
-	}
-
-	lua_Number result = 1;
-
-	lua_pushnumber(L, result);
-
-	return 1;
-}
-
-int sides(lua_State* L)
-{
-	lua_Number sides[3];
-		
-	lua_rawgeti(L, -1, 1);
-	sides[0] = lua_tonumber(L, -1); 
-
-	lua_rawgeti(L, -2, 2);
-	sides[1] = lua_tonumber(L, -1); 
-
-	lua_rawgeti(L, -3, 3);
-	sides[2] = lua_tonumber(L, -1); 
-
-	switch(DataContext)
-	{
-		case NoContext: {
-			// Error Handling
-		} break;
-		case ObjectContext: {
-			object[object_key].sides[0] = sides[0];
-			object[object_key].sides[1] = sides[1];
-			object[object_key].sides[2] = sides[2];
-		} break;
-		case BodyContext: {
-			player[player_key].body[body_key].sides[0] = sides[0];
-			player[player_key].body[body_key].sides[1] = sides[1];
-			player[player_key].body[body_key].sides[2] = sides[2];
-		} break;
-		case JointContext: {
-			player[player_key].joint[joint_key].sides[0] = sides[0];
-			player[player_key].joint[joint_key].sides[1] = sides[1];
-			player[player_key].joint[joint_key].sides[2] = sides[2];
-		} break;
-	}
-
-	lua_Number result = 1;
-
-	lua_pushnumber(L, result);
-
-	return 1;
-}
-
-int density(lua_State* L)
-{
-	lua_rawgeti(L, -1, 1);
-
-	lua_Number density = lua_tonumber(L, -1); 
-
-	switch(DataContext)
-	{
-		case NoContext: {
-			// Error Handling
-		} break;
-		case ObjectContext: {
-			object[object_key].density = density;
-		} break;
-		case BodyContext: {
-			player[player_key].body[body_key].density = density;
-		} break;
-		case JointContext: {
-			player[player_key].joint[joint_key].density = density;
-		} break;
-	}
-
-	lua_Number result = 1;
-
-	lua_pushnumber(L, result);
-
-	return 1;
-}
-
-int api_static_state(lua_State* L)
-{
-	switch(DataContext)
-	{
-		case NoContext: {
-			// Error Handling
-		} break;
-		case ObjectContext: {
-			object[object_key].static_state = true;
-			object[object_key].color = StaticObjectColor;
-			object[object_key].category_bits = StaticObjectCategoryBits;
-			object[object_key].collide_bits = StaticObjectCollideBits;
-		} break;
-		case BodyContext: {
-			player[player_key].body[body_key].static_state = true;
-		} break;
-		case JointContext: {
-			player[player_key].joint[joint_key].static_state = true;
-		} break;
-	}
-
-	lua_Number result = 1;
-
-	lua_pushnumber(L, result);
-
-	return 1;
-}
-
-int radius(lua_State* L)
-{
-	lua_rawgeti(L, -1, 1);
-
-	lua_Number radius = lua_tonumber(L, -1); 
-
-	switch(DataContext)
-	{
-		case NoContext: {
-			// Error Handling
-		} break;
-		case ObjectContext: {
-			object[object_key].radius = radius;
-		} break;
-		case BodyContext: {
-			player[player_key].body[body_key].radius = radius;
-		} break;
-		case JointContext: {
-			player[player_key].joint[joint_key].radius = radius;
-		} break;
-	}
-
-	lua_Number result = 1;
-
-	lua_pushnumber(L, result);
-
-	return 1;
-}
-
-int length(lua_State* L)
-{
-	lua_rawgeti(L, -1, 1);
-
-	lua_Number length = lua_tonumber(L, -1); 
-
-	switch(DataContext)
-	{
-		case NoContext: {
-			// Error Handling
-		} break;
-		case ObjectContext: {
-			object[object_key].length = length;
-		} break;
-		case BodyContext: {
-			player[player_key].body[body_key].length = length;
-		} break;
-		case JointContext: {
-			player[player_key].joint[joint_key].length = length;
-		} break;
-	}
-
-	lua_Number result = 1;
-
-	lua_pushnumber(L, result);
-
-	return 1;
-}
-
-int strength(lua_State* L)
-{
-	lua_Number strength;
-		
-	lua_rawgeti(L, -1, 1);
-	strength = lua_tonumber(L, -1); 
-
-	switch(DataContext) {
-		case JointContext: {
-			player[player_key].joint[joint_key].strength = strength;
-		} break;
-	}
-
-	lua_Number result = 1;
-
-	lua_pushnumber(L, result);
-
-	return 1;
-}
-
-int strength_alt(lua_State* L)
-{
-	lua_Number strength_alt;
-		
-	lua_rawgeti(L, -1, 1);
-	strength_alt = lua_tonumber(L, -1); 
-
-	switch(DataContext) {
-		case JointContext: {
-			player[player_key].joint[joint_key].strength_alt = strength_alt;
-		} break;
-	}
-
-	lua_Number result = 1;
-
-	lua_pushnumber(L, result);
-
-	return 1;
-}
-
-
-int velocity(lua_State* L)
-{
-	lua_Number velocity;
-		
-	lua_rawgeti(L, -1, 1);
-	velocity = lua_tonumber(L, -1); 
-
-	switch(DataContext)
-	{
-		case JointContext: {
-			player[player_key].joint[joint_key].velocity = velocity;
-		} break;
-	}
-
-	lua_Number result = 1;
-
-	lua_pushnumber(L, result);
-
-	return 1;
-}
-
-int velocity_alt(lua_State* L)
-{
-	lua_Number velocity_alt;
-		
-	lua_rawgeti(L, -1, 1);
-	velocity_alt = lua_tonumber(L, -1); 
-
-	switch(DataContext)
-	{
-		case JointContext: {
-			player[player_key].joint[joint_key].velocity_alt = velocity_alt;
-		} break;
-	}
-
-	lua_Number result = 1;
-
-	lua_pushnumber(L, result);
-
-	return 1;
-}
-
-int axis(lua_State* L)
-{
-	lua_Number axis[3];
-		
-	lua_rawgeti(L, -1, 1);
-	axis[0] = lua_tonumber(L, -1); 
-
-	lua_rawgeti(L, -2, 2);
-	axis[1] = lua_tonumber(L, -1); 
-
-	lua_rawgeti(L, -3, 3);
-	axis[2] = lua_tonumber(L, -1); 
-
-	switch(DataContext)
-	{
-		case JointContext: {
-			player[player_key].joint[joint_key].axis[0] = axis[0];
-			player[player_key].joint[joint_key].axis[1] = axis[1];
-			player[player_key].joint[joint_key].axis[2] = axis[2];
-		} break;
-	}
-
-	lua_Number result = 1;
-
-	lua_pushnumber(L, result);
-
-	return 1;
-}
-
-int axis_alt(lua_State* L)
-{
-	lua_Number axis_alt[3];
-		
-	lua_rawgeti(L, -1, 1);
-	axis_alt[0] = lua_tonumber(L, -1); 
-
-	lua_rawgeti(L, -2, 2);
-	axis_alt[1] = lua_tonumber(L, -1); 
-
-	lua_rawgeti(L, -3, 3);
-	axis_alt[2] = lua_tonumber(L, -1); 
-
-	switch(DataContext)
-	{
-		case JointContext: {
-			player[player_key].joint[joint_key].axis_alt[0] = axis_alt[0];
-			player[player_key].joint[joint_key].axis_alt[1] = axis_alt[1];
-			player[player_key].joint[joint_key].axis_alt[2] = axis_alt[2];
-		} break;
-	}
-
-	lua_Number result = 1;
-
-	lua_pushnumber(L, result);
-
-	return 1;
-}
-
-int range(lua_State* L)
-{
-	lua_Number range[2];
-		
-	lua_rawgeti(L, -1, 1);
-	range[0] = lua_tonumber(L, -1); 
-
-	lua_rawgeti(L, -2, 2);
-	range[1] = lua_tonumber(L, -1); 
-
-	switch(DataContext)
-	{
-		case JointContext: {
-			player[player_key].joint[joint_key].range[0] = range[0];
-			player[player_key].joint[joint_key].range[1] = range[1];
-		} break;
-	}
-
-	lua_Number result = 1;
-
-	lua_pushnumber(L, result);
-
-	return 1;
-}
-
-int range_alt(lua_State* L)
-{
-	lua_Number range_alt[2];
-		
-	lua_rawgeti(L, -1, 1);
-	range_alt[0] = lua_tonumber(L, -1); 
-
-	lua_rawgeti(L, -2, 2);
-	range_alt[1] = lua_tonumber(L, -1); 
-
-	switch(DataContext)
-	{
-		case JointContext: {
-			player[player_key].joint[joint_key].range_alt[0] = range_alt[0];
-			player[player_key].joint[joint_key].range_alt[1] = range_alt[1];
-		} break;
-	}
-
-	lua_Number result = 1;
-
-	lua_pushnumber(L, result);
-
-	return 1;
-}
-
-int connections(lua_State* L)
-{
-	std::string connections[2];
-		
-	lua_rawgeti(L, -1, 1);
-	connections[0] = lua_tostring(L, -1); 
-
-	lua_rawgeti(L, -2, 2);
-	connections[1] = lua_tostring(L, -1); 
-
-	switch(DataContext)
-	{
-		case JointContext: {
-			player[player_key].joint[joint_key].connections[0] = connections[0];
-			player[player_key].joint[joint_key].connections[1] = connections[1];
-		} break;
-	}
-
-	lua_Number result = 1;
-
-	lua_pushnumber(L, result);
-
-	return 1;
-}
-
-int connectionType(lua_State* L)
-{
-	std::string connectionType = lua_tostring(L, -1); 	
-
-	switch(DataContext)
-	{
-		case JointContext: {
-			if ("hinge" == connectionType) {
-				player[player_key].joint[joint_key].connectionType = Hinge;
-			} else if ("slider" == connectionType) {
-				player[player_key].joint[joint_key].connectionType = Slider;
-			} else if ("universal" == connectionType) {
-				player[player_key].joint[joint_key].connectionType = Universal;
-			} else if ("hinge2" == connectionType) {
-				player[player_key].joint[joint_key].connectionType = Hinge2;
-			} else {
-			// Error Handling
-			}
-		} break;
-	}
-
-	lua_Number result = 1;
-
-	lua_pushnumber(L, result);
-
-	return 1;
-}
-
-// api draw
-int api_DrawText(lua_State* L)
-{
-	Color color;
-	lua_rawgeti(L, -1, 1);
-	color.r = lua_tonumber(L, -1);
-	lua_rawgeti(L, -2, 2);
-	color.g = lua_tonumber(L, -1);
-	lua_rawgeti(L, -3, 3);
-	color.b = lua_tonumber(L, -1);
-	lua_rawgeti(L, -4, 4);
-	color.a = lua_tonumber(L, -1);
-
-	int fontSize = lua_tointeger(L, -6);
-	int posY = lua_tointeger(L, -7);
-	int posX = lua_tointeger(L, -8);
-	const char* text = lua_tostring(L, -9); 	
-	DrawText(text, posX, posY, fontSize, color);
-
-	lua_Number result = 1;
-	lua_pushnumber(L, result);
-	return 1;
-}
-
-int api_DrawRectangle(lua_State* L)
-{
-	Color color;
-	lua_rawgeti(L, -1, 1);
-	color.r = lua_tonumber(L, -1);
-	lua_rawgeti(L, -2, 2);
-	color.g = lua_tonumber(L, -1);
-	lua_rawgeti(L, -3, 3);
-	color.b = lua_tonumber(L, -1);
-	lua_rawgeti(L, -4, 4);
-	color.a = lua_tonumber(L, -1);
-
-	int height = lua_tointeger(L, -6);
-	int width = lua_tointeger(L, -7);
-	int posY = lua_tointeger(L, -8);
-	int posX = lua_tointeger(L, -9);
-	DrawRectangle(posX, posY, width, height, color);
-
-	lua_Number result = 1;
-	lua_pushnumber(L, result);
-	return 1;
-}
-
-int api_DrawRectangleLines(lua_State* L)
-{
-	Color color;
-	lua_rawgeti(L, -1, 1);
-	color.r = lua_tonumber(L, -1);
-	lua_rawgeti(L, -2, 2);
-	color.g = lua_tonumber(L, -1);
-	lua_rawgeti(L, -3, 3);
-	color.b = lua_tonumber(L, -1);
-	lua_rawgeti(L, -4, 4);
-	color.a = lua_tonumber(L, -1);
-
-	int height = lua_tointeger(L, -6);
-	int width = lua_tointeger(L, -7);
-	int posY = lua_tointeger(L, -8);
-	int posX = lua_tointeger(L, -9);
-	DrawRectangleLines(posX, posY, width, height, color);
-
-	lua_Number result = 1;
-	lua_pushnumber(L, result);
-	return 1;
-}
-
-void api_draw_functions(lua_State* L)
-{
-	api_set(L, api_DrawText, "DrawText");
-	api_set(L, api_DrawRectangle, "DrawRectangle");
-	api_set(L, api_DrawRectangleLines, "DrawRectangleLines");
-}
-
-void MouseButtonDownCallback(lua_State* L)
-{
-	lua_getglobal(L, "MouseButtonDown");
-	if (lua_istable(L, -1)) {
-		lua_pushnil(L);
-		while (lua_next(L, -2) != 0) {
-			if (lua_isfunction(L, -1)) {
-				if (lua_pcall(L, 0, 0, 0) == LUA_OK) {
-				}
-			}
-		}
-		lua_pop(L, 1);
-	}
-}
-
-void MouseButtonUpCallback(lua_State* L)
-{
-	lua_getglobal(L, "MouseButtonUp");
-	if (lua_istable(L, -1)) {
-		lua_pushnil(L);
-		while (lua_next(L, -2) != 0) {
-			if (lua_isfunction(L, -1)) {
-				if (lua_pcall(L, 0, 0, 0) == LUA_OK) {
-				}
-			}
-		}
-		lua_pop(L, 1);
-	}
-}
-
-void FileDroppedCallback(lua_State* L, char* dropped_file)
-{
-	lua_getglobal(L, "FileDropped");
-	if (lua_istable(L, -1)) {
-		lua_pushnil(L);
-		while (lua_next(L, -2) != 0) {
-			if (lua_isfunction(L, -1)) {
-				lua_pushstring(L, dropped_file);
-				if (lua_pcall(L, 1, 0, 0) == LUA_OK) {
-				}
-			}
-		}
-		lua_pop(L, 1);
-	}
-}
-
-void Draw2DCallback(lua_State* L)
-{
-	lua_getglobal(L, "Draw2D");
-	if (lua_istable(L, -1)) {
-		lua_pushnil(L);
-		while (lua_next(L, -2) != 0) {
-			if (lua_isfunction(L, -1)) {
-				if (lua_pcall(L, 0, 0, 0) == LUA_OK) {
-				}
-			}
-		}
-		lua_pop(L, 1);
-	}
-}
-
-int api_GetMousePosition(lua_State* L)
-{
-	Vector2 MousePosition = GetMousePosition();
-	lua_newtable(L);
-	lua_pushnumber(L, MousePosition.x);
-	lua_setfield(L, -2, "x");
-	lua_pushnumber(L, MousePosition.y);
-	lua_setfield(L, -2, "y");
-	return 1;
-}
-
-void api_raylib_getters(lua_State* L)
-{
-	api_set(L, api_GetMousePosition,"GetMousePosition");
-}
-
-// api state getters
-
-int api_get_game_frame(lua_State* L)
-{
-	lua_pushnumber(L, game.game_frame);
-	return 1;
-}
-
-int api_get_reaction_time(lua_State* L)
-{
-	lua_pushnumber(L, game.reaction_time);
-	return 1;
-}
-
-int api_get_reaction_count(lua_State* L)
-{
-	lua_pushnumber(L, game.reaction_count);
-	return 1;
 }
 
 int api_GetWindowSize(lua_State* L)
@@ -2097,114 +98,62 @@ int api_GetWindowSize(lua_State* L)
 	return 1;
 }
 
-void api_state_getters(lua_State* L)
-{
-	api_set(L, api_GetWindowSize, "GetWindowSize");
 
-	api_set(L, api_get_game_frame, "get_game_frame");
-	api_set(L, api_get_reaction_time, "get_reaction_time");
-	api_set(L, api_get_reaction_count, "get_reaction_count");
-}
-
-// api main
-void api_init(lua_State* L)
-{	
-	api_set(L, api_object, "object");
-	api_set(L, api_player, "player");
-
-	api_set(L, api_body, "body");
-	api_set(L, api_joint, "joint");
-
-	api_set(L, turnframes, "turnframes");
-	api_set(L, numplayers, "numplayers");
-	api_set(L, engageheight, "engageheight");
-	api_set(L, engagedistance, "engagedistance");
-	api_set(L, engagepos, "engageposition");
-	api_set(L, engagerot, "engagerotation");
-	api_set(L, gravity, "gravity");
-	api_set(L, friction, "friction");
-
-	api_set(L, shape, "shape");
-	api_set(L, position, "position");
-	api_set(L, orientation, "orientation");
-	api_set(L, sides, "sides");
-	api_set(L, density, "density");
-	api_set(L, radius, "radius");
-	api_set(L, length, "length");
-	api_set(L, api_static_state, "static");
-
-	api_set(L, strength, "strength");
-	api_set(L, strength_alt, "strength_alt");
-
-	api_set(L, velocity, "velocity");
-	api_set(L, velocity_alt, "velocity_alt");
-
-	api_set(L, axis, "axis");
-	api_set(L, axis_alt, "axis_alt");
-
-	api_set(L, range, "range");
-	api_set(L, range_alt, "range_alt");
-
-	api_set(L, connections, "connections");
-	api_set(L, connectionType, "connectionType");
-
-	api_set(L, api_dofile, "dofile");
-	api_set(L, api_LoadFileText, "LoadFileText");
-	api_set(L, api_LoadDirectoryFiles, "LoadDirectoryFiles");
-	api_set(L, api_LoadDirectoryFilesEx, "LoadDirectoryFilesEx");
-}
-
-void GameSetup()
+void NewGame()
 {
 	dMass mass;
 
-	game.game_frame = 0;
+	game.state.game_frame = 0;
 
-	game.freeze = true;
-	game.freeze_time = GetTime();
-	game.freeze_frames = 50;
-	game.freeze_count = 0;
+	game.state.freeze = true;
+	game.state.freeze_time = GetTime();
+	game.state.freeze_frames = 50;
+	game.state.freeze_count = 0;
 
-	game.step_frames = 0;
-	game.step_count = 0;
+	game.state.step_frames = 0;
+	game.state.step_count = 0;
 
 	game.space = dHashSpaceCreate(0);
   	game.contactgroup = dJointGroupCreate(0);
 	game.floor = dCreatePlane(game.space, 0, 0, 1, 0);
 
-	dGeomSetCategoryBits(game.floor, StaticObjectCategoryBits);
-	dGeomSetCollideBits(game.floor, StaticObjectCollideBits);
+	dGeomSetCategoryBits(game.floor, 0b0001);
+	dGeomSetCollideBits(game.floor, 0b0000);
 
-  	dWorldSetGravity(game.world, game.gravity[0], game.gravity[1], game.gravity[2]);
+  	dWorldSetGravity(
+		game.world,
+		game.rules.gravity[0],
+		game.rules.gravity[1],
+		game.rules.gravity[2]
+	);
 
-	for (auto& [object_name, o] : object) {
-		o.create(mass);
+	for (auto& [object_name, o] : game.objects) {
+		o.create();
 		o.make_static();
 	}
 
-	for (auto& [player_name, p] : player) {
-		p.create(mass);
+	for (auto& [player_name, p] : game.players) {
+		p.create();
 	}
 
-
-	if (game.engageheight) {
-		for (auto& [player_name, p] : player) {
+	if (game.rules.engageheight) {
+		for (auto& [player_name, p] : game.players) {
 			for (auto& [body_name, b] : p.body) {
-				b.position[2] = b.position[2] + game.engageheight;
-				b.freeze.position[2] = b.freeze.position[2] + game.engageheight;
+				b.position[2] = b.position[2] + game.rules.engageheight;
+				b.freeze.position[2] = b.freeze.position[2] + game.rules.engageheight;
 			}
 		
 			for (auto& [joint_name, j] : p.joint) {
-				j.position[2] = j.position[2] + game.engageheight;
-				j.freeze.position[2] = j.freeze.position[2] + game.engageheight;
+				j.position[2] = j.position[2] + game.rules.engageheight;
+				j.freeze.position[2] = j.freeze.position[2] + game.rules.engageheight;
 			}
 		}
 	}
 
-	if (game.engagedistance) {
+	if (game.rules.engagedistance) {
 		int i = 0;
-		for (auto& [player_name, p] : player) {
-			Matrix m = MatrixRotateZ(DEG2RAD * (360/game.numplayers) * i);
+		for (auto& [player_name, p] : game.players) {
+			Matrix m = MatrixRotateZ(DEG2RAD * (360/game.rules.numplayers) * i);
 			Quaternion q = QuaternionFromMatrix(m);
 			Quaternion iq = QuaternionInvert(q);
 			for (auto& [body_name, b] : p.body) {
@@ -2212,7 +161,7 @@ void GameSetup()
 						iq,
 						(Quaternion){
 						b.position[0],
-						b.position[1] + game.engagedistance,
+						b.position[1] + game.rules.engagedistance,
 						b.position[2],
 						0.00
 				});
@@ -2247,7 +196,7 @@ void GameSetup()
 						iq,
 						(Quaternion){
 							j.position[0],
-							j.position[1] + game.engagedistance,
+							j.position[1] + game.rules.engagedistance,
 							j.position[2],
 							0.00
 				});
@@ -2282,55 +231,44 @@ void GameSetup()
 
 }
 
-void GameReset()
+void ResetGame()
 {
+	std::map<std::string, Body> new_object_map;
+	game.objects = new_object_map;
+	std::map<std::string, Player> new_player_map;
+	game.players = new_player_map;
+
 	dJointGroupDestroy(game.contactgroup);
 	dSpaceDestroy(game.space);
 
-	std::map<std::string, Object> new_object_map;
-	object = new_object_map;
-
-	std::map<std::string, Player> new_player_map;
-	player = new_player_map;
-
-	GameSetup();
-}
-
-
-void GameStart()
-{
-	dInitODE2(0);
-
-	game.world = dWorldCreate();
-
-	GameSetup();
+	NewGame();
 }
 
 void UpdateFreeze()
 {
-	game.freeze = true;
-	game.freeze_time = GetTime();
-	game.step_count = 0;
+	game.state.freeze = true;
+	game.state.freeze_time = GetTime();
+	game.state.step_count = 0;
 
-	for (auto& [object_name, o] : object) {
+	for (auto& [object_name, o] : game.objects) {
 		o.update_freeze();
 	}
 
-	for (auto& [player_name, p] : player) {
+	for (auto& [player_name, p] : game.players) {
 		p.update_freeze();
 	}
 }
 
 void ReFreeze()
 {
-	game.freeze_count = 0;
+	game.state.freeze_count = 0;
 
-	for (auto& [object_name, o] : object) {
+	for (auto& [object_name, o] : game.objects) {
 		o.refreeze();
 	}
 
-	for (auto& [player_name, p] : player) {
-		p.refreeze();
+	for (auto& [player_name, p] : game.players) {
+		p.ReFreeze();
 	}
 }
 
@@ -2349,8 +287,8 @@ void DrawFloor()
 
 void ToggleGhosts()
 {
-	for (auto& [player_name, p] : player) {
-		if (player_name != game.selected_player) {
+	for (auto& [player_name, p] : game.players) {
+		if (player_name != game.state.selected_player) {
 			p.toggle_ghost();
 		}
 	}
@@ -2359,320 +297,43 @@ void ToggleGhosts()
 void DrawFrame()
 {
 	DrawFloor();
-	if (game.freeze) {
-		for (auto& [object_name, o] : object) {
+	if (game.state.freeze) {
+		for (auto& [object_name, o] : game.objects) {
 			o.draw_freeze();
 			o.draw_ghost();
 		}
 				
-		for (auto& [player_name, p] : player) {
+		for (auto& [player_name, p] : game.players) {
 			p.draw_freeze();
 			p.draw_ghost();
 		}
 	} else {
-		for (auto& [object_name, o] : object) {
+		for (auto& [object_name, o] : game.objects) {
 			o.draw();
 		}
-		for (auto& [player_name, p] : player) {
+		for (auto& [player_name, p] : game.players) {
 			p.draw();
 		}
 	}
 }
 
-void GameEnd()
+void EndGame()
 {
 	dJointGroupDestroy(game.contactgroup);
 	dSpaceDestroy(game.space);
 	dCloseODE();
 }
 
-void GameStep(int frame_count)
+void StepGame(int frame_count)
 {
-	game.freeze = false;
-	game.step_frames = frame_count;
+	game.state.freeze = false;
+	game.state.step_frames = frame_count;
 	ReFreeze();
-}
-
-void TriggerPlayerPassiveStates(std::string player_name, PlayerPassiveStates state)
-{
-	dReal strength = 0.00;
-	for (auto& [joint_name, j] : player[player_name].joint) {
-		j.state = RELAX;
-		if (state == HOLD_ALL) {
-			strength = j.strength;
-			j.state = HOLD;
-		}
-		switch(j.connectionType) {
-			case Hinge: {
-				dJointSetHingeParam(j.dJoint, dParamFMax, strength);
-				dJointSetHingeParam(j.dJoint, dParamVel, 0.0f);
-			} break;
-			case Slider: {
-				dJointSetSliderParam(j.dJoint, dParamFMax, strength);
-				dJointSetSliderParam(j.dJoint, dParamVel, 0.0f);
-			} break;
-			case Universal: {
-				dJointSetUniversalParam(j.dJoint, dParamFMax, strength);
-				dJointSetUniversalParam(j.dJoint, dParamVel, 0.0f);
-			} break;
-			case Hinge2: {
-				dJointSetHinge2Param(j.dJoint, dParamFMax, strength);
-				dJointSetHinge2Param(j.dJoint, dParamVel, 0.0f);
-			} break;
-		}
-	}
-}
-
-void TriggerPlayerPassiveStatesAlt(std::string player_name, PlayerPassiveStates state)
-{
-	dReal strength = 0.00;
-	for (auto& [joint_name, j] : player[player_name].joint) {
-		j.state_alt = RELAX;
-		if (state == HOLD_ALL) {
-			strength = j.strength_alt;
-			j.state_alt = HOLD;
-		}
-		switch(j.connectionType) {
-			case Hinge: {
-			} break;
-			case Slider: {
-			} break;
-			case Universal: {
-				dJointSetUniversalParam(j.dJoint, dParamFMax2, strength);
-				dJointSetUniversalParam(j.dJoint, dParamVel2, 0.0f);
-			} break;
-			case Hinge2: {
-				dJointSetHinge2Param(j.dJoint, dParamFMax2, strength);
-				dJointSetHinge2Param(j.dJoint, dParamVel2, 0.0f);
-			} break;
-		}
-	}
-}
-
-void TogglePlayerPassiveStates(std::string player_name)
-{
-	ReFreeze();
-	if (player[player_name].passive_states == RELAX_ALL) {
-		TriggerPlayerPassiveStates(player_name, HOLD_ALL);
-		player[player_name].passive_states = HOLD_ALL;
-	} else {
-		TriggerPlayerPassiveStates(player_name, RELAX_ALL);
-		player[player_name].passive_states = RELAX_ALL;
-	}
-}
-
-void TogglePlayerPassiveStatesAlt(std::string player_name)
-{
-	ReFreeze();
-	if (player[player_name].passive_states_alt == RELAX_ALL) {
-		TriggerPlayerPassiveStatesAlt(player_name, HOLD_ALL);
-		player[player_name].passive_states_alt = HOLD_ALL;
-	} else {
-		TriggerPlayerPassiveStatesAlt(player_name, RELAX_ALL);
-		player[player_name].passive_states_alt = RELAX_ALL;
-	}
-}
-
-void RelaxAll(std::string player_name)
-{
-	ReFreeze();
-	TriggerPlayerPassiveStates(player_name, RELAX_ALL);
-	player[player_name].passive_states = RELAX_ALL;
-}
-
-void RelaxAllAlt(std::string player_name)
-{
-	ReFreeze();
-	TriggerPlayerPassiveStatesAlt(player_name, RELAX_ALL);
-	player[player_name].passive_states_alt = RELAX_ALL;
-}
-
-void TriggerActiveStateAlt(std::string player_name, std::string joint_name, dReal direction)
-{
-	switch(player[player_name].joint[joint_name].connectionType) {
-		case Hinge: {
-		} break;
-		case Slider: {
-		} break;
-		case Universal: {
-			dJointSetUniversalParam(player[player_name].joint[joint_name].dJoint, dParamFMax2,player[player_name].joint[joint_name].strength_alt);
-			dJointSetUniversalParam(player[player_name].joint[joint_name].dJoint, dParamVel2, direction *player[player_name].joint[joint_name].velocity_alt);
-		} break;
-		case Hinge2: {
-			dJointSetHinge2Param(player[player_name].joint[joint_name].dJoint, dParamFMax2,player[player_name].joint[joint_name].strength_alt);
-			dJointSetHinge2Param(player[player_name].joint[joint_name].dJoint, dParamVel2, direction *player[player_name].joint[joint_name].velocity_alt);
-		} break;
-	}
-}
-
-void TriggerPassiveStateAlt(std::string player_name, std::string joint_name, dReal strength)
-{
-	switch(player[player_name].joint[joint_name].connectionType) {
-		case Hinge: {
-		} break;
-		case Slider: {
-		} break;
-		case Universal: {
-			dJointSetUniversalParam(player[player_name].joint[joint_name].dJoint, dParamFMax2, strength);
-			dJointSetUniversalParam(player[player_name].joint[joint_name].dJoint, dParamVel2, 0.0f);
-		} break;
-		case Hinge2: {
-			dJointSetHinge2Param(player[player_name].joint[joint_name].dJoint, dParamFMax2, strength);
-			dJointSetHinge2Param(player[player_name].joint[joint_name].dJoint, dParamVel2, 0.0f);
-		} break;
-	}
-}
-void TriggerActiveState(std::string player_name, std::string joint_name, dReal direction)
-{
-	switch(player[player_name].joint[joint_name].connectionType) {
-		case Hinge: {
-			dJointSetHingeParam(player[player_name].joint[joint_name].dJoint, dParamFMax,player[player_name].joint[joint_name].strength);
-			dJointSetHingeParam(player[player_name].joint[joint_name].dJoint, dParamVel, direction *player[player_name].joint[joint_name].velocity);
-		} break;
-		case Slider: {
-			dJointSetSliderParam(player[player_name].joint[joint_name].dJoint, dParamFMax,player[player_name].joint[joint_name].strength);
-			dJointSetSliderParam(player[player_name].joint[joint_name].dJoint, dParamVel, direction *player[player_name].joint[joint_name].velocity);
-		} break;
-		case Universal: {
-			dJointSetUniversalParam(player[player_name].joint[joint_name].dJoint, dParamFMax,player[player_name].joint[joint_name].strength);
-			dJointSetUniversalParam(player[player_name].joint[joint_name].dJoint, dParamVel, direction *player[player_name].joint[joint_name].velocity);
-		} break;
-		case Hinge2: {
-			dJointSetHinge2Param(player[player_name].joint[joint_name].dJoint, dParamFMax,player[player_name].joint[joint_name].strength);
-			dJointSetHinge2Param(player[player_name].joint[joint_name].dJoint, dParamVel, direction *player[player_name].joint[joint_name].velocity);
-		} break;
-	}
-}
-
-void TriggerPassiveState(std::string player_name, std::string joint_name, dReal strength)
-{
-	switch(player[player_name].joint[joint_name].connectionType) {
-		case Hinge: {
-			dJointSetHingeParam(player[player_name].joint[joint_name].dJoint, dParamFMax, strength);
-			dJointSetHingeParam(player[player_name].joint[joint_name].dJoint, dParamVel, 0.0f);
-		} break;
-		case Slider: {
-			dJointSetSliderParam(player[player_name].joint[joint_name].dJoint, dParamFMax, strength);
-			dJointSetSliderParam(player[player_name].joint[joint_name].dJoint, dParamVel, 0.0f);
-		} break;
-		case Universal: {
-			dJointSetUniversalParam(player[player_name].joint[joint_name].dJoint, dParamFMax, strength);
-			dJointSetUniversalParam(player[player_name].joint[joint_name].dJoint, dParamVel, 0.0f);
-		} break;
-		case Hinge2: {
-			dJointSetHinge2Param(player[player_name].joint[joint_name].dJoint, dParamFMax, strength);
-			dJointSetHinge2Param(player[player_name].joint[joint_name].dJoint, dParamVel, 0.0f);
-		} break;
-	}
-}
-
-void TogglePassiveState(std::string player_name, std::string joint_name)
-{
-	if (joint_name == "NONE") return;
-
-	ReFreeze();
-
-	if (player[player_name].joint[joint_name].state == RELAX) {
-		player[player_name].joint[joint_name].state = HOLD;
-		TriggerPassiveState(player_name, joint_name, player[player_name].joint[joint_name].strength);
-	} else {
-		player[player_name].joint[joint_name].state = RELAX;
-		TriggerPassiveState(player_name, joint_name, 0);
-	}
-}
-
-void TogglePassiveStateAlt(std::string player_name, std::string joint_name)
-{
-	if (joint_name == "NONE") return;
-
-	ReFreeze();
-
-	if (player[player_name].joint[joint_name].state_alt == RELAX) {
-		player[player_name].joint[joint_name].state_alt = HOLD;
-		TriggerPassiveStateAlt(player_name, joint_name, player[player_name].joint[joint_name].strength);
-	} else {
-		player[player_name].joint[joint_name].state_alt = RELAX;
-		TriggerPassiveStateAlt(player_name, joint_name, 0);
-	}
-}
-
-void ToggleActiveState(std::string player_name, std::string joint_name)
-{
-	if (joint_name == "NONE") return;
-
-	ReFreeze();
-	
-	if (player[player_name].joint[joint_name].state == FORWARD) {
-		player[player_name].joint[joint_name].state = BACKWARD;
-		TriggerActiveState(player_name, joint_name, -1);
-	} else {
-		player[player_name].joint[joint_name].state = FORWARD;
-		TriggerActiveState(player_name, joint_name, 1);
-	}
-}
-
-void ToggleActiveStateAlt(std::string player_name, std::string joint_name)
-{
-	if (joint_name == "NONE") return;
-
-	ReFreeze();
-	
-	if (player[player_name].joint[joint_name].state_alt == FORWARD) {
-		player[player_name].joint[joint_name].state_alt = BACKWARD;
-		TriggerActiveStateAlt(player_name, joint_name, -1);
-	} else {
-		player[player_name].joint[joint_name].state_alt = FORWARD;
-		TriggerActiveStateAlt(player_name, joint_name, 1);
-	}
-}
-
-
-void CycleState(std::string player_name, std::string joint_name)
-{
-	if (joint_name == "NONE") return;
-
-	ReFreeze();
-	
-	if (player[player_name].joint[joint_name].state == FORWARD) {
-		player[player_name].joint[joint_name].state = BACKWARD;
-		TriggerActiveState(player_name, joint_name, -1);
-	} else if (player[player_name].joint[joint_name].state == BACKWARD) {
-		player[player_name].joint[joint_name].state = HOLD;
-		TriggerPassiveState(player_name, joint_name, player[player_name].joint[joint_name].strength);
-	} else if (player[player_name].joint[joint_name].state == HOLD) {
-		player[player_name].joint[joint_name].state = RELAX;
-		TriggerPassiveState(player_name, joint_name, 0);
-	} else {
-		player[player_name].joint[joint_name].state = FORWARD;
-		TriggerActiveState(player_name, joint_name, 1);
-	}
-}
-
-
-void CycleStateAlt(std::string player_name, std::string joint_name)
-{
-	if (joint_name == "NONE") return;
-
-	ReFreeze();
-	
-	if (player[player_name].joint[joint_name].state_alt == FORWARD) {
-		player[player_name].joint[joint_name].state_alt = BACKWARD;
-		TriggerActiveStateAlt(player_name, joint_name, -1);
-	} else if (player[player_name].joint[joint_name].state_alt == BACKWARD) {
-		player[player_name].joint[joint_name].state_alt = HOLD;
-		TriggerPassiveStateAlt(player_name, joint_name, player[player_name].joint[joint_name].strength_alt);
-	} else if (player[player_name].joint[joint_name].state_alt == HOLD) {
-		player[player_name].joint[joint_name].state_alt = RELAX;
-		TriggerPassiveStateAlt(player_name, joint_name, 0);
-	} else {
-		player[player_name].joint[joint_name].state_alt = FORWARD;
-		TriggerActiveStateAlt(player_name, joint_name, 1);
-	}
 }
 
 void Restart()
 {
-	for (auto& [object_name, o] : object) {
+	for (auto& [object_name, o] : game.objects) {
 		dBodySetPosition(
 			o.dBody,
 			o.position[0],
@@ -2700,7 +361,7 @@ void Restart()
 		o.freeze.angular_vel[2] = 0.00;
 	}
 	
-	for (auto& [player_name, p] : player) {
+	for (auto& [player_name, p] : game.players) {
 		for (auto& [body_name, b] : p.body) {
 			dBodySetPosition(
 				b.dBody,
@@ -2921,14 +582,14 @@ void CameraZoomOut(Camera3D *camera, Vector3 *CameraZoom, Vector3 *CameraOffset)
 
 void UpdatePlaycam(Camera3D *camera, Vector3 *CameraOffset)
 {
-	int size = player[game.selected_player].body.size(); 
+	int size = game.players[game.state.selected_player].body.size(); 
 	if (size > 0) {
 		float x = 0.00;
 		float y = 0.00;
 		float z = 0.00;
 	
-		for (auto const [body_name, b] : player[game.selected_player].body) {
-			if (game.freeze) {
+		for (auto const [body_name, b] : game.players[game.state.selected_player].body) {
+			if (game.state.freeze) {
 				x = x + b.freeze.position[0];
 				y = y + b.freeze.position[1];
 				z = z + b.freeze.position[2];
@@ -2956,16 +617,16 @@ void UpdatePlaycam(Camera3D *camera, Vector3 *CameraOffset)
 	}
 }
 
-void SelectPlayer (Camera3D Camera, Ray MouseRay, RayCollision MouseCollision)
+void SelectPlayer(Camera3D Camera, Ray MouseRay, RayCollision MouseCollision)
 {
 	RayCollision collision = { 0 };
 	MouseRay = GetMouseRay(GetMousePosition(), Camera);
-	for (auto& [player_name, p] : player) {
+	for (auto& [player_name, p] : game.players) {
 		for (auto& [body_name, b] : p.body) {
 			MouseCollision = b.collide_mouse_ray(MouseRay, MouseCollision);
 			if (MouseCollision.hit) {
 				collision = MouseCollision;
-				game.selected_player = player_name;
+				game.state.selected_player = player_name;
 				break;
 			}
 		}
@@ -2973,38 +634,36 @@ void SelectPlayer (Camera3D Camera, Ray MouseRay, RayCollision MouseCollision)
 			MouseCollision = j.collide_mouse_ray(MouseRay, MouseCollision);
 			if (MouseCollision.hit) {
 				collision = MouseCollision;
-				game.selected_player = player_name;
+				game.state.selected_player = player_name;
 				break;
 			}
 		}
 	}
 }
 
-void SelectJoint (Camera3D Camera, Ray MouseRay, RayCollision MouseCollision)
+void SelectJoint(Camera3D Camera, Ray MouseRay, RayCollision MouseCollision)
 {
 	RayCollision collision = { 0 };
 	MouseRay = GetMouseRay(GetMousePosition(), Camera);
-	for (auto& [joint_name, j] : player[game.selected_player].joint) {
+	for (auto& [joint_name, j] : game.players[game.state.selected_player].joint) {
 		MouseCollision = j.collide_mouse_ray(MouseRay, MouseCollision);
 		if (MouseCollision.hit) {
 			collision = MouseCollision;
-			game.selected_joint = j.name;
+			game.state.selected_joint = j.name;
 			j.select = true;
 			break;
 		} else {
-			game.selected_joint = "NONE";
+			game.state.selected_joint = "NONE";
 			j.select = false;
 		}
 	}
 }
 
-std::map<int, FrameData> RecordedFrames;
-
 void RecordFrame(int game_frame)
 {
 	std::ofstream tempframefile("tempframefile.txt");
 	tempframefile << "FRAME " << game_frame << "\n";
-	for (auto const& [player_name, p] : player) {
+	for (auto const& [player_name, p] : game.players) {
 		RecordedFrames[game_frame].player[player_name] = p;
 		for (auto const& [joint_name, j] : p.joint) {
 			tempframefile << "JOINT " <<
@@ -3045,7 +704,7 @@ void RecordFrame(int game_frame)
 
 	std::ofstream tempreplayfile("tempreplayfile.txt", std::ios::app);
 	tempreplayfile << "FRAME " << game_frame << "\n";
-	for (auto const& [player_name, p] : player) {
+	for (auto const& [player_name, p] : game.players) {
 		tempreplayfile << "PLAYER " << player_name << "\n";
 		RecordedFrames[game_frame].player[player_name] = p;
 		for (auto const& [joint_name, j] : p.joint) {
@@ -3063,38 +722,46 @@ void PlayFrame(int game_frame)
 			switch(j.state) {
 				case RELAX: {
 					j.state = RELAX;
-					TriggerPassiveState(p.name, j.name, 0);
+					game.players[p.name].joint[j.name]
+					.TriggerPassiveState(0.00);
 				} break;
 				case HOLD: {
 					j.state = HOLD;
-					TriggerPassiveState(p.name, j.name, j.strength);
+					game.players[p.name].joint[j.name]
+					.TriggerPassiveState(j.strength);
 				} break;
 				case FORWARD: {
 					j.state = FORWARD;
-					TriggerActiveState(p.name, j.name, 1);
+					game.players[p.name].joint[j.name]
+					.TriggerActiveState(1.00);
 				} break; 
 				case BACKWARD: {
 					j.state = BACKWARD;
-					TriggerActiveState(p.name, j.name, -1);
+					game.players[p.name].joint[j.name]
+					.TriggerActiveState(-1.00);
 				} break;
 			}
 		
 			switch(j.state_alt) {
 				case RELAX: {
 					j.state_alt = RELAX;
-					TriggerPassiveStateAlt(p.name, j.name, 0);
+					game.players[p.name].joint[j.name]
+					.TriggerPassiveStateAlt(0.00);
 				} break;
 				case HOLD: {
 					j.state_alt = HOLD;
-					TriggerPassiveStateAlt(p.name, j.name, j.strength_alt);
+					game.players[p.name].joint[j.name]
+					.TriggerPassiveStateAlt(j.strength_alt);
 				} break;
 				case FORWARD: {
 					j.state_alt = FORWARD;
-					TriggerActiveStateAlt(p.name, j.name, 1);
+					game.players[p.name].joint[j.name]
+					.TriggerActiveStateAlt(1.00);
 				} break;
 				case BACKWARD: {
 					j.state_alt = BACKWARD;
-					TriggerActiveStateAlt(p.name, j.name, -1);
+					game.players[p.name].joint[j.name]
+					.TriggerActiveStateAlt(-1.00);
 				} break;
 			}
 		}
@@ -3103,13 +770,13 @@ void PlayFrame(int game_frame)
 
 void EditReplay()
 {
-	game.gamemode = FREEPLAY;
+	game.state.gamemode = FREEPLAY;
 
 	UpdateFreeze();
 
 	std::ofstream tempframefile("tempframefile.txt");
-	tempframefile << "FRAME " << game.game_frame << "\n";
-	for (auto const& [player_name, p] : player) {
+	tempframefile << "FRAME " << game.state.game_frame << "\n";
+	for (auto const& [player_name, p] : game.GetPlayers()) {
 		tempframefile << "PLAYER " << player_name << "\n";
 		for (auto const& [joint_name, j] : p.joint) {
 			tempframefile << j.name << " " << j.state << " " << j.state_alt << "\n";
@@ -3119,7 +786,7 @@ void EditReplay()
 
 	std::ofstream tempreplayfile("tempreplayfile.txt");
 	for (auto const& [game_frame, frame] : RecordedFrames) {
-		if (game_frame > game.game_frame) {
+		if (game_frame > game.state.game_frame) {
 			break;
 		} else {
 			tempreplayfile << "FRAME " << game_frame << "\n";
@@ -3151,17 +818,17 @@ void SaveReplay()
 
 void StartFreeplay()
 {
-	game.gamemode = FREEPLAY;
+	game.state.gamemode = FREEPLAY;
 
-	for (auto const& [player_name, p] : player) {
-		RelaxAll(player_name);
-		RelaxAllAlt(player_name);
+	for (auto& [player_name, p] : game.GetPlayers()) {
+		p.RelaxAll();
+		p.RelaxAllAlt();
 	}
 
-	game.game_frame = 0;
-	game.reaction_count = 0;
-	game.freeze_count = 0;
-	game.step_count = 0;
+	game.state.game_frame = 0;
+	game.state.reaction_count = 0;
+	game.state.freeze_count = 0;
+	game.state.step_count = 0;
 	
 	Restart();
 
@@ -3169,7 +836,7 @@ void StartFreeplay()
 
 	std::ofstream tempreplayfile("tempreplayfile.txt");
 	tempreplayfile << "FRAME 0\n";
-	for (auto const& [player_name, p] : player) {
+	for (auto const& [player_name, p] : game.GetPlayers()) {
 		tempreplayfile << "PLAYER " << player_name << "\n";
 		for (auto const& [joint_name, j] : p.joint) {
 			RecordedFrames[0].player[player_name].joint[joint_name] = j;
@@ -3181,18 +848,18 @@ void StartFreeplay()
 
 void StartReplay()
 {
-	game.gamemode = REPLAY;
+	game.state.gamemode = REPLAY;
 
-	for (auto const& [player_name, p] : player) {
-		RelaxAll(player_name);
-		RelaxAllAlt(player_name);
+	for (auto& [player_name, p] : game.GetPlayers()) {
+		p.RelaxAll();
+		p.RelaxAllAlt();
 	}
 
-	game.freeze = false;
-	game.game_frame = 0;
-	game.reaction_count = 0;
-	game.freeze_count = 0;
-	game.step_count = 0;
+	game.state.freeze = false;
+	game.state.game_frame = 0;
+	game.state.reaction_count = 0;
+	game.state.freeze_count = 0;
+	game.state.step_count = 0;
 	
 	Restart();
 }
@@ -3200,37 +867,37 @@ void StartReplay()
 
 void UpdateFrame()
 {
-	if (!game.pause) {
-		if (!game.freeze) {
-			++game.game_frame;
-			switch (game.gamemode) {
+	if (!game.state.pause) {
+		if (!game.state.freeze) {
+			++game.state.game_frame;
+			switch (game.state.gamemode) {
 				case FREEPLAY: {
-					if (++game.step_count >= game.step_frames) {
+					if (++game.state.step_count >= game.state.step_frames) {
 						UpdateFreeze();
 					}
 
-					RecordFrame(game.game_frame);
+					RecordFrame(game.state.game_frame);
 				} break;
 				case REPLAY: {
 					dReal size = RecordedFrames.size();
-					if (game.game_frame > size + 100) {
+					if (game.state.game_frame > size + 100) {
 						StartReplay();
-					} else if (game.game_frame < size) {
-						PlayFrame(game.game_frame);
+					} else if (game.state.game_frame < size) {
+						PlayFrame(game.state.game_frame);
 					}
 				} break;
 			}
 		} else {
-			switch (game.gamemode) {
+			switch (game.state.gamemode) {
 				case FREEPLAY: {
-					if (++game.freeze_count >= game.freeze_frames) {
+					if (++game.state.freeze_count >= game.state.freeze_frames) {
 						ReFreeze();
 					}
 	
-					if (game.reaction_time != 0) {
-						game.reaction_count = GetTime() - game.freeze_time;
-						if (game.reaction_count >= game.reaction_time) {
-							GameStep(game.turnframes);
+					if (game.rules.reaction_time != 0) {
+						game.state.reaction_count = GetTime() - game.state.freeze_time;
+						if (game.state.reaction_count >= game.rules.reaction_time) {
+							StepGame(game.rules.turnframes);
 						}
 					}
 				} break;
@@ -3254,20 +921,16 @@ int main()
 
 	lua_State* L = luaL_newstate();
 	luaL_openlibs(L);
-	api_init(L);
-	api_state_getters(L);
-	api_raylib_getters(L);
-	api_draw_functions(L);
+	luaopen_api_main(L);
+	luaopen_api_raylib(L);
+	luaopen_api_raymath(L);
+	luaopen_api_gamerule(L);
 
-	lua_newtable(L);
-	lua_setglobal(L, "Draw2D");
-	lua_newtable(L);
-	lua_setglobal(L, "FileDropped");
-	lua_newtable(L);
-	lua_setglobal(L, "MouseButtonDown");
-	lua_newtable(L);
-	lua_setglobal(L, "MouseButtonUp");
+	SetupCallbacks(L);
 
+	api_set(L, api_dofile, "dofile");
+	api_set(L, api_GetWindowSize, "GetWindowSize");
+	
 	#define MAX_FILEPATH_RECORDED   4096
 	#define MAX_FILEPATH_SIZE       2048
 
@@ -3295,7 +958,10 @@ int main()
 	Ray MouseRay = { 0 };
 	RayCollision MouseCollision = { 0 };
 
-	GameStart();
+	dInitODE2(0);
+	game.world = dWorldCreate();
+
+	NewGame();
 
 	while (!WindowShouldClose()) {
 		SetWindowTitle(TextFormat("TOBAS %dFPS", GetFPS()));
@@ -3332,54 +998,75 @@ int main()
 
 		if (IsKeyPressed(KEY_Z)) {
 			if (IsKeyDown(KEY_LEFT_CONTROL)) {
-				if (game.freeze && game.gamemode == FREEPLAY) {
-					PlayFrame(game.game_frame - 1);
+				if (game.state.freeze && game.state.gamemode == FREEPLAY) {
+					PlayFrame(game.state.game_frame - 1);
 				}
 			} else {
-				if (IsKeyDown(KEY_LEFT_SHIFT)) {
-					ToggleActiveStateAlt(game.selected_player, game.selected_joint);
-				} else {
-					ToggleActiveState(game.selected_player, game.selected_joint);
+				if (game.state.selected_joint != "NONE") {
+					ReFreeze();
+					if (IsKeyDown(KEY_LEFT_SHIFT)) {
+						game.players[game.state.selected_player]
+						.joint[game.state.selected_joint]
+						.ToggleActiveStateAlt();
+					} else {
+						game.players[game.state.selected_player]
+						.joint[game.state.selected_joint]
+						.ToggleActiveState();
+					}
 				}
 			}
 		}
 
 		if (IsKeyPressed(KEY_X)) {
-			if (IsKeyDown(KEY_LEFT_SHIFT)) {
-				TogglePassiveStateAlt(game.selected_player, game.selected_joint);
-			} else {
-				TogglePassiveState(game.selected_player, game.selected_joint);
+			if (game.state.selected_joint != "NONE") {
+				ReFreeze();
+				if (IsKeyDown(KEY_LEFT_SHIFT)) {
+					game.players[game.state.selected_player]
+					.joint[game.state.selected_joint]
+					.TogglePassiveStateAlt();
+				} else {
+					game.players[game.state.selected_player]
+					.joint[game.state.selected_joint]
+					.TogglePassiveState();
+				}
 			}
 		}
 
 		if (IsKeyPressed(KEY_C)) {
-			TogglePlayerPassiveStates(game.selected_player);
-			TogglePlayerPassiveStatesAlt(game.selected_player);
+			game.players[game.state.selected_player].TogglePlayerPassiveStatesAlt();
+			game.players[game.state.selected_player].TogglePlayerPassiveStates();
 		}
 
 		if (IsMouseButtonPressed(0)) {
 			SelectPlayer(camera, MouseRay, MouseCollision);
-			if (IsKeyDown(KEY_LEFT_SHIFT)) {
-				CycleStateAlt(game.selected_player, game.selected_joint);
-			} else {
-				CycleState(game.selected_player, game.selected_joint);
+			if (game.state.selected_joint != "NONE") {
+				ReFreeze();
+				if (IsKeyDown(KEY_LEFT_SHIFT)) {
+					game.players[game.state.selected_player]
+					.joint[game.state.selected_joint]
+					.CycleStateAlt();
+				} else {
+					game.players[game.state.selected_player]
+					.joint[game.state.selected_joint]
+					.CycleState();
+				}
 			}
 		}
 
 		if (IsKeyPressed(KEY_SPACE)) {
-			if (game.freeze && game.gamemode == FREEPLAY) {
+			if (game.state.freeze && game.state.gamemode == FREEPLAY) {
 				if (IsKeyDown(KEY_LEFT_SHIFT)) {
-					GameStep(1);
+					StepGame(1);
 				} else {
-					GameStep(game.turnframes);
+					StepGame(game.rules.turnframes);
 				}
-			} else if (!game.freeze && game.gamemode == REPLAY) {
+			} else if (!game.state.freeze && game.state.gamemode == REPLAY) {
 				StartFreeplay();
 			}
 		}
 
 		if (IsKeyPressed(KEY_E)) {
-			if (!game.freeze && game.gamemode == REPLAY) {
+			if (!game.state.freeze && game.state.gamemode == REPLAY) {
 				EditReplay();
 			}
 		}
@@ -3393,7 +1080,7 @@ int main()
 		}
 
 		if (IsKeyPressed(KEY_P)) {
-			game.pause = game.pause == false;
+			game.TogglePause();
 		}
 
 		if (IsKeyPressed(KEY_G)) {
@@ -3401,7 +1088,7 @@ int main()
 		}
 
 		if (IsKeyPressed(KEY_ESCAPE)) {
-			GameReset();
+			ResetGame();
 		}
 
 		if (IsKeyPressed(KEY_ESCAPE)) {
@@ -3410,7 +1097,7 @@ int main()
 		}
 
 		if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-			//MouseButtonPressedCallback(L);
+			MouseButtonPressedCallback(L);
 		}
 
 		if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
@@ -3443,10 +1130,12 @@ int main()
 			Draw2DCallback(L);
 		EndDrawing();
 	}
+
 	for (int i = 0; i < MAX_FILEPATH_RECORDED; i++) {
         	RL_FREE(filePaths[i]);
     	}
-	GameEnd();
+
+	EndGame();
 	CloseWindow();
 	lua_close(L);
 
