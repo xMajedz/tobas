@@ -1,4 +1,4 @@
-default = {env_obj = {}, env_obj_joint = {}, player = {}}
+local default = {env_obj = {}, env_obj_joint = {}, player = {}}
 local default_player = {}
 
 default_player["tori"] = {}

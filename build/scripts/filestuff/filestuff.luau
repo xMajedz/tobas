@@ -1,4 +1,4 @@
-fs = {content = "", lines = {}}
+local fs = {content = "", lines = {}}
 
 function fs.clear_content()
     fs.content = ""

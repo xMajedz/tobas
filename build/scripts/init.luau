@@ -1,17 +1,25 @@
-dofile("scripts/drawstuff/drawstuff.luau")
-dofile("scripts/modstuff/modstuff.luau")
-dofile("scripts/Math/Math.luau")
-ms.loadmod("shootboxing15")
+local require = API["require"]
+local ds = require("drawstuff")
+local ms = require("modstuff")
 
-local window = GetWindowSize()
+local loadmod = API["loadmod"]
+--loadmod("shootboxing15")
+
+local loadmodTBM = ms["loadmodTBM"]
+loadmodTBM("shootboxing15")
+
+local scripts_paths = RL.LoadDirectoryFiles("scripts")
+local mods_paths = RL.LoadDirectoryFiles("mods")
+
+local window = API.GetWindowSize()
 
 local console_box = ds.new({
 	posX = 20,
 	posY = window.height - 40,
 	width = window.width - 40,
 	height = 20,
-	color = DS_COLOR_GREEN,
-	borderColor = DS_COLOR_BLACK,
+	color = ds.DS_COLOR_GREEN,
+	borderColor = ds.DS_COLOR_BLACK,
 	interactive = true,
 })
 
@@ -21,10 +29,10 @@ function console_box:click_callback()
 		posY = window.height - 20 * (3 + #console_box.children),
 		width = window.width - 40,
 		height = 20,
-		color = DS_COLOR_BLUE,
+		color = ds.DS_COLOR_BLUE,
 		text = 1 + #console_box.children,
 		fontSize = 14,
-		borderColor = DS_COLOR_BLACK,
+		borderColor = ds.DS_COLOR_BLACK,
 	})
 end
 
@@ -41,13 +49,13 @@ local reaction_count = ds.new({
 })
 
 function game_frame:update_callback()
-	game_frame.text = get_game_frame()
+	game_frame.text = GAME.get_game_frame()
 end
 
 function reaction_count:update_callback()
-	reaction_count.text = string.gsub(get_reaction_count(), "%..*", "")
+	reaction_count.text = math.round(GAME.get_reaction_time() - GAME.get_reaction_count())
 end
 
-function FileDropped.init(file)
-	print(file)
-end
+function EVENT.FileDropped.init(filepath) print(filepath:gsub(".+mods/", "")) end
+
+function EVENT.NearCallback.init(contact_pos) end

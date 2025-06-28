@@ -1,8 +1,9 @@
-dofile("scripts/modstuff/default.luau")
-dofile("scripts/filestuff/filestuff.luau")
-dofile("scripts/Math/Math.luau")
+local require = API["require"]
+local default = require("modstuff/default")
+local fs = require("filestuff")
+local Math = require("Math")
 
-ms = {}
+local ms = {}
 ms.player_name_table = {}
 ms.player_name_table[1] = "ichiji"
 ms.player_name_table[2] = "niji"
@@ -25,10 +26,6 @@ ms.connections["r_thigh"] = "r_hip"
 ms.connections["l_leg"] = "l_knee"
 ms.connections["r_leg"] = "r_knee"
 
-function ms.loadmod(modname)
-	dofile("mods/" .. modname .. ".luau")
-end
-
 function ms.loadmodTBM(modname)
 	ms.loadTBM(ms.parseTBM(modname))
 end
@@ -37,9 +34,8 @@ function ms.loadTBM(TBM)
 	local euler2quat = function (u, v, w)
 		return Math.MatrixToQuaternion(Math.EulerToMatrix(u, v, w))
 	end
-
-	gravity {TBM["gravity"][1] + 0, TBM["gravity"][2] + 0, TBM["gravity"][3] + 0}
-	API.turnframes {TBM["turnframes"] + 0}
+	API["gravity"] {TBM["gravity"][1] + 0, TBM["gravity"][2] + 0, TBM["gravity"][3] + 0}
+	API["turnframes"] {TBM["turnframes"] + 0}
 	if TBM["engageheight"] then
 		API.engageheight {TBM["engageheight"] + 0}
 	end
@@ -48,7 +44,6 @@ function ms.loadTBM(TBM)
 	end
 	API.numplayers {TBM["numplayers"] + 0}
 	API.friction {TBM["friction"] or 1000.00}
-	
 	for env_obj_num, env_obj in TBM["env_obj"] do
 		API.object(env_obj_num)
 		if env_obj["shape"] then
@@ -58,7 +53,7 @@ function ms.loadTBM(TBM)
 		else
 			API.shape "box"
 		end
-		position {env_obj["pos"][1] + 0, env_obj["pos"][2] + 0, env_obj["pos"][3] + 0}
+		API.position {env_obj["pos"][1] + 0, env_obj["pos"][2] + 0, env_obj["pos"][3] + 0}
 		if  env_obj["rot"] then
 			local q = euler2quat(
 				env_obj["rot"][1] * Math.DEG2RAD,
@@ -87,11 +82,11 @@ function ms.loadTBM(TBM)
 	for player_name, p in TBM["player"] do
 		API.player(ms.player_name_table[player_name])
 		if p["engagepos"] then
-			API.engageposition {p["engagepos"][1] + 0, p["engagepos"][2] + 0, p["engagepos"][3] + 0}
-    end
+			API.engagepos {p["engagepos"][1] + 0, p["engagepos"][2] + 0, p["engagepos"][3] + 0}
+		end
 		if p["engagerot"] then
-			API.engagerotation {p["engagerot"][1] + 0, p["engagerot"][2] + 0, p["engagerot"][3] + 0}
-    end
+			API.engagerot {p["engagerot"][1] + 0, p["engagerot"][2] + 0, p["engagerot"][3] + 0}
+		end
 		for body_name, b in p["body"] do
 			API.body(body_name)
 			if b["shape"] == "cylinder" then
@@ -99,9 +94,9 @@ function ms.loadTBM(TBM)
 			else
 				API.shape(b["shape"])
 			end
-       if type(b["pos"]) == "string" then
-							 b["pos"] = b["pos"]:split(" ")
-			 end
+			if type(b["pos"]) == "string" then
+				b["pos"] = b["pos"]:split(" ")
+			end
 			API.position {b["pos"][1] + 0, b["pos"][2] + 0, b["pos"][3] + 0}
 			if b["rot"] then
 				local q = euler2quat(
@@ -117,18 +112,18 @@ function ms.loadTBM(TBM)
 				API.radius {b["radius"] + 0}
 				API.length {b["length"] + 0}
 			else
-       if type(b["sides"]) == "string" then
-							 b["sides"] = b["sides"]:split(" ")
-			 end
+				if type(b["sides"]) == "string" then
+					b["sides"] = b["sides"]:split(" ")
+				end
 				API.sides {b["sides"][1] + 0, b["sides"][2] + 0, b["sides"][3] + 0}
 			end
 			API.density {b["density"] + 0}
-	  end
+		end
 		for joint_name, j in p["joint"] do
 			API.joint(joint_name)
 			API.shape "sphere"
 			API.radius {j["radius"]}
-       			if type(j["pos"]) == "string" then
+			if type(j["pos"]) == "string" then
 				 j["pos"] = j["pos"]:split(" ")
 			end
 			API.position {j["pos"][1], j["pos"][2], j["pos"][3]}
@@ -141,21 +136,21 @@ function ms.loadTBM(TBM)
 			if j["strength_alt"] then
 				API.velocity_alt {j["velocity_alt"]}
 			end
-       			if type(j["axis"]) == "string" then
+			if type(j["axis"]) == "string" then
 				 j["axis"] = j["axis"]:split(" ")
 			end
 			API.axis {j["axis"][1], j["axis"][2], j["axis"][3]}
 			if j["axis_alt"] then
 				API.axis_alt {j["axis_alt"][1], j["axis_alt"][2], j["axis_alt"][3]}
 			end
-       			if type(j["range"]) == "string" then
+			if type(j["range"]) == "string" then
 				 j["range"] = j["range"]:split(" ")
 			end
 			API.range {j["range"][1], j["range"][2]}
 			if j["range_alt"] then
 				API.range_alt {j["range_alt"][1], j["range_alt"][2]}
 			end
-       			if type(j["connections"]) == "string" then
+			if type(j["connections"]) == "string" then
 				j["connections"] = j["connections"]:split(" ")
 			end
 			API.connections {j["connections"][1], j["connections"][2]}

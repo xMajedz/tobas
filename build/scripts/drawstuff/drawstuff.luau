@@ -1,14 +1,14 @@
--- a simple library to help with ui stuff
-DS_COLOR_RED = {0, 255, 0 ,255}
-DS_COLOR_GREEN = {0, 255, 0 ,255}
-DS_COLOR_BLUE = {0, 0, 255 ,255}
-DS_COLOR_BLACK = {0, 0, 0 ,255}
-
-ds = ds or {
+local ds = {
 	objects = {},
 	interactive_objects = {},
 }
 ds.__index = ds
+
+local ds_internal = {}
+ds["DS_COLOR_RED"] = {0, 255, 0 ,255}
+ds["DS_COLOR_GREEN"] = {0, 255, 0 ,255}
+ds["DS_COLOR_BLUE"] = {0, 0, 255 ,255}
+ds["DS_COLOR_BLACK"] = {0, 0, 0 ,255}
 
 function ds.new(o)
 	o = o or {}
@@ -17,10 +17,10 @@ function ds.new(o)
 	o.posY = o.posY or 0
 	o.width = o.width or 0
 	o.height = o.height or 0
-	o.color = o.color or DS_COLOR_GREEN
+	o.color = o.color or ds.DS_COLOR_GREEN
 	o.borderColor = o.borderColor
 	o.text = o.text
-	o.textColor = o.textColor or DS_COLOR_BLACK
+	o.textColor = o.textColor or ds.DS_COLOR_BLACK
 	o.fontSize = o.fontSize or 1.00
 	o.update_callback = o.update_callback
 	o.interactive = o.interactive
@@ -32,13 +32,14 @@ function ds.new(o)
 	o.mouse_up = true
 	o.children = o.children or {}
 	setmetatable(o, ds)
-	table.insert(ds.objects, o)
 	if o.interactive then
 		table.insert(ds.interactive_objects, o)
 	end
 	if o.parent then
 		table.insert(o.parent.children, o)
+		return o
 	end
+	table.insert(ds.objects, o)
 	return o
 end
 
@@ -94,11 +95,11 @@ function ds:drawstuff()
 	end
 end
 
-function Draw2D.DS()
+function EVENT.Draw2D.DS()
 	ds:drawstuff()
 end
 
-function MouseButtonPressed.DS()
+function EVENT.MouseButtonPressed.DS()
 	local MousePosition = RL.GetMousePosition()
 	for i, o in ds.interactive_objects do
 		local conditionX = MousePosition.x > o.posX and MousePosition.x < o.posX + o.width
@@ -110,3 +111,4 @@ function MouseButtonPressed.DS()
 end
 
 return ds
+
