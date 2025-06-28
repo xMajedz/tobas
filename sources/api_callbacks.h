@@ -1,5 +1,5 @@
 #include <luau.h>
-#include <game_class.h>
+#include <game.h>
 
 int NewGameCallback(lua_State* L);
 
@@ -12,7 +12,6 @@ int NearCallback(lua_State* L, CollisionData collision);
 int Draw2DCallback(lua_State* L);
 
 int Draw3DCallback(lua_State* L);
-
 
 int MouseButtonPressedCallback(lua_State* L);
 

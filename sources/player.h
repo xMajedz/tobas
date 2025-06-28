@@ -1,6 +1,6 @@
 #include <common.h>
-#include <body_class.h>
-#include <joint_class.h>
+#include <body.h>
+#include <joint.h>
 
 enum PlayerPassiveStates {
 	HOLD_ALL,
