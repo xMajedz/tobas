@@ -1,3 +1,9 @@
+#include "luau.h"
+#include "api.h"
+#include "api_game.h"
+
+extern API api;
+
 int GAME_get_game_frame(lua_State* L)
 {
 	lua_pushnumber(L, api.game->state.game_frame);
