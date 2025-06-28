@@ -1,10 +1,10 @@
 #include "api.h"
+#include "api_game.h"
 #include "api_raylib.h"
 #include "api_raymath.h"
 #include "api_callbacks.h"
 
 #include <iostream>
-
 #define PRINT(X) std::cout << "-- " << X << " --" << std::endl;
 #define PRINT_A PRINT("A")
 #define PRINT_B PRINT("B")
