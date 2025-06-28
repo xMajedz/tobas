@@ -1,4 +1,52 @@
-#include <api.hpp>
+#include <iostream>
+#include <api.h>
+
+#define PRINT(X) std::cout << "-- TEST " << X << " --" << std::endl;
+#define PRINT_A PRINT("A")
+#define PRINT_B PRINT("B")
+#define PRINT_C PRINT("C")
+
+extern API api;
+extern Window window;
+extern Console console;
+
+API::API(Game* game_ptr)
+{
+	game = game_ptr;
+}
+
+int GAME_get_game_frame(lua_State* L)
+{
+	lua_pushnumber(L, api.game->state.game_frame);
+	return 1;
+}
+
+int GAME_get_reaction_time(lua_State* L)
+{
+	lua_pushnumber(L, api.game->rules.reaction_time);
+	return 1;
+}
+
+int GAME_get_reaction_count(lua_State* L)
+{
+	lua_pushnumber(L, api.game->state.reaction_count);
+	return 1;
+}
+
+int luaopen_api_game(lua_State* L)
+{
+	luaL_register(L, "GAME", api_game);
+	return 1;
+}
+
+enum GameContext {
+	NoContext,
+	ObjectContext,
+	PlayerContext,
+	BodyContext,
+	JointContext,
+} DataContext = NoContext;
+
 
 int API_turnframes(lua_State* L)
 {
@@ -7,7 +55,7 @@ int API_turnframes(lua_State* L)
 
 	switch(DataContext) {
 		case NoContext: {
-			game.rules.turnframes = turnframes;
+			api.game->rules.turnframes = turnframes;
 		} break;
 		case ObjectContext: {
 			// Error Handling
@@ -32,7 +80,7 @@ int API_numplayers(lua_State* L)
 
 	switch(DataContext) {
 		case NoContext: {
-			game.rules.numplayers = numplayers;
+			api.game->rules.numplayers = numplayers;
 		} break;
 		case ObjectContext: {
 			// Error Handling
@@ -57,7 +105,7 @@ int API_friction(lua_State* L)
 
 	switch(DataContext) {
 		case NoContext: {
-			game.rules.friction = friction;
+			api.game->rules.friction = friction;
 		} break;
 		case ObjectContext: {
 			// Error Handling
@@ -82,7 +130,7 @@ int API_engagedistance(lua_State* L)
 
 	switch(DataContext) {
 		case NoContext: {
-			game.rules.engagedistance = distance;
+			api.game->rules.engagedistance = distance;
 		} break;
 		case ObjectContext: {
 			// Error Handling
@@ -107,7 +155,7 @@ int API_engageheight(lua_State* L)
 
 	switch(DataContext) {
 		case NoContext: {
-			game.rules.engageheight = height;
+			api.game->rules.engageheight = height;
 		} break;
 		case ObjectContext: {
 			// Error Handling
@@ -127,22 +175,23 @@ int API_engageheight(lua_State* L)
 
 int API_engagepos(lua_State* L)
 {
-	lua_Number pos[3];
+	Vector3 pos;
 	lua_rawgeti(L, -1, 1);
-	pos[0] = lua_tonumber(L, -1);
+	pos.x = lua_tonumber(L, -1);
 	lua_rawgeti(L, -2, 2);
-	pos[1] = lua_tonumber(L, -1);
+	pos.y = lua_tonumber(L, -1);
 	lua_rawgeti(L, -3, 3);
-	pos[2] = lua_tonumber(L, -1);
+	pos.z = lua_tonumber(L, -1);
 
 	switch(DataContext) {
 		case NoContext: {
 			// Error Handling
 		} break;
 		case PlayerContext: {
-			game.players[player_key].engagepos[0] = pos[0];
-			game.players[player_key].engagepos[1] = pos[1];
-			game.players[player_key].engagepos[2] = pos[2];
+			api.player->use_engagepos = true;
+			api.player->engagepos.x = pos.x;
+			api.player->engagepos.y = pos.y;
+			api.player->engagepos.z = pos.z;
 		} break;
 		case ObjectContext: {
 			// Error Handling
@@ -162,23 +211,23 @@ int API_engagepos(lua_State* L)
 
 int API_engagerot(lua_State* L)
 {
-	lua_Number rot[3];
+	Vector3 rot;
 
 	lua_rawgeti(L, -1, 1);
-	rot[0] = lua_tonumber(L, -1);
+	rot.x = lua_tonumber(L, -1);
 	lua_rawgeti(L, -2, 2);
-	rot[1] = lua_tonumber(L, -1);
+	rot.y = lua_tonumber(L, -1);
 	lua_rawgeti(L, -3, 3);
-	rot[2] = lua_tonumber(L, -1);
+	rot.z = lua_tonumber(L, -1);
 
 	switch(DataContext) {
 		case NoContext: {
 			// Error Handling
 		} break;
 		case PlayerContext: {
-			game.players[player_key].engagerot[0] = rot[0];
-			game.players[player_key].engagerot[1] = rot[1];
-			game.players[player_key].engagerot[2] = rot[2];
+			api.player->engagerot.x = rot.x;
+			api.player->engagerot.y = rot.y;
+			api.player->engagerot.z = rot.z;
 		} break;
 		case ObjectContext: {
 			// Error Handling
@@ -208,9 +257,9 @@ int API_gravity(lua_State* L)
 
 	switch(DataContext) {
 		case NoContext: {
-			game.rules.gravity[0] = gravity[0];
-			game.rules.gravity[1] = gravity[1];
-			game.rules.gravity[2] = gravity[2];
+			api.game->rules.gravity[0] = gravity[0];
+			api.game->rules.gravity[1] = gravity[1];
+			api.game->rules.gravity[2] = gravity[2];
 		} break;
 		case ObjectContext: {
 			// Error Handling	
@@ -232,33 +281,8 @@ int API_object(lua_State* L)
 {
 	DataContext = ObjectContext;
 	std::string name = lua_tostring(L, -1);
-	object_key = name;
-	game.objects[object_key].name = name;
-	game.objects[object_key].color = DynamicObjectColor;
-
-	game.objects[object_key].orientation[0] = 1.00;
-	game.objects[object_key].orientation[1] = 0.00;
-	game.objects[object_key].orientation[2] = 0.00;
-	game.objects[object_key].orientation[3] = 0.00;
-
-	game.objects[object_key].freeze.orientation[0] = 1.00;
-	game.objects[object_key].freeze.orientation[1] = 0.00;
-	game.objects[object_key].freeze.orientation[2] = 0.00;
-	game.objects[object_key].freeze.orientation[3] = 0.00;
-
-	game.objects[object_key].freeze.linear_vel[0] = 0.00;
-	game.objects[object_key].freeze.linear_vel[1] = 0.00;
-	game.objects[object_key].freeze.linear_vel[2] = 0.00;
-
-	game.objects[object_key].freeze.angular_vel[0] = 0.00;
-	game.objects[object_key].freeze.angular_vel[1] = 0.00;
-	game.objects[object_key].freeze.angular_vel[2] = 0.00;
-
-	game.objects[object_key].category_bits = 0b0001;
-	game.objects[object_key].collide_bits = 0b0001;
-
-	game.objects[object_key].select = false;
-	game.objects[object_key].static_state = false;
+	api.game->objects[name].name = name;
+	api.object = &(api.game->objects[name]);
 
 	lua_Number result = 1;
 	lua_pushnumber(L, result);
@@ -269,46 +293,48 @@ int API_player(lua_State* L)
 {
 	DataContext = PlayerContext;
 	std::string name = lua_tostring(L, -1);
-	if (game.players.size() > game.rules.numplayers + 1) {
+
+	if (api.game->players.size() > api.game->rules.numplayers + 1) {
 		lua_Number result = 1;
 		lua_pushnumber(L, result);
 		return 1;
 	}
-	player_key = name;
-	game.players[player_key].name = name;
 
-	switch (game.players.size()) {
+	api.game->players[name].name = name;
+	api.player = &(api.game->players[name]);
+
+	switch (api.game->players.size()) {
 		case 1: {
-			game.state.selected_player = player_key;
-			game.players[player_key].joint_color = MAROON;
-			game.players[player_key].body_category_bits = 1<<2;
-			game.players[player_key].joint_category_bits = 1<<3;
+			api.game->state.selected_player = name;
+			api.player->joint_color = MAROON;
+			api.player->body_category_bits = 1<<2;
+			api.player->joint_category_bits = 1<<3;
 		} break;
 		case 2: {
-			game.players[player_key].joint_color = DARKBLUE;
-			game.players[player_key].body_category_bits = 1<<4;
-			game.players[player_key].joint_category_bits = 1<<5;
+			api.player->joint_color = DARKBLUE;
+			api.player->body_category_bits = 1<<4;
+			api.player->joint_category_bits = 1<<5;
 		} break;
 		case 3: {
-			game.players[player_key].joint_color = DARKGREEN;
-			game.players[player_key].body_category_bits = 1<<6;
-			game.players[player_key].joint_category_bits = 1<<7;
+			api.player->joint_color = DARKGREEN;
+			api.player->body_category_bits = 1<<6;
+			api.player->joint_category_bits = 1<<7;
 		} break;
 		case 4: {
-			game.players[player_key].joint_color = DARKPURPLE;
-			game.players[player_key].body_category_bits = 1<<8;
-			game.players[player_key].joint_category_bits = 1<<9;
+			api.player->joint_color = DARKPURPLE;
+			api.player->body_category_bits = 1<<8;
+			api.player->joint_category_bits = 1<<9;
 		} break;
 	}
 
-	game.players[player_key].body_collide_bits = 0b0001; 
-	game.players[player_key].joint_collide_bits = 0b0001;
+	api.player->body_collide_bits = 0b0001; 
+	api.player->joint_collide_bits = 0b0001;
 
-	game.players[player_key].ghost = true;
-	game.players[player_key].ghost_color = game.players[player_key].joint_color;
-	game.players[player_key].ghost_color.a = 55;
+	api.player->ghost = true;
+	api.player->ghost_color = api.player->joint_color;
+	api.player->ghost_color.a = 55;
 
-	game.players[player_key].joint_select_color = WHITE;
+	api.player->joint_select_color = WHITE;
 
 	lua_Number result = 1;
 	lua_pushnumber(L, result);
@@ -319,35 +345,38 @@ int API_body(lua_State* L)
 {
 	DataContext = BodyContext;
 	std::string name = lua_tostring(L, -1);
-	body_key = name;
-	game.players[player_key].body[body_key].name = name;
+	api.player->body[name].name = name;
+	api.body = &(api.player->body[name]);
 
-	game.players[player_key].body[body_key].color = game.players[player_key].body_color;
-	game.players[player_key].body[body_key].ghost_color = game.players[player_key].ghost_color;
+	//api.body->world = api.game->world;
+	//api.body->space = api.game->space;
 
-	game.players[player_key].body[body_key].orientation[0] = 1.00;
-	game.players[player_key].body[body_key].orientation[1] = 0.00;
-	game.players[player_key].body[body_key].orientation[2] = 0.00;
-	game.players[player_key].body[body_key].orientation[3] = 0.00;
+	api.body->color = api.player->body_color;
+	api.body->ghost_color = api.player->ghost_color;
 
-	game.players[player_key].body[body_key].freeze.orientation[0] = 1.00;
-	game.players[player_key].body[body_key].freeze.orientation[1] = 0.00;
-	game.players[player_key].body[body_key].freeze.orientation[2] = 0.00;
-	game.players[player_key].body[body_key].freeze.orientation[3] = 0.00;
+	api.body->orientation.w = 1.00;
+	api.body->orientation.x = 0.00;
+	api.body->orientation.y = 0.00;
+	api.body->orientation.z = 0.00;
 
-	game.players[player_key].body[body_key].freeze.linear_vel[0] = 0.00;
-	game.players[player_key].body[body_key].freeze.linear_vel[1] = 0.00;
-	game.players[player_key].body[body_key].freeze.linear_vel[2] = 0.00;
+	api.body->freeze.orientation.w = 1.00;
+	api.body->freeze.orientation.x = 0.00;
+	api.body->freeze.orientation.y = 0.00;
+	api.body->freeze.orientation.z = 0.00;
 
-	game.players[player_key].body[body_key].freeze.angular_vel[0] = 0.00;
-	game.players[player_key].body[body_key].freeze.angular_vel[1] = 0.00;
-	game.players[player_key].body[body_key].freeze.angular_vel[2] = 0.00;
+	api.body->freeze.linear_vel.x = 0.00;
+	api.body->freeze.linear_vel.y = 0.00;
+	api.body->freeze.linear_vel.z = 0.00;
 
-	game.players[player_key].body[body_key].category_bits = game.players[player_key].body_category_bits;
-	game.players[player_key].body[body_key].collide_bits = game.players[player_key].body_collide_bits;
+	api.body->freeze.angular_vel.x = 0.00;
+	api.body->freeze.angular_vel.y = 0.00;
+	api.body->freeze.angular_vel.z = 0.00;
 
-	game.players[player_key].body[body_key].ghost = true;
-	game.players[player_key].body[body_key].static_state = false;
+	api.body->category_bits = api.player->body_category_bits;
+	api.body->collide_bits = api.player->body_collide_bits;
+
+	api.body->ghost = true;
+	api.body->static_state = false;
 
 	lua_Number result = 1;
 	lua_pushnumber(L, result);
@@ -358,39 +387,42 @@ int API_joint(lua_State* L)
 {
 	DataContext = JointContext;
 	std::string name = lua_tostring(L, -1);
-	joint_key = name;
-	game.players[player_key].joint[joint_key].name = name;
+	api.player->joint[name].name = name;
+	api.joint = &(api.player->joint[name]);
 
-	game.players[player_key].joint[joint_key].color = game.players[player_key].joint_color;
-	game.players[player_key].joint[joint_key].ghost_color = game.players[player_key].ghost_color;
-	game.players[player_key].joint[joint_key].select_color = game.players[player_key].joint_select_color;
+	//api.joint->world = api.game->world;
+	//api.joint->space = api.game->space;
 
-	game.players[player_key].joint[joint_key].orientation[0] = 1.00;
-	game.players[player_key].joint[joint_key].orientation[1] = 0.00;
-	game.players[player_key].joint[joint_key].orientation[2] = 0.00;
-	game.players[player_key].joint[joint_key].orientation[3] = 0.00;
+	api.joint->color = api.player->joint_color;
+	api.joint->ghost_color = api.player->ghost_color;
+	api.joint->select_color = api.player->joint_select_color;
 
-	game.players[player_key].joint[joint_key].freeze.orientation[0] = 1.00;
-	game.players[player_key].joint[joint_key].freeze.orientation[1] = 0.00;
-	game.players[player_key].joint[joint_key].freeze.orientation[2] = 0.00;
-	game.players[player_key].joint[joint_key].freeze.orientation[3] = 0.00;
+	api.joint->orientation.w = 1.00;
+	api.joint->orientation.x = 0.00;
+	api.joint->orientation.y = 0.00;
+	api.joint->orientation.z = 0.00;
 
-	game.players[player_key].joint[joint_key].freeze.linear_vel[0] = 0.00;
-	game.players[player_key].joint[joint_key].freeze.linear_vel[1] = 0.00;
-	game.players[player_key].joint[joint_key].freeze.linear_vel[2] = 0.00;
+	api.joint->freeze.orientation.w = 1.00;
+	api.joint->freeze.orientation.x = 0.00;
+	api.joint->freeze.orientation.y = 0.00;
+	api.joint->freeze.orientation.z = 0.00;
 
-	game.players[player_key].joint[joint_key].freeze.angular_vel[0] = 0.00;
-	game.players[player_key].joint[joint_key].freeze.angular_vel[1] = 0.00;
-	game.players[player_key].joint[joint_key].freeze.angular_vel[2] = 0.00;
+	api.joint->freeze.linear_vel.x = 0.00;
+	api.joint->freeze.linear_vel.y = 0.00;
+	api.joint->freeze.linear_vel.z = 0.00;
 
-	game.players[player_key].joint[joint_key].category_bits = game.players[player_key].joint_category_bits;
-	game.players[player_key].joint[joint_key].collide_bits = game.players[player_key].joint_collide_bits;
+	api.joint->freeze.angular_vel.x = 0.00;
+	api.joint->freeze.angular_vel.y = 0.00;
+	api.joint->freeze.angular_vel.z = 0.00;
 
-	game.players[player_key].joint[joint_key].state = RELAX;
-	game.players[player_key].joint[joint_key].state_alt = RELAX;
+	api.joint->category_bits = api.player->joint_category_bits;
+	api.joint->collide_bits = api.player->joint_collide_bits;
 
-	game.players[player_key].joint[joint_key].ghost = true;
-	game.players[player_key].joint[joint_key].static_state= false;
+	api.joint->state = RELAX;
+	api.joint->state_alt = RELAX;
+
+	api.joint->ghost = true;
+	api.joint->static_state= false;
 
 	lua_Number result = 1;
 	lua_pushnumber(L, result);
@@ -407,39 +439,39 @@ int API_shape(lua_State* L)
 		} break;
 		case ObjectContext: {
 			if ("box" == shape) {
-				game.objects[object_key].shape = Box;
+				api.object->shape = Box;
 			} else if ("sphere" == shape) {
-					game.objects[object_key].shape = Sphere;
+					api.object->shape = Sphere;
 			} else if ("capsule" == shape) {
-					game.objects[object_key].shape = Capsule;
+					api.object->shape = Capsule;
 			} else if ("cylinder" == shape) {
-					game.objects[object_key].shape = Cylinder;
+					api.object->shape = Cylinder;
 			} else  {
 				//Error Handling
 			}
 		} break;
 		case BodyContext: {
 			if ("box" == shape) {
-				game.players[player_key].body[body_key].shape = Box;
+				api.body->shape = Box;
 			} else if ("sphere" == shape) {
-				game.players[player_key].body[body_key].shape = Sphere;
+				api.body->shape = Sphere;
 			} else if ("capsule" == shape) {
-				game.players[player_key].body[body_key].shape = Capsule;
+				api.body->shape = Capsule;
 			} else if ("cylinder" == shape) {
-				game.players[player_key].body[body_key].shape = Cylinder;
+				api.body->shape = Cylinder;
 			} else  {
 				//Error Handling
 			}
 		} break;
 		case JointContext: {
 			if ("box"  == shape) {
-				game.players[player_key].joint[joint_key].shape = Box;
+				api.joint->shape = Box;
 			} else if ("sphere" == shape) {
-				game.players[player_key].joint[joint_key].shape = Sphere;
+				api.joint->shape = Sphere;
 			} else if ("capsule" == shape) {
-				game.players[player_key].joint[joint_key].shape = Capsule;
+				api.joint->shape = Capsule;
 			} else if ("cylinder" == shape) {
-				game.players[player_key].joint[joint_key].shape = Cylinder;
+				api.joint->shape = Cylinder;
 			} else  {
 				//Error Handling
 			}
@@ -453,51 +485,51 @@ int API_shape(lua_State* L)
 
 int API_position(lua_State* L)
 {
-	lua_Number position[3];
+	Vector3 position;
 	lua_rawgeti(L, -1, 1);
-	position[0] = lua_tonumber(L, -1); 
+	position.x = lua_tonumber(L, -1); 
 	lua_rawgeti(L, -2, 2);
-	position[1] = lua_tonumber(L, -1); 
+	position.y = lua_tonumber(L, -1); 
 	lua_rawgeti(L, -3, 3);
-	position[2] = lua_tonumber(L, -1); 
+	position.z = lua_tonumber(L, -1); 
 	
 	switch(DataContext) {
 		case NoContext: {
 			// Error Handling
 		} break;
 		case ObjectContext: {
-			game.objects[object_key].position[0] = position[0];
-			game.objects[object_key].position[1] = position[1];
-			game.objects[object_key].position[2] = position[2];
-			game.objects[object_key].freeze.position[0] = position[0];
-			game.objects[object_key].freeze.position[1] = position[1];
-			game.objects[object_key].freeze.position[2] = position[2];
+			api.object->position.x = position.x;
+			api.object->position.y = position.y;
+			api.object->position.z = position.z;
+			api.object->freeze.position.x = position.x;
+			api.object->freeze.position.y = position.y;
+			api.object->freeze.position.z = position.z;
 		} break;
 		case BodyContext: {
-			if (game.players[player_key].engagepos) {
-				position[0] = position[0] + game.players[player_key].engagepos[0];
-				position[1] = position[1] + game.players[player_key].engagepos[1];
-				position[2] = position[2] + game.players[player_key].engagepos[2];
+			if (api.player->use_engagepos) {
+				position.x = position.x + api.player->engagepos.x;
+				position.y = position.y + api.player->engagepos.y;
+				position.z = position.z + api.player->engagepos.z;
 			}
-			game.players[player_key].body[body_key].position[0] = position[0];
-			game.players[player_key].body[body_key].position[1] = position[1];
-			game.players[player_key].body[body_key].position[2] = position[2];
-			game.players[player_key].body[body_key].freeze.position[0] = position[0];
-			game.players[player_key].body[body_key].freeze.position[1] = position[1];
-			game.players[player_key].body[body_key].freeze.position[2] = position[2];
+			api.body->position.x = position.x;
+			api.body->position.y = position.y;
+			api.body->position.z = position.z;
+			api.body->freeze.position.x = position.x;
+			api.body->freeze.position.y = position.y;
+			api.body->freeze.position.z = position.z;
 		} break;
 		case JointContext: {
-			if (game.players[player_key].engagepos) {
-				position[0] = position[0] + game.players[player_key].engagepos[0];
-				position[1] = position[1] + game.players[player_key].engagepos[1];
-				position[2] = position[2] + game.players[player_key].engagepos[2];
+			if (api.player->use_engagepos) {
+				position.x = position.x + api.player->engagepos.x;
+				position.y = position.y + api.player->engagepos.y;
+				position.z = position.z + api.player->engagepos.z;
 			}
-			game.players[player_key].joint[joint_key].position[0] = position[0];
-			game.players[player_key].joint[joint_key].position[1] = position[1];
-			game.players[player_key].joint[joint_key].position[2] = position[2];
-			game.players[player_key].joint[joint_key].freeze.position[0] = position[0];
-			game.players[player_key].joint[joint_key].freeze.position[1] = position[1];
-			game.players[player_key].joint[joint_key].freeze.position[2] = position[2];
+			api.joint->position.x = position.x;
+			api.joint->position.y = position.y;
+			api.joint->position.z = position.z;
+			api.joint->freeze.position.x = position.x;
+			api.joint->freeze.position.y = position.y;
+			api.joint->freeze.position.z = position.z;
 		} break;
 	}
 
@@ -508,52 +540,66 @@ int API_position(lua_State* L)
 
 int API_orientation(lua_State* L)
 {
-	lua_Number orientation[4];
+	Vector4 orientation;
 	lua_rawgeti(L, -1, 1);
-	orientation[0] = lua_tonumber(L, -1); 
+	orientation.w = lua_tonumber(L, -1); 
 	lua_rawgeti(L, -2, 2);
-	orientation[1] = lua_tonumber(L, -1); 
+	orientation.x = lua_tonumber(L, -1); 
 	lua_rawgeti(L, -3, 3);
-	orientation[2] = lua_tonumber(L, -1); 
+	orientation.y = lua_tonumber(L, -1); 
 	lua_rawgeti(L, -4, 4);
-	orientation[3] = lua_tonumber(L, -1);
+	orientation.z = lua_tonumber(L, -1);
 
 	switch(DataContext) {
 		case NoContext: {
 			// Error Handling
 		} break;
 		case ObjectContext: {
-			game.objects[object_key].orientation[0] = orientation[0];
-			game.objects[object_key].orientation[1] = orientation[1];
-			game.objects[object_key].orientation[2] = orientation[2];
-			game.objects[object_key].orientation[3] = orientation[3];
+			api.object->orientation = (Vector4){
+				orientation.x,
+				orientation.y,
+				orientation.z,
+				orientation.w,
+			};
 
-			game.objects[object_key].freeze.orientation[0] = orientation[0];
-			game.objects[object_key].freeze.orientation[1] = orientation[1];
-			game.objects[object_key].freeze.orientation[2] = orientation[2];
-			game.objects[object_key].freeze.orientation[3] = orientation[3];
+			api.object->freeze.orientation = (Vector4){
+				orientation.x,
+				orientation.y,
+				orientation.z,
+				orientation.w,
+			};
+
 		} break;
 		case BodyContext: {
-			game.players[player_key].body[body_key].orientation[0] = orientation[0];
-			game.players[player_key].body[body_key].orientation[1] = orientation[1];
-			game.players[player_key].body[body_key].orientation[2] = orientation[2];
-			game.players[player_key].body[body_key].orientation[3] = orientation[3];
+			api.body->orientation = (Vector4){
+				orientation.x,
+				orientation.y,
+				orientation.z,
+				orientation.w,
+			};
 
-			game.players[player_key].body[body_key].freeze.orientation[0] = orientation[0];
-			game.players[player_key].body[body_key].freeze.orientation[1] = orientation[1];
-			game.players[player_key].body[body_key].freeze.orientation[2] = orientation[2];
-			game.players[player_key].body[body_key].freeze.orientation[3] = orientation[3];
+			api.body->freeze.orientation = (Vector4){
+				orientation.x,
+				orientation.y,
+				orientation.z,
+				orientation.w,
+			};
 		} break;
 		case JointContext: {
-			game.players[player_key].joint[joint_key].orientation[0] = orientation[0];
-			game.players[player_key].joint[joint_key].orientation[1] = orientation[1];
-			game.players[player_key].joint[joint_key].orientation[2] = orientation[2];
-			game.players[player_key].joint[joint_key].orientation[3] = orientation[3];
-	
-			game.players[player_key].joint[joint_key].freeze.orientation[0] = orientation[0];
-			game.players[player_key].joint[joint_key].freeze.orientation[1] = orientation[1];
-			game.players[player_key].joint[joint_key].freeze.orientation[2] = orientation[2];
-			game.players[player_key].joint[joint_key].freeze.orientation[3] = orientation[3];
+
+			api.joint->orientation = (Vector4){
+				orientation.x,
+				orientation.y,
+				orientation.z,
+				orientation.w,
+			};
+
+			api.joint->freeze.orientation = (Vector4){
+				orientation.x,
+				orientation.y,
+				orientation.z,
+				orientation.w,
+			};
 		} break;
 	}
 
@@ -577,19 +623,19 @@ int API_sides(lua_State* L)
 			// Error Handling
 		} break;
 		case ObjectContext: {
-			game.objects[object_key].sides[0] = sides[0];
-			game.objects[object_key].sides[1] = sides[1];
-			game.objects[object_key].sides[2] = sides[2];
+			api.object->sides.x = sides[0];
+			api.object->sides.y = sides[1];
+			api.object->sides.z = sides[2];
 		} break;
 		case BodyContext: {
-			game.players[player_key].body[body_key].sides[0] = sides[0];
-			game.players[player_key].body[body_key].sides[1] = sides[1];
-			game.players[player_key].body[body_key].sides[2] = sides[2];
+			api.body->sides.x = sides[0];
+			api.body->sides.y = sides[1];
+			api.body->sides.z = sides[2];
 		} break;
 		case JointContext: {
-			game.players[player_key].joint[joint_key].sides[0] = sides[0];
-			game.players[player_key].joint[joint_key].sides[1] = sides[1];
-			game.players[player_key].joint[joint_key].sides[2] = sides[2];
+			api.joint->sides.x = sides[0];
+			api.joint->sides.y = sides[1];
+			api.joint->sides.z = sides[2];
 		} break;
 	}
 
@@ -598,7 +644,7 @@ int API_sides(lua_State* L)
 	return 1;
 }
 
-int density(lua_State* L)
+int API_density(lua_State* L)
 {
 	lua_rawgeti(L, -1, 1);
 	lua_Number density = lua_tonumber(L, -1); 
@@ -608,13 +654,13 @@ int density(lua_State* L)
 			// Error Handling
 		} break;
 		case ObjectContext: {
-			game.objects[object_key].density = density;
+			api.object->density = density;
 		} break;
 		case BodyContext: {
-			game.players[player_key].body[body_key].density = density;
+			api.body->density = density;
 		} break;
 		case JointContext: {
-			game.players[player_key].joint[joint_key].density = density;
+			api.joint->density = density;
 		} break;
 	}
 
@@ -630,16 +676,16 @@ int API_static(lua_State* L)
 			// Error Handling
 		} break;
 		case ObjectContext: {
-			game.objects[object_key].static_state = true;
-			game.objects[object_key].color = StaticObjectColor;
-			game.objects[object_key].category_bits = 0b0001;
-			game.objects[object_key].collide_bits = 0b0000;
+			api.object->static_state = true;
+			api.object->color = BLACK;
+			api.object->category_bits = 0b0001;
+			api.object->collide_bits = 0b0000;
 		} break;
 		case BodyContext: {
-			game.players[player_key].body[body_key].static_state = true;
+			api.body->static_state = true;
 		} break;
 		case JointContext: {
-			game.players[player_key].joint[joint_key].static_state = true;
+			api.joint->static_state = true;
 		} break;
 	}
 
@@ -658,13 +704,13 @@ int API_radius(lua_State* L)
 			// Error Handling
 		} break;
 		case ObjectContext: {
-			game.objects[object_key].radius = radius;
+			api.object->radius = radius;
 		} break;
 		case BodyContext: {
-			game.players[player_key].body[body_key].radius = radius;
+			api.body->radius = radius;
 		} break;
 		case JointContext: {
-			game.players[player_key].joint[joint_key].radius = radius;
+			api.joint->radius = radius;
 		} break;
 	}
 
@@ -683,13 +729,13 @@ int API_length(lua_State* L)
 			// Error Handling
 		} break;
 		case ObjectContext: {
-			game.objects[object_key].length = length;
+			api.object->length = length;
 		} break;
 		case BodyContext: {
-			game.players[player_key].body[body_key].length = length;
+			api.body->length = length;
 		} break;
 		case JointContext: {
-			game.players[player_key].joint[joint_key].length = length;
+			api.joint->length = length;
 		} break;
 	}
 
@@ -706,7 +752,7 @@ int API_strength(lua_State* L)
 
 	switch(DataContext) {
 		case JointContext: {
-			game.players[player_key].joint[joint_key].strength = strength;
+			api.joint->strength = strength;
 		} break;
 	}
 
@@ -723,7 +769,7 @@ int API_strength_alt(lua_State* L)
 
 	switch(DataContext) {
 		case JointContext: {
-			game.players[player_key].joint[joint_key].strength_alt = strength_alt;
+			api.joint->strength_alt = strength_alt;
 		} break;
 	}
 
@@ -741,7 +787,7 @@ int API_velocity(lua_State* L)
 
 	switch(DataContext) {
 		case JointContext: {
-			game.players[player_key].joint[joint_key].velocity = velocity;
+			api.joint->velocity = velocity;
 		} break;
 	}
 
@@ -758,7 +804,7 @@ int API_velocity_alt(lua_State* L)
 
 	switch(DataContext) {
 		case JointContext: {
-			game.players[player_key].joint[joint_key].velocity_alt = velocity_alt;
+			api.joint->velocity_alt = velocity_alt;
 		} break;
 	}
 
@@ -779,9 +825,9 @@ int API_axis(lua_State* L)
 
 	switch(DataContext) {
 		case JointContext: {
-			game.players[player_key].joint[joint_key].axis[0] = axis[0];
-			game.players[player_key].joint[joint_key].axis[1] = axis[1];
-			game.players[player_key].joint[joint_key].axis[2] = axis[2];
+			api.joint->axis[0] = axis[0];
+			api.joint->axis[1] = axis[1];
+			api.joint->axis[2] = axis[2];
 		} break;
 	}
 
@@ -802,9 +848,9 @@ int API_axis_alt(lua_State* L)
 
 	switch(DataContext) {
 		case JointContext: {
-			game.players[player_key].joint[joint_key].axis_alt[0] = axis_alt[0];
-			game.players[player_key].joint[joint_key].axis_alt[1] = axis_alt[1];
-			game.players[player_key].joint[joint_key].axis_alt[2] = axis_alt[2];
+			api.joint->axis_alt[0] = axis_alt[0];
+			api.joint->axis_alt[1] = axis_alt[1];
+			api.joint->axis_alt[2] = axis_alt[2];
 		} break;
 	}
 
@@ -824,8 +870,8 @@ int API_range(lua_State* L)
 
 	switch(DataContext) {
 		case JointContext: {
-			game.players[player_key].joint[joint_key].range[0] = range[0];
-			game.players[player_key].joint[joint_key].range[1] = range[1];
+			api.joint->range[0] = range[0];
+			api.joint->range[1] = range[1];
 		} break;
 	}
 
@@ -844,8 +890,8 @@ int API_range_alt(lua_State* L)
 
 	switch(DataContext) {
 		case JointContext: {
-			game.players[player_key].joint[joint_key].range_alt[0] = range_alt[0];
-			game.players[player_key].joint[joint_key].range_alt[1] = range_alt[1];
+			api.joint->range_alt[0] = range_alt[0];
+			api.joint->range_alt[1] = range_alt[1];
 		} break;
 	}
 	lua_Number result = 1;
@@ -864,8 +910,8 @@ int API_connections(lua_State* L)
 
 	switch(DataContext) {
 		case JointContext: {
-			game.players[player_key].joint[joint_key].connections[0] = connections[0];
-			game.players[player_key].joint[joint_key].connections[1] = connections[1];
+			api.joint->connections[0] = connections[0];
+			api.joint->connections[1] = connections[1];
 		} break;
 	}
 
@@ -881,13 +927,13 @@ int API_connection_type(lua_State* L)
 	switch(DataContext) {
 		case JointContext: {
 			if ("hinge" == connectionType) {
-				game.players[player_key].joint[joint_key].connectionType = Hinge;
+				api.joint->connectionType = Hinge;
 			} else if ("slider" == connectionType) {
-				game.players[player_key].joint[joint_key].connectionType = Slider;
+				api.joint->connectionType = Slider;
 			} else if ("universal" == connectionType) {
-				game.players[player_key].joint[joint_key].connectionType = Universal;
+				api.joint->connectionType = Universal;
 			} else if ("hinge2" == connectionType) {
-				game.players[player_key].joint[joint_key].connectionType = Hinge2;
+				api.joint->connectionType = Hinge2;
 			} else {
 			// Error Handling
 			}
@@ -899,19 +945,108 @@ int API_connection_type(lua_State* L)
 	return 1;
 }
 
-int api_dofile(lua_State* L)
+int API_GetWindowSize(lua_State* L)
+{
+	lua_newtable(L);
+	lua_pushnumber(L, window.width);
+	lua_setfield(L, -2, "width");
+	lua_pushnumber(L, window.height);
+	lua_setfield(L, -2, "height");
+	return 1;
+}
+
+int API_dofile(lua_State* L)
+{
+	const char* filepath = lua_tostring(L, -1);
+	lua_Number result = luau_dofile(L, filepath);
+	lua_gettop(L);
+	return result;
+}
+
+int API_require(lua_State* L)
 {
 	const char* filename = lua_tostring(L, -1);
-	lua_Number result = luau_dofile(L, filename, filename);
+	lua_Number result = luau_require(L, filename);
+	lua_gettop(L);
+	return 1;
+}
+
+int loadmod (lua_State* L, const char* modpath)
+{
+	return luau_dofile(
+		L,
+		TextFormat("mods/%s", modpath),
+		TextFormat("%s:%s", "loadmod", modpath)
+	);
+}
+
+int API_loadmod(lua_State* L)
+{
+	const char* modpath = lua_tostring(L, -1);
+	lua_Number result = loadmod(L, modpath);
 	lua_pushnumber(L, result);
 	return 1;
 }
 
-void api_set(lua_State* L, lua_CFunction fn ,const char* fn_name)
+int loadscript (lua_State* L, const char* scriptpath)
 {
-	lua_pushcfunction(L, fn, fn_name);
-	lua_setglobal(L, fn_name);
+	const char* path = TextFormat("scripts/%s", scriptpath);
+	return luau_dofile(
+		L,
+		path,
+		TextFormat("%s:%s", "loadscript", scriptpath)
+	);
 }
+
+int API_loadscript(lua_State* L)
+{
+	const char* scriptpath = lua_tostring(L, -1);
+	lua_Number result = loadscript(L, scriptpath);
+	lua_pushnumber(L, result);
+	return 1;
+}
+
+static const luaL_Reg api_main[] {
+	{"GetWindowSize", API_GetWindowSize},
+
+	{"dofile", API_dofile},
+	{"require", API_require},
+
+	{"loadscript", API_loadscript},
+	{"loadmod", API_loadmod},
+
+	{"turnframes", API_turnframes},
+	{"numplayers", API_numplayers},
+	{"friction", API_friction},
+	{"engagedistance", API_engagedistance},
+	{"engageheight", API_engageheight},
+	{"engagepos", API_engagepos},
+	{"engagerot", API_engagerot},
+	{"gravity", API_gravity},
+	{"object", API_object},
+	{"player", API_player},
+	{"body", API_body},
+	{"joint", API_joint},
+	{"shape", API_shape},
+	{"position", API_position},
+	{"orientation", API_orientation},
+	{"sides", API_sides},
+	{"density", API_density},
+	{"static", API_static},
+	{"radius", API_radius},
+	{"length", API_length},
+	{"strength", API_strength},
+	{"strength_alt", API_strength_alt},
+	{"velocity", API_velocity},
+	{"velocity_alt", API_velocity_alt},
+	{"axis", API_axis},
+	{"axis_alt", API_axis_alt},
+	{"range", API_range},
+	{"range_alt", API_range_alt},
+	{"connections", API_connections},
+	{"connection_type", API_connection_type},
+	{NULL, NULL},
+};
 
 int luaopen_api_main(lua_State* L) {
 	luaL_register(L, "API", api_main);

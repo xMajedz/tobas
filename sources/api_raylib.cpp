@@ -1,4 +1,5 @@
-#include <api_raylib.hpp>
+#include <api_raylib.h>
+#include <iostream>
 
 int api_DrawText(lua_State* L)
 {
@@ -81,29 +82,26 @@ int api_LoadDirectoryFilesEx(lua_State* L)
 {
 	const char* path = lua_tostring(L, -1);
 	const char* filter = lua_tostring(L, -2);
-	int scanSubdirs = lua_toboolean(L, -3);
-	FilePathList list = LoadDirectoryFilesEx(path, filter, scanSubdirs == 1);
-	std::string list_copy[list.count];
+	bool scanSubdirs = lua_toboolean(L, -3);
+	FilePathList list = LoadDirectoryFilesEx(path, filter, scanSubdirs == true);
 	lua_newtable(L);
-	for (int i = 0; i <= list.count; ++i) {
-		list_copy[i] = list.paths[i];
-		lua_pushstring(L, list_copy[i].c_str());
-		lua_rawseti(L, -2, 1 + i);
+	for (int i = 0; i < list.count; ++i) {
+		lua_pushstring(L, list.paths[i]);
+		lua_rawseti(L, -2, i + 1);
 	}
 	UnloadDirectoryFiles(list);
 	return 1;
 }
 
+
 int api_LoadDirectoryFiles(lua_State* L)
 {
 	const char* path = lua_tostring(L, -1);
 	FilePathList list = LoadDirectoryFiles(path);
-	std::string list_copy[list.count];
 	lua_newtable(L);
-	for (int i = 0; i <= list.count; ++i) {
-		list_copy[i] = list.paths[i];
-		lua_pushstring(L, list_copy[i].c_str());
-		lua_rawseti(L, -2, 1 + i);
+	for (int i = 0; i < list.count; ++i) {
+		lua_pushstring(L, list.paths[i]);
+		lua_rawseti(L, -2, i + 1);
 	}
 	UnloadDirectoryFiles(list);
 	return 1;

@@ -1,4 +1,4 @@
-#include <api_raymath.hpp>
+#include <api_raymath.h>
 
 int RAYMATH_MatrixIdentity(lua_State* L)
 {

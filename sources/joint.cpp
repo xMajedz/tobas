@@ -1,23 +1,32 @@
-#include <joint.hpp>
+#include <joint.h>
+
+#include <iostream>
+#define PRINT(X) std::cout << X << std::endl;
 
 void Joint::refreeze_joint() {
 	dGeomSetPosition(
 		dGeom,
-		freeze.position[0],
-		freeze.position[1],
-		freeze.position[2]);
-	dGeomSetQuaternion(dGeom, freeze.orientation);
+		freeze.position.x,
+		freeze.position.y,
+		freeze.position.z
+	);
+	dGeomSetQuaternion(dGeom, (dQuaternion) {
+		freeze.orientation.w,
+		freeze.orientation.x,
+		freeze.orientation.y,
+		freeze.orientation.z,
+	});
 
 	dBodySetLinearVel(
 		dBody,
-		freeze.linear_vel[0],
-		freeze.linear_vel[1],
-		freeze.linear_vel[2]);
+		freeze.linear_vel.x,
+		freeze.linear_vel.y,
+		freeze.linear_vel.z);
 	dBodySetAngularVel(
 		dBody,
-		freeze.angular_vel[0],
-		freeze.angular_vel[1],
-		freeze.angular_vel[2]);
+		freeze.angular_vel.x,
+		freeze.angular_vel.y,
+		freeze.angular_vel.z);
 };
 
 void Joint::update_joint_freeze() {
@@ -25,34 +34,34 @@ void Joint::update_joint_freeze() {
 	dGeomGetQuaternion(dGeom, orientation);
 
 	const dReal *position = dGeomGetPosition(dGeom);
-	freeze.position[0] = position[0];
-	freeze.position[1] = position[1];
-	freeze.position[2] = position[2];
+	freeze.position.x = position[0];
+	freeze.position.y = position[1];
+	freeze.position.z = position[2];
 
-	freeze.orientation[0] = orientation[0];
-	freeze.orientation[1] = orientation[1];
-	freeze.orientation[2] = orientation[2];
-	freeze.orientation[3] = orientation[3];
+	freeze.orientation.w = orientation[0];
+	freeze.orientation.x = orientation[1];
+	freeze.orientation.y = orientation[2];
+	freeze.orientation.z = orientation[3];
 
 	const dReal *linear_vel = dBodyGetLinearVel(dBody);
 	const dReal *angular_vel = dBodyGetAngularVel(dBody);
 
-	freeze.linear_vel[0] = linear_vel[0];
-	freeze.linear_vel[1] = linear_vel[1];
-	freeze.linear_vel[2] = linear_vel[2];
+	freeze.linear_vel.x = linear_vel[0];
+	freeze.linear_vel.y = linear_vel[1];
+	freeze.linear_vel.z = linear_vel[2];
 
-	freeze.angular_vel[0] = angular_vel[0];
-	freeze.angular_vel[1] = angular_vel[1];
-	freeze.angular_vel[2] = angular_vel[2];
+	freeze.angular_vel.x = angular_vel[0];
+	freeze.angular_vel.y = angular_vel[1];
+	freeze.angular_vel.z = angular_vel[2];
 };
 
-void Joint::create_joint(dMass mass, Body b1, Body b2) {
+void Joint::create_joint(dWorldID world, dSpaceID space, dMass mass, Body b1, Body b2) {
 	dBody = b1.dBody;
 
 	switch(shape) {
 		case Box: {
-			dGeom = dCreateBox(space, sides[0], sides[1], sides[2]);
-			dMassSetBox(&mass, density, sides[0], sides[1], sides[2]);
+			dGeom = dCreateBox(space, sides.x, sides.y, sides.z);
+			dMassSetBox(&mass, density, sides.x, sides.y, sides.z);
 		} break;
 		case Sphere: {
 			dGeom = dCreateSphere(space, radius);
@@ -71,12 +80,17 @@ void Joint::create_joint(dMass mass, Body b1, Body b2) {
 	dGeomSetBody(dGeom, dBody);
 	
 	dGeomSetOffsetPosition(dGeom,
-		position[0] - b1.position[0],
-		position[1] - b1.position[1],
-		position[2] - b1.position[2]
+		position.x - b1.position.x,
+		position.y - b1.position.y,
+		position.z - b1.position.z
 	);
 
-	dGeomSetOffsetQuaternion(dGeom, orientation);
+	dGeomSetOffsetQuaternion(dGeom, (dQuaternion) {
+		orientation.w,
+		orientation.x,
+		orientation.y,
+		orientation.z,
+	});
 
 	switch(connectionType) {
 		case Hinge: {
@@ -84,9 +98,9 @@ void Joint::create_joint(dMass mass, Body b1, Body b2) {
 			dJointAttach(dJoint, dBody, b2.dBody);
 			dJointSetHingeAnchor(
 				dJoint,
-				position[0],
-				position[1],
-				position[2]);
+				position.x,
+				position.y,
+				position.z);
 			dJointSetHingeAxis(
 				dJoint,
 				axis[0],
@@ -125,15 +139,15 @@ void Joint::create_joint(dMass mass, Body b1, Body b2) {
 			dJointAttach(dJoint, dBody, b2.dBody);
 			dJointSetUniversalAnchor(
 				dJoint,
-				position[0],
-				position[1],
-				position[2]);
+				position.x,
+				position.y,
+				position.z);
 	
 			dJointSetUniversalAnchor(
 				dJoint,
-				position[0],
-				position[1],
-				position[2]);
+				position.x,
+				position.y,
+				position.z);
 	
 			dJointSetUniversalAxis1(
 				dJoint,
@@ -171,15 +185,15 @@ void Joint::create_joint(dMass mass, Body b1, Body b2) {
 			dJointAttach(dJoint, dBody, b2.dBody);
 			dJointSetHinge2Anchor(
 				dJoint,
-				position[0],
-				position[1],
-				position[2]);
+				position.x,
+				position.y,
+				position.z);
 	
 			dJointSetHinge2Anchor(
 				dJoint,
-				position[0],
-				position[1],
-				position[2]);
+				position.x,
+				position.y,
+				position.z);
 		
 			dJointSetHinge2Axes(dJoint, axis, axis_alt);
 	
@@ -234,17 +248,17 @@ void Joint::draw_joint_freeze() {
 	float angle;
 	Vector3 axis;
 	Quaternion q = {
-		freeze.orientation[1],
-		freeze.orientation[2],
-		freeze.orientation[3],
-		freeze.orientation[0]
+		freeze.orientation.x,
+		freeze.orientation.y,
+		freeze.orientation.z,
+		freeze.orientation.w
 	};
 	QuaternionToAxisAngle(q, &axis, &angle);
 	rlPushMatrix();
 	rlTranslatef(
-		freeze.position[0],
-		freeze.position[1],
-		freeze.position[2]
+		freeze.position.x,
+		freeze.position.y,
+		freeze.position.z
 	);
 	rlRotatef(RAD2DEG * angle, axis.x, axis.y, axis.z);
 	

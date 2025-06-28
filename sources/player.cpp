@@ -1,9 +1,12 @@
-#include <player.hpp>
+#include <player.h>
+
+#include <iostream>
+#define PRINT(X) std::cout << "-- TEST " << X << " --" << std::endl;
+#define PRINT_A PRINT("A")
+#define PRINT_B PRINT("B")
+#define PRINT_C PRINT("C")
 
 Player::Player() {
-	passive_states = RELAX_ALL;
-	passive_states_alt = RELAX_ALL;
-
 	body_color = (Color){ 255, 255, 255, 255 };
 	joint_color = BLACK;
 	ghost_color = (Color){
@@ -14,13 +17,13 @@ Player::Player() {
 	};
 };
 
-void Player::create() {
+void Player::create(dWorldID world, dSpaceID space) {
 	for (auto& [body_name, b] : body) {
-		b.create();
+		b.create(world, space);
 	}
 
 	for (auto& [joint_name, j] : joint) {
-		j.create_joint(mass, body[j.connections[0]], body[j.connections[1]]);
+		//j.create_joint(world, space, mass, body[j.connections[0]], body[j.connections[1]]);
 	}
 };
 
@@ -30,17 +33,17 @@ void Player::update_freeze() {
 	}
 
 	for (auto& [joint_name, j] : joint) {
-		j.update_joint_freeze();
+		//j.update_joint_freeze();
 	}
 };
 
 void Player::ReFreeze() {
 	for (auto& [body_name, b] : body) {
-		b.refreeze();
+		b.ReFreeze();
 	}
 
 	for (auto& [joint_name, j] : joint) {
-		j.refreeze_joint();
+		//j.refreeze_joint();
 	}
 };
 
@@ -50,7 +53,7 @@ void Player::draw() {
 	}
 
 	for (auto& [joint_name, j] : joint) {
-		j.draw_joint();
+		//j.draw_joint();
 	}
 };
 
@@ -60,7 +63,7 @@ void Player::draw_freeze() {
 	}
 
 	for (auto& [joint_name, j] : joint) {
-		j.draw_joint_freeze();
+		//j.draw_joint_freeze();
 	}
 };
 
@@ -71,7 +74,7 @@ void Player::draw_ghost() {
 		}
 
 		for (auto& [joint_name, j] : joint) {
-			j.draw_joint_ghost();
+			//j.draw_joint_ghost();
 		}
 	}
 };
@@ -82,7 +85,7 @@ void Player::toggle_ghost() {
 	}
 
 	for (auto& [joint_name, j] : joint) {
-		j.toggle_ghost();
+		//j.toggle_ghost();
 	}
 };
 

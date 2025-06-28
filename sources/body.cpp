@@ -1,32 +1,54 @@
-#include <body.hpp>
+#include <common.h>
+#include <ode/ode.h>
+#include <raylib.h>
+#include <raymath.h>
+#include <rlgl.h>
+#include <body.h>
+#include <iostream>
+#define PRINT(X) std::cout << X << std::endl;
 
 Body::Body() {
+	color = GREEN;
 	ghost_color = (Color){51, 51, 51, 51};
+
+	position = (Vector3){0.00, 0.00, 0.00};
+
+	orientation = (Vector4){0.00, 0.00, 0.00, 1.00};
+
+	freeze.position = (Vector3){0.00, 0.00, 0.00};
+
+	freeze.orientation = orientation;
+	freeze.linear_vel = (Vector3){0.00, 0.00, 0.00};
+	freeze.angular_vel = (Vector3){0.00, 0.00, 0.00};
+
+	category_bits = 0b0001;
+	collide_bits = 0b0001;
+
+	select = false;
+	static_state = false;
+
 };
 
-void Body::make_static() {
-	if (static_state) {
-		dJointID fixed = dJointCreateFixed(world ,0);
-		dJointAttach(fixed, dBody, 0);
-		dJointSetFixed(fixed);
-	}
-};
-
-void Body::create() {
+void Body::create(dWorldID world, dSpaceID space) {
 	dBody = dBodyCreate(world);
 	dBodySetPosition(
 		dBody,
-		position[0],
-		position[1],
-		position[2]
+		position.x,
+		position.y,
+		position.z
 	);
 
-	dBodySetQuaternion(dBody, orientation);
+	dBodySetQuaternion(dBody, (dQuaternion){
+			orientation.w,
+			orientation.x,
+			orientation.y,
+			orientation.z,
+	});
 	
 	switch(shape) {
 		case Box: {
-			dGeom = dCreateBox(space, sides[0], sides[1], sides[2]);
-			dMassSetBox(&mass, density, sides[0], sides[1], sides[2]);
+			dGeom = dCreateBox(space, sides.x, sides.y, sides.z);
+			dMassSetBox(&mass, density, sides.x, sides.y, sides.z);
 		} break;
 		case Sphere: {
 			dGeom = dCreateSphere(space, radius);
@@ -50,6 +72,14 @@ void Body::create() {
 	dGeomSetCollideBits(dGeom, collide_bits);
 };
 
+void Body::make_static(dWorldID world) {
+	if (static_state) {
+		dJointID fixed = dJointCreateFixed(world ,0);
+		dJointAttach(fixed, dBody, 0);
+		dJointSetFixed(fixed);
+	}
+};
+
 void Body::update_freeze() {
 	const dReal *linear_vel = dBodyGetLinearVel(dBody);
 	const dReal *angular_vel = dBodyGetAngularVel(dBody);
@@ -57,49 +87,43 @@ void Body::update_freeze() {
 	dQuaternion orientation;
 	dGeomGetQuaternion(dGeom, orientation);
 
-	freeze.position[0] = position[0];
-	freeze.position[1] = position[1];
-	freeze.position[2] = position[2];
+	freeze.position = (Vector3){position[0], position[1], position[2]};
+	freeze.orientation = (Vector4){orientation[0], orientation[1], orientation[2], orientation[3]};
 
-	freeze.orientation[0] = orientation[0];
-	freeze.orientation[1] = orientation[1];
-	freeze.orientation[2] = orientation[2];
-	freeze.orientation[3] = orientation[3];
-
-	freeze.linear_vel[0] = linear_vel[0];
-	freeze.linear_vel[1] = linear_vel[1];
-	freeze.linear_vel[2] = linear_vel[2];
-
-	freeze.angular_vel[0] = angular_vel[0];
-	freeze.angular_vel[1] = angular_vel[1];
-	freeze.angular_vel[2] = angular_vel[2];
+	freeze.linear_vel = (Vector3){linear_vel[0], linear_vel[1], linear_vel[2]};
+	freeze.angular_vel = (Vector3){angular_vel[0], angular_vel[1], angular_vel[2]};
 };
 
-void Body::refreeze() {
-	dGeomSetPosition(
-		dGeom,
-		freeze.position[0],
-		freeze.position[1],
-		freeze.position[2]);
-	dGeomSetQuaternion(dGeom, freeze.orientation);
+void Body::ReFreeze() {
+	dGeomSetPosition(dGeom,
+		freeze.position.x,
+		freeze.position.y,
+		freeze.position.z
+	);
+	dGeomSetQuaternion(dGeom, (dQuaternion){
+		freeze.orientation.w,
+		freeze.orientation.x,
+		freeze.orientation.y,
+		freeze.orientation.z,
+	});
 
-	dBodySetLinearVel(
-		dBody,
-		freeze.linear_vel[0],
-		freeze.linear_vel[1],
-		freeze.linear_vel[2]);
-	dBodySetAngularVel(
-		dBody,
-		freeze.angular_vel[0],
-		freeze.angular_vel[1],
-		freeze.angular_vel[2]);
+	dBodySetLinearVel(dBody, 
+		freeze.linear_vel.x,
+		freeze.linear_vel.y,
+		freeze.linear_vel.z
+	);
+	dBodySetAngularVel(dBody,
+		freeze.angular_vel.x,
+		freeze.angular_vel.y,
+		freeze.angular_vel.z
+	);
 };
 
 void Body::draw_object(Color draw_color) {
 	switch(shape) {
 		case Box: {
-			DrawCube((Vector3){ 0.0f, 0.0f, 0.0f }, sides[0], sides[1], sides[2], draw_color);
-			DrawCubeWires((Vector3){ 0.0f, 0.0f, 0.0f }, sides[0], sides[1], sides[2], BLACK);
+			DrawCube((Vector3){ 0.0f, 0.0f, 0.0f }, sides.x, sides.y, sides.z, draw_color);
+			DrawCubeWires((Vector3){ 0.0f, 0.0f, 0.0f }, sides.x, sides.y, sides.z, BLACK);
 		} break;
 		case Sphere: {
 			DrawSphere((Vector3){ 0.0f, 0.0f, 0.0f }, radius, draw_color);
@@ -137,17 +161,17 @@ void Body::draw_freeze() {
 	float angle;
 	Vector3 axis;
 	Quaternion q = {
-		freeze.orientation[1],
-		freeze.orientation[2],
-		freeze.orientation[3],
-		freeze.orientation[0]
+		freeze.orientation.x,
+		freeze.orientation.y,
+		freeze.orientation.z,
+		freeze.orientation.w
 	};
 	QuaternionToAxisAngle(q, &axis, &angle);
 	rlPushMatrix();
 	rlTranslatef(
-		freeze.position[0],
-		freeze.position[1],
-		freeze.position[2]
+		freeze.position.x,
+		freeze.position.y,
+		freeze.position.z
 	);
 	rlRotatef(RAD2DEG * angle, axis.x, axis.y, axis.z);
 	
@@ -178,14 +202,14 @@ RayCollision Body::collide_mouse_ray(Ray ray, RayCollision collision) {
 			collision = GetRayCollisionBox(ray,
 				(BoundingBox) {
 					(Vector3){
-						freeze.position[0] - 0.5f * sides[0],
-						freeze.position[1] - 0.5f * sides[1],
-						freeze.position[2] - 0.5f * sides[2],
+						freeze.position.x - 0.5f * sides.x,
+						freeze.position.y - 0.5f * sides.y,
+						freeze.position.z - 0.5f * sides.z,
 					},
 					(Vector3){
-						freeze.position[0] + 0.5f * sides[0],
-						freeze.position[1] + 0.5f * sides[1],
-						freeze.position[2] + 0.5f * sides[2],
+						freeze.position.x + 0.5f * sides.x,
+						freeze.position.y + 0.5f * sides.y,
+						freeze.position.z + 0.5f * sides.z,
 					},
 				}
 			);
@@ -193,9 +217,9 @@ RayCollision Body::collide_mouse_ray(Ray ray, RayCollision collision) {
 		case Sphere: {
 			collision = GetRayCollisionSphere(ray,
 				(Vector3){
-					freeze.position[0],
-					freeze.position[1],
-					freeze.position[2],
+					freeze.position.x,
+					freeze.position.y,
+					freeze.position.z,
 				},
 				radius
 			);
@@ -204,14 +228,14 @@ RayCollision Body::collide_mouse_ray(Ray ray, RayCollision collision) {
 			collision = GetRayCollisionBox(ray,
 				(BoundingBox) {
 					(Vector3){
-						freeze.position[0] - 0.5f * sides[0],
-						freeze.position[1] - 0.5f * sides[1],
-						freeze.position[2] - 0.5f * sides[2],
+						freeze.position.x - 0.5f * sides.x,
+						freeze.position.y - 0.5f * sides.y,
+						freeze.position.z - 0.5f * sides.z,
 					},
 					(Vector3){
-						freeze.position[0] + 0.5f * sides[0],
-						freeze.position[1] + 0.5f * sides[1],
-						freeze.position[2] + 0.5f * sides[2],
+						freeze.position.x + 0.5f * sides.x,
+						freeze.position.y + 0.5f * sides.y,
+						freeze.position.z + 0.5f * sides.z,
 					},
 				}
 			);
@@ -220,14 +244,14 @@ RayCollision Body::collide_mouse_ray(Ray ray, RayCollision collision) {
 			collision = GetRayCollisionBox(ray,
 				(BoundingBox) {
 					(Vector3){
-						freeze.position[0] - 0.5f * sides[0],
-						freeze.position[1] - 0.5f * sides[1],
-						freeze.position[2] - 0.5f * sides[2],
+						freeze.position.x - 0.5f * sides.x,
+						freeze.position.y - 0.5f * sides.y,
+						freeze.position.z - 0.5f * sides.z,
 					},
 					(Vector3){
-						freeze.position[0] + 0.5f * sides[0],
-						freeze.position[1] + 0.5f * sides[1],
-						freeze.position[2] + 0.5f * sides[2],
+						freeze.position.x + 0.5f * sides.x,
+						freeze.position.y + 0.5f * sides.y,
+						freeze.position.z + 0.5f * sides.z,
 					},
 				}
 			);
