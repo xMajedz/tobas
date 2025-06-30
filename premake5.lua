@@ -7,8 +7,7 @@ project "tobas"
 	targetdir "build"
 
 	includedirs {
-		"luau/Compiler/include",
-		"luau/VM/include",
+		"luau/Compiler/include", "luau/VM/include",
 
 		"raylib/src",
 		"ode/include",
@@ -25,9 +24,7 @@ project "tobas"
 
 	links {
 
-		"luaucompiler",
-		"luauast",
-		"luauvm",
+		"luauast", "luaucompiler", "luauvm",
 
 		"raylib",
 		"ode",
