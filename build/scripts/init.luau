@@ -3,10 +3,10 @@ local ds = require("drawstuff")
 local ms = require("modstuff")
 
 local loadmod = API["loadmod"]
---loadmod("shootboxing15")
+loadmod("shootboxing15")
 
 local loadmodTBM = ms["loadmodTBM"]
-loadmodTBM("shootboxing15")
+--loadmodTBM("shootboxing15")
 
 local scripts_paths = RL.LoadDirectoryFiles("scripts")
 local mods_paths = RL.LoadDirectoryFiles("mods")

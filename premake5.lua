@@ -1,9 +1,6 @@
 workspace "tobas"
 	configurations { "Debug", "Release" }
-
-project "tobas"
-	kind "WindowedApp"
-	language "C++"
+	objdir "build"
 	targetdir "build"
 
 	includedirs {
@@ -11,6 +8,7 @@ project "tobas"
 
 		"raylib/src",
 		"ode/include",
+		"enet/include",
 
 		"sources",
 	}
@@ -24,7 +22,7 @@ project "tobas"
 
 	links {
 
-		"luauast", "luaucompiler", "luauvm",
+		"luaucompiler", "luauast", "luauvm",
 
 		"raylib",
 		"ode",
@@ -44,9 +42,16 @@ project "tobas"
 		"sources/player.h", "sources/player.cpp",
 		"sources/joint.h", "sources/joint.cpp",
 		"sources/body.h", "sources/body.cpp",
-
-		"sources/main.cpp",
 	}
+
+project "tobas"
+	kind "WindowedApp"
+	language "C++"
+
+	files { "sources/main.cpp" }
+
+	filter { "platforms:Win*" }
+		links {"winmm", "gdi32", "opengl32"}
 
 	filter { "configurations:Debug" }
 		defines { "DEBUG" }
@@ -55,3 +60,4 @@ project "tobas"
 	filter { "configurations:Release" }
 		defines { "NDEBUG" }
 		optimize "On"
+

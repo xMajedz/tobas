@@ -1,14 +1,10 @@
+#include "game.h"
+#include "camera.h"
 #include "api.h"
 #include "api_game.h"
+#include "api_callbacks.h"
 #include "api_raylib.h"
 #include "api_raymath.h"
-#include "api_callbacks.h"
-
-#include <iostream>
-#define PRINT(X) std::cout << "-- " << X << " --" << std::endl;
-#define PRINT_A PRINT("A")
-#define PRINT_B PRINT("B")
-#define PRINT_C PRINT("C")
 
 Window window;
 Console console;
@@ -47,29 +43,33 @@ int main()
 	loadscript(L, "init");
 
 	game.NewGame();
-	Ray MouseRay = {0};
-	RayCollision MouseCollision = {0};
 
-	game.gamecam.camera = { 0 };
-	game.gamecam.camera.up = (Vector3){ 0.00, 0.00, 1.00 };
-	game.gamecam.camera.fovy = 45.00;
-	game.gamecam.camera.projection = CAMERA_PERSPECTIVE;
+	Ray MouseRay = { 0 };
+	RayCollision MouseCollision = { 0 };
 
-	game.gamecam.CameraZoom = (Vector3){ 0.00, -5.00, 0.00 };
-	game.gamecam.CameraOffset = (Vector3){ 0.00, 0.00, 0.00 };
+	Camera camera = { 0 };
+	camera.up = { 0.00, 0.00, 1.00 };
+	camera.fovy = 45.00;
+	camera.projection = CAMERA_PERSPECTIVE;
+
+	Vector3 camera_offset = { 0.00, 5.00, 0.00 };
 
 	SetExitKey(0);
 	while (!WindowShouldClose()) {
 		SetWindowTitle(TextFormat("TOBAS %dFPS", GetFPS()));
-		
+
 		Player* selected_player;
 		Joint* selected_joint;
 
 		if (game.state.selected_player != "NONE") {
 			selected_player = &(game.players[game.state.selected_player]);
+	
+			UpdatePlaycam(game.state.freeze, &camera, &camera_offset, selected_player);
+		}
+
+		if (game.state.selected_joint != "NONE") {
 			selected_joint = &(selected_player->joint[game.state.selected_joint]);
-			//game.UpdatePlaycam(&game.gamecam);
-			game.SelectJoint(game.gamecam.camera, MouseRay, MouseCollision);
+			//game.SelectJoint(game.gamecam.camera, MouseRay, MouseCollision);
 		}
 		
 		if (IsKeyPressed(KEY_Z)) {
@@ -106,7 +106,7 @@ int main()
 		}
 	
 		if (IsMouseButtonPressed(0)) {
-			game.SelectPlayer(game.gamecam.camera, MouseRay, MouseCollision);
+			//game.SelectPlayer(game.gamecam.camera, MouseRay, MouseCollision);
 			if (game.state.selected_joint != "NONE") {
 				game.ReFreeze();
 				if (IsKeyDown(KEY_LEFT_SHIFT)) {
@@ -175,11 +175,11 @@ int main()
 	
 		game.UpdateFrame();
 	
+		ClearBackground(RAYWHITE);
 		BeginDrawing();
-			ClearBackground(RAYWHITE);
-			BeginMode3D(game.gamecam.camera);
-				Draw3DCallback(L);
+			BeginMode3D(camera);
 				game.DrawFrame();
+				Draw3DCallback(L);
 			EndMode3D();
 			Draw2DCallback(L);
 		EndDrawing();

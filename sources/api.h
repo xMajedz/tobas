@@ -31,6 +31,8 @@ int API_engagerot(lua_State* L);
 
 int API_gravity(lua_State* L);
 
+int API_mod(lua_State* L);
+
 int API_object(lua_State* L);
 
 int API_player(lua_State* L);

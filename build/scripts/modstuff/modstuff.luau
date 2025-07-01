@@ -34,6 +34,7 @@ function ms.loadTBM(TBM)
 	local euler2quat = function (u, v, w)
 		return Math.MatrixToQuaternion(Math.EulerToMatrix(u, v, w))
 	end
+	API["mod"] (TBM["mod"])
 	API["gravity"] {TBM["gravity"][1] + 0, TBM["gravity"][2] + 0, TBM["gravity"][3] + 0}
 	API["turnframes"] {TBM["turnframes"] + 0}
 	if TBM["engageheight"] then
@@ -173,6 +174,7 @@ function ms.parseTBM(filename)
 	local joint_name = ""
 	local context = ""
 	local data = ""
+	TBM["mod"] = filename
 	for _, line in file_lines do
 		if line:match("version ") then
 			TBM["version"] = line:gsub(".*version ", "")

@@ -1,9 +1,11 @@
-local loadscript = API["loadscript"]
-loadscript("modstuff/modstuff.luau")
+local require = API["require"]
+local ms = require("modstuff")
+local Math = require("Math")
 local TBM = ms.parseTBM("shootboxing15")
---[[
-TBM["engageheight"] = 3.00 
+TBM["mod"] = "modified_shootboxing15"
+TBM["engageheight"] = 2.00
 TBM["engagedistance"] = 2.00
+--[[
 for player_name, p in TBM["player"] do
 	local pos = {0.00, 0.00, 0.00}
 	local lowest = 10.00
@@ -40,6 +42,7 @@ for player_name, p in TBM["player"] do
 		j["pos"][2] = j["pos"][2] - pos[2]
 	end
 end
+]]
 for player_name, p in TBM["player"] do
 	for body_name, b in p["body"] do
 		if type(b["pos"]) == "string" then
@@ -83,6 +86,6 @@ for player_name, p in TBM["player"] do
 	for joint_name, j in p["joint"] do
 		j["strength"] = 10 * 10 * j["strength"]
 	end
+	p["engagepos"] = nil
 end
-]]
 ms.loadTBM(TBM)

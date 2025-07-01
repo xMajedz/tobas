@@ -9,8 +9,7 @@ enum BodyShape {
 	Composite,
 };
 
-class FreezeData {
-	public:
+struct FreezeData {
 	Vector3 position;
 	Vector4 orientation;
 
@@ -18,41 +17,46 @@ class FreezeData {
 	Vector3 angular_vel;
 };
 
-class Body {
-	public:
+struct Body {
+	std::string name;
+
 	dMass mass;
-	//dWorldID world;
-	//dSpaceID space;
+
 	dBodyID dBody;
 	dGeomID dGeom;
 
-	std::string name;
 	BodyShape shape;
 
 	Vector3 position;
 	Vector4 orientation;
-	
 	Vector3 sides;
+
 	dReal radius;
 	dReal length;
 	dReal density;
+
 	FreezeData freeze;
-	bool static_state;
+
 	Color color;
 	Color ghost_color;
 	Color select_color;
+
 	bool select;
 	bool ghost;
+	bool static_state;
 
 	unsigned long category_bits;
 	unsigned long collide_bits;
 
 	Body();
-	
 	void make_static(dWorldID world);
+	void set_category_bits(unsigned long bits);
+	void set_category_bits();
+	void set_collide_bits(unsigned long bits);
+	void set_collide_bits();
 	void create(dWorldID world, dSpaceID space);
 	void update_freeze();
-	void ReFreeze();
+	void refreeze();
 	void draw_object(Color draw_color);
 	void draw(Color draw_color);
 	void draw_freeze();

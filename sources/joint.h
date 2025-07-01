@@ -15,13 +15,14 @@ enum JointState {
 	BACKWARD,
 };
 
-class Joint : public Body {
-	public:
+struct Joint : public Body {
+	dJointID dJoint;
+
 	std::string connections[2];
 	JointType connectionType;
 	JointState state;
 	JointState state_alt;
-	dJointID dJoint;
+
 	dReal axis[3];
 	dReal axis_alt[3];
 	dReal range[2];
@@ -31,37 +32,22 @@ class Joint : public Body {
 	dReal velocity;
 	dReal velocity_alt;
 
-	void refreeze_joint();
-	
-	void update_joint_freeze();
-	
-	void create_joint(dWorldID world, dSpaceID space, dMass mass, Body b1, Body b2);
-	
-	void draw_joint(Color draw_color);
-	
-	void draw_joint_freeze();
-	
-	void draw_joint_ghost();
-	
-	void draw_joint();
-	
-	void TriggerActiveStateAlt(dReal direction);
-	
-	void TriggerPassiveStateAlt(dReal strength);
-	
-	void TriggerActiveState(dReal direction);
-	
-	void TriggerPassiveState(dReal strength);
-	
-	void TogglePassiveState();
-	
-	void TogglePassiveStateAlt();
-	
-	void ToggleActiveState();
-	
-	void ToggleActiveStateAlt();
-	
-	void CycleState();
-	
+	void refreeze_joint();	
+	void update_joint_freeze();	
+	void create_joint(dWorldID world, dSpaceID space, dMass mass, Body b1, Body b2);	
+	void draw_joint(Color draw_color);	
+	void draw_joint_freeze();	
+	void draw_joint_ghost();	
+	void draw_joint();	
+
+	void TriggerActiveStateAlt(dReal direction);	
+	void TriggerPassiveStateAlt(dReal strength);	
+	void TriggerActiveState(dReal direction);	
+	void TriggerPassiveState(dReal strength);	
+	void TogglePassiveState();	
+	void TogglePassiveStateAlt();	
+	void ToggleActiveState();	
+	void ToggleActiveStateAlt();	
+	void CycleState();	
 	void CycleStateAlt();
 };

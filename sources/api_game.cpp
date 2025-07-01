@@ -22,6 +22,13 @@ int GAME_get_reaction_count(lua_State* L)
 	return 1;
 }
 
+static const luaL_Reg api_game[] {
+	{"get_game_frame", GAME_get_game_frame},
+	{"get_reaction_time", GAME_get_reaction_time},
+	{"get_reaction_count", GAME_get_reaction_count},
+	{NULL, NULL},
+};
+
 int luaopen_api_game(lua_State* L)
 {
 	luaL_register(L, "GAME", api_game);

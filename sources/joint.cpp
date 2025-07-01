@@ -61,19 +61,19 @@ void Joint::create_joint(dWorldID world, dSpaceID space, dMass mass, Body b1, Bo
 	switch(shape) {
 		case Box: {
 			dGeom = dCreateBox(space, sides.x, sides.y, sides.z);
-			dMassSetBox(&mass, density, sides.x, sides.y, sides.z);
+			//dMassSetBox(&mass, density, sides.x, sides.y, sides.z);
 		} break;
 		case Sphere: {
 			dGeom = dCreateSphere(space, radius);
-			dMassSetSphere(&mass, density, radius);
+			//dMassSetSphere(&mass, density, radius);
 		} break;
 		case Capsule: {
 			dGeom = dCreateCapsule(space, radius, length);
-			dMassSetCapsule(&mass, density, 1, length, radius);
+			//dMassSetCapsule(&mass, density, 1, length, radius);
 		} break;
 		case Cylinder: {
 			dGeom = dCreateCylinder(space, radius, length);
-			dMassSetCylinder(&mass, density, 1, length, radius);
+			//dMassSetCylinder(&mass, density, 1, length, radius);
 		} break;
 	}
 

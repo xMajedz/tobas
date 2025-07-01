@@ -253,6 +253,16 @@ int API_gravity(lua_State* L)
 	return 1;
 }
 
+int API_mod(lua_State* L)
+{
+	std::string name = lua_tostring(L, -1);
+	api.game->mod = name;
+
+	lua_Number result = 1;
+	lua_pushnumber(L, result);
+	return 1;
+}
+
 int API_object(lua_State* L)
 {
 	DataContext = ObjectContext;
@@ -269,50 +279,17 @@ int API_player(lua_State* L)
 {
 	DataContext = PlayerContext;
 	std::string name = lua_tostring(L, -1);
+	lua_Number result = 0;
 
 	if (api.game->players.size() > api.game->rules.numplayers + 1) {
-		lua_Number result = 1;
-		lua_pushnumber(L, result);
-		return 1;
+		
+	} else {
+		api.game->players[name].name = name;
+		api.player = &(api.game->players[name]);
+		result = 1;
 	}
 
-	api.game->players[name].name = name;
-	api.player = &(api.game->players[name]);
 
-	switch (api.game->players.size()) {
-		case 1: {
-			api.game->state.selected_player = name;
-			api.player->joint_color = MAROON;
-			api.player->body_category_bits = 1<<2;
-			api.player->joint_category_bits = 1<<3;
-		} break;
-		case 2: {
-			api.player->joint_color = DARKBLUE;
-			api.player->body_category_bits = 1<<4;
-			api.player->joint_category_bits = 1<<5;
-		} break;
-		case 3: {
-			api.player->joint_color = DARKGREEN;
-			api.player->body_category_bits = 1<<6;
-			api.player->joint_category_bits = 1<<7;
-		} break;
-		case 4: {
-			api.player->joint_color = DARKPURPLE;
-			api.player->body_category_bits = 1<<8;
-			api.player->joint_category_bits = 1<<9;
-		} break;
-	}
-
-	api.player->body_collide_bits = 0b0001; 
-	api.player->joint_collide_bits = 0b0001;
-
-	api.player->ghost = true;
-	api.player->ghost_color = api.player->joint_color;
-	api.player->ghost_color.a = 55;
-
-	api.player->joint_select_color = WHITE;
-
-	lua_Number result = 1;
 	lua_pushnumber(L, result);
 	return 1;
 }
@@ -323,36 +300,6 @@ int API_body(lua_State* L)
 	std::string name = lua_tostring(L, -1);
 	api.player->body[name].name = name;
 	api.body = &(api.player->body[name]);
-
-	//api.body->world = api.game->world;
-	//api.body->space = api.game->space;
-
-	api.body->color = api.player->body_color;
-	api.body->ghost_color = api.player->ghost_color;
-
-	api.body->orientation.w = 1.00;
-	api.body->orientation.x = 0.00;
-	api.body->orientation.y = 0.00;
-	api.body->orientation.z = 0.00;
-
-	api.body->freeze.orientation.w = 1.00;
-	api.body->freeze.orientation.x = 0.00;
-	api.body->freeze.orientation.y = 0.00;
-	api.body->freeze.orientation.z = 0.00;
-
-	api.body->freeze.linear_vel.x = 0.00;
-	api.body->freeze.linear_vel.y = 0.00;
-	api.body->freeze.linear_vel.z = 0.00;
-
-	api.body->freeze.angular_vel.x = 0.00;
-	api.body->freeze.angular_vel.y = 0.00;
-	api.body->freeze.angular_vel.z = 0.00;
-
-	api.body->category_bits = api.player->body_category_bits;
-	api.body->collide_bits = api.player->body_collide_bits;
-
-	api.body->ghost = true;
-	api.body->static_state = false;
 
 	lua_Number result = 1;
 	lua_pushnumber(L, result);
@@ -365,40 +312,6 @@ int API_joint(lua_State* L)
 	std::string name = lua_tostring(L, -1);
 	api.player->joint[name].name = name;
 	api.joint = &(api.player->joint[name]);
-
-	//api.joint->world = api.game->world;
-	//api.joint->space = api.game->space;
-
-	api.joint->color = api.player->joint_color;
-	api.joint->ghost_color = api.player->ghost_color;
-	api.joint->select_color = api.player->joint_select_color;
-
-	api.joint->orientation.w = 1.00;
-	api.joint->orientation.x = 0.00;
-	api.joint->orientation.y = 0.00;
-	api.joint->orientation.z = 0.00;
-
-	api.joint->freeze.orientation.w = 1.00;
-	api.joint->freeze.orientation.x = 0.00;
-	api.joint->freeze.orientation.y = 0.00;
-	api.joint->freeze.orientation.z = 0.00;
-
-	api.joint->freeze.linear_vel.x = 0.00;
-	api.joint->freeze.linear_vel.y = 0.00;
-	api.joint->freeze.linear_vel.z = 0.00;
-
-	api.joint->freeze.angular_vel.x = 0.00;
-	api.joint->freeze.angular_vel.y = 0.00;
-	api.joint->freeze.angular_vel.z = 0.00;
-
-	api.joint->category_bits = api.player->joint_category_bits;
-	api.joint->collide_bits = api.player->joint_collide_bits;
-
-	api.joint->state = RELAX;
-	api.joint->state_alt = RELAX;
-
-	api.joint->ghost = true;
-	api.joint->static_state= false;
 
 	lua_Number result = 1;
 	lua_pushnumber(L, result);
@@ -474,38 +387,16 @@ int API_position(lua_State* L)
 			// Error Handling
 		} break;
 		case ObjectContext: {
-			api.object->position.x = position.x;
-			api.object->position.y = position.y;
-			api.object->position.z = position.z;
-			api.object->freeze.position.x = position.x;
-			api.object->freeze.position.y = position.y;
-			api.object->freeze.position.z = position.z;
+			api.object->position = position;
+			api.object->freeze.position = position;
 		} break;
 		case BodyContext: {
-			if (api.player->use_engagepos) {
-				position.x = position.x + api.player->engagepos.x;
-				position.y = position.y + api.player->engagepos.y;
-				position.z = position.z + api.player->engagepos.z;
-			}
-			api.body->position.x = position.x;
-			api.body->position.y = position.y;
-			api.body->position.z = position.z;
-			api.body->freeze.position.x = position.x;
-			api.body->freeze.position.y = position.y;
-			api.body->freeze.position.z = position.z;
+			api.body->position = position;
+			api.body->freeze.position = position;
 		} break;
 		case JointContext: {
-			if (api.player->use_engagepos) {
-				position.x = position.x + api.player->engagepos.x;
-				position.y = position.y + api.player->engagepos.y;
-				position.z = position.z + api.player->engagepos.z;
-			}
-			api.joint->position.x = position.x;
-			api.joint->position.y = position.y;
-			api.joint->position.z = position.z;
-			api.joint->freeze.position.x = position.x;
-			api.joint->freeze.position.y = position.y;
-			api.joint->freeze.position.z = position.z;
+			api.joint->position = position;
+			api.joint->freeze.position = position;
 		} break;
 	}
 
@@ -653,9 +544,6 @@ int API_static(lua_State* L)
 		} break;
 		case ObjectContext: {
 			api.object->static_state = true;
-			api.object->color = BLACK;
-			api.object->category_bits = 0b0001;
-			api.object->collide_bits = 0b0000;
 		} break;
 		case BodyContext: {
 			api.body->static_state = true;
@@ -999,6 +887,8 @@ static const luaL_Reg api_main[] {
 	{"engagepos", API_engagepos},
 	{"engagerot", API_engagerot},
 	{"gravity", API_gravity},
+
+	{"mod", API_mod},
 	{"object", API_object},
 	{"player", API_player},
 	{"body", API_body},

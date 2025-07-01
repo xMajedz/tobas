@@ -1,7 +1,6 @@
 #pragma once
-#include <common.h>
-#include <camera.h>
-#include <player.h>
+#include "common.h"
+#include "player.h"
 
 enum Gamemode {
 	FREEPLAY,
@@ -60,9 +59,11 @@ struct Game {
 
 	CollisionData collision;
 
-	Gamecam gamecam;
 	Gamestate state;
 	Gamerules rules;
+
+	std::string mod;
+
 	std::map<std::string, Body> objects;
 	std::map<std::string, Player> players;
 	std::map<int, FrameData> RecordedFrames;
@@ -100,8 +101,6 @@ struct Game {
 	void Loop();
 
 	bool Running();
-
-	void UpdatePlaycam(Gamecam* gamecam);
 };
 
 struct Window {
@@ -113,5 +112,5 @@ struct Console {
 	char* messages[1024];
 	char* last_message;
 
-	void log(lua_State* L, char* message);
+	//void log(lua_State* L, char* message);
 };

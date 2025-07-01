@@ -1,7 +1,8 @@
-#include <luau.h>
-#include <raylib.h>
-#include <api_callbacks.h>
-#include <game.h>
+#include "luau.h"
+#include "raylib.h"
+#include "api_callbacks.h"
+#include "game.h"
+
 #include <fstream>
 #include <iostream>
 
@@ -26,12 +27,15 @@ void Game::NearCallback(dGeomID o1, dGeomID o2)
 	dBodyID b2 = dGeomGetBody(o2);
 
 	dContact contact[rules.max_contacts];
-	collision.contacts = contact[0];
 
-	for (int i = 0; i < rules.max_contacts; i++) {
-		contact[i].surface.mode = dContactApprox1;
-		contact[i].surface.mu = rules.friction;
+	for (int i = 0; i < rules.max_contacts; i += 1) {
+		contact[i].surface = (dSurfaceParameters) {
+			.mode = dContactApprox1,
+			.mu = rules.friction,
+		};
 	}
+
+	collision.contacts = contact[0];
 
 	if (int numc = dCollide(o1, o2, rules.max_contacts, &contact[0].geom, sizeof(dContact))) {
 		for (int i = 0; i < numc; i++) {
@@ -102,105 +106,50 @@ void Game::NewGame()
 	for (auto& [object_name, o] : objects) {
 		o.create(world, space);
 		o.make_static(world);
+		o.set_category_bits();
+		o.set_collide_bits();
 	}
+
+	auto object_count = objects.size();
+	
+	int count = 0;
+
+	Color colors[] = {
+		MAROON,
+		DARKBLUE,
+		DARKGREEN,
+		DARKPURPLE,
+	};
+
+	unsigned long bits[][2] = {
+		{1<<2, 1<<3},
+		{1<<4, 1<<5},
+		{1<<6, 1<<7},
+		{1<<8, 1<<9},
+	};
 
 	for (auto& [player_name, p] : players) {
+		p.joint_color = colors[count];
+
+		p.set_category_bits(0b0000, 0b0000);
+		p.set_collide_bits(0b0001, 0b0001);
+		p.set_offset();
+		if (rules.engageheight) {
+			p.set_engageheight(rules.engageheight);
+		}
+		if (rules.engagedistance) {
+			p.set_engagedistance(rules.engagedistance,  count * (360/rules.numplayers));
+		}
+
 		p.create(world, space);
+
+		if (state.selected_player == "NONE") {
+			state.selected_player = player_name;
+		}
+		count += 1;
 	}
 
-	/*if (rules.engageheight) {
-		for (auto& [player_name, p] : players) {
-			for (auto& [body_name, b] : p.body) {
-				b.position[2] = b.position[2] + rules.engageheight;
-				b.freeze.position[2] = b.freeze.position[2] + rules.engageheight;
-			}
-		
-			for (auto& [joint_name, j] : p.joint) {
-				j.position[2] = j.position[2] + rules.engageheight;
-				j.freeze.position[2] = j.freeze.position[2] + rules.engageheight;
-			}
-		}
-	}
-
-	if (rules.engagedistance) {
-		int i = 0;
-		for (auto& [player_name, p] : players) {
-			Matrix m = MatrixRotateZ(DEG2RAD * (360/rules.numplayers) * i);
-			Quaternion q = QuaternionFromMatrix(m);
-			Quaternion iq = QuaternionInvert(q);
-			for (auto& [body_name, b] : p.body) {
-				Quaternion p = QuaternionMultiply(
-						iq,
-						(Quaternion){
-						b.position[0],
-						b.position[1] + rules.engagedistance,
-						b.position[2],
-						0.00
-				});
-				p = QuaternionMultiply(p, q);
-				
-				Quaternion b_q = QuaternionMultiply(
-						q,
-						(Quaternion){
-						b.orientation[1],
-						b.orientation[2],
-						b.orientation[3],
-						b.orientation[0],
-				});
-
-				b.orientation[0] = b_q.w;
-				b.freeze.orientation[0] = b.orientation[0];
-				b.orientation[1] = b_q.x;
-				b.freeze.orientation[1] = b.orientation[1];
-				b.orientation[2] = b_q.y;
-				b.freeze.orientation[2] = b.orientation[2];
-				b.orientation[3] = b_q.z;
-				b.freeze.orientation[3] = b.orientation[3];
-
-				b.position[0] = p.x;
-				b.freeze.position[0] = b.position[0];
-				b.position[1] = p.y;
-				b.freeze.position[1] = b.position[1];
-			}
-
-			for (auto& [joint_name, j] : p.joint) {
-				Quaternion p = QuaternionMultiply(
-						iq,
-						(Quaternion){
-							j.position[0],
-							j.position[1] + rules.engagedistance,
-							j.position[2],
-							0.00
-				});
-				p = QuaternionMultiply(p, q);
-
-				Quaternion j_q = QuaternionMultiply(
-						q,
-						(Quaternion){
-						j.orientation[1],
-						j.orientation[2],
-						j.orientation[3],
-						j.orientation[0],
-				});
-
-				j.orientation[0] = j_q.w;
-				j.freeze.orientation[0] = j.orientation[0];
-				j.orientation[1] = j_q.x;
-				j.freeze.orientation[1] = j.orientation[1];
-				j.orientation[2] = j_q.y;
-				j.freeze.orientation[2] = j.orientation[2];
-				j.orientation[3] = j_q.z;
-				j.freeze.orientation[3] = j.orientation[3];
-
-				j.position[0] = p.x;
-				j.freeze.position[0] = j.position[0];
-				j.position[1] = p.y;
-				j.freeze.position[1] = j.position[1];
-			}
-		i++;
-		}
-	}*/
-
+	auto player_count = players.size();
 }
 
 void Game::ResetGame()
@@ -236,11 +185,11 @@ void Game::ReFreeze()
 	state.freeze_count = 0;
 
 	for (auto& [object_name, o] : objects) {
-		o.ReFreeze();
+		o.refreeze();
 	}
 
 	for (auto& [player_name, p] : players) {
-		p.ReFreeze();
+		p.refreeze();
 	}
 }
 
@@ -713,73 +662,6 @@ void Game::UpdateFrame()
 	}
 }
 
-void Game::UpdatePlaycam(Gamecam* gamecam)
-{
-	Player* selected_player;
-	if (state.selected_player != "NONE") {
-		selected_player = &(players[state.selected_player]);
-	}
-	int size = selected_player->body.size(); 
-	if (size > 0) {
-		float x = 0.00;
-		float y = 0.00;
-		float z = 0.00;
-	
-		for (auto const [body_name, b] : selected_player->body) {
-			if (state.freeze) {
-				x = x + b.freeze.position.x;
-				y = y + b.freeze.position.y;
-				z = z + b.freeze.position.z;
-			} else {
-				const dReal *position = dBodyGetPosition(b.dBody);
-				x = x + position[0];
-				y = y + position[1];
-				z = z + position[2];
-			}
-		}
-
-		gamecam->camera.target = (Vector3){ x/size, y/size, z/size };
-		gamecam->camera.position = (Vector3){
-			gamecam->CameraOffset.x + x/size,
-			gamecam->CameraOffset.y + y/size,
-			gamecam->CameraOffset.z + z/size,
-		};
-	} else {
-		gamecam->camera.target = (Vector3){ 0.00, 0.00, 0.00 };
-		gamecam->camera.position = (Vector3){
-			gamecam->CameraOffset.x,
-			gamecam->CameraOffset.y,
-			gamecam->CameraOffset.z
-		};
-	}
-
-	if (IsKeyDown(KEY_LEFT_SHIFT)) {
-		if (IsKeyDown(KEY_W))
-			gamecam->CameraRotateXClockwise();
-
-		if (IsKeyDown(KEY_A))
-			gamecam->CameraRotateZClockwise();
-
-		if (IsKeyDown(KEY_S))
-			gamecam->CameraRotateXCClockwise();
-
-		if (IsKeyDown(KEY_D))
-			gamecam->CameraRotateZCClockwise();
-	} else {
-		if (IsKeyDown(KEY_W))
-			gamecam->CameraZoomIn();
-
-		if (IsKeyDown(KEY_A))
-			gamecam->CameraRotateZClockwise();
-
-		if (IsKeyDown(KEY_S))
-			gamecam->CameraZoomOut();
-
-		if (IsKeyDown(KEY_D))
-			gamecam->CameraRotateZCClockwise();
-	}
-}
-
 void Game::Start () {
 	state.running = true;
 };
@@ -792,8 +674,10 @@ void Game::Loop () {
 	int i = 1;
 };
 
+/*
 void Console::log(lua_State* L, char* message)
 {
 	last_message = message;
-	//ConsoleCallback(L, last_message);
+	ConsoleCallback(L, last_message);
 };
+*/

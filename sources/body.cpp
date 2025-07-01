@@ -4,6 +4,7 @@
 #include <raymath.h>
 #include <rlgl.h>
 #include <body.h>
+
 #include <iostream>
 #define PRINT(X) std::cout << X << std::endl;
 
@@ -22,7 +23,7 @@ Body::Body() {
 	freeze.angular_vel = (Vector3){0.00, 0.00, 0.00};
 
 	category_bits = 0b0001;
-	collide_bits = 0b0001;
+	collide_bits = 0b0000;
 
 	select = false;
 	static_state = false;
@@ -38,11 +39,13 @@ void Body::create(dWorldID world, dSpaceID space) {
 		position.z
 	);
 
-	dBodySetQuaternion(dBody, (dQuaternion){
-			orientation.w,
-			orientation.x,
-			orientation.y,
-			orientation.z,
+	dBodySetQuaternion(
+		dBody,
+		(dQuaternion){
+		orientation.w,
+		orientation.x,
+		orientation.y,
+		orientation.z,
 	});
 	
 	switch(shape) {
@@ -64,59 +67,83 @@ void Body::create(dWorldID world, dSpaceID space) {
 		} break;
 	}
 
-	dMassAdjust(&mass, 0.5);
+	dMassAdjust(&mass, 0.50);
 	dBodySetMass(dBody, &mass);
 	dGeomSetBody(dGeom, dBody);
 
-	dGeomSetCategoryBits(dGeom, category_bits);
-	dGeomSetCollideBits(dGeom, collide_bits);
+};
+
+void Body::set_category_bits(unsigned long bits)
+{
+	dGeomSetCategoryBits(dGeom, bits);
+};
+
+void Body::set_category_bits()
+{
+	set_category_bits(category_bits);
+};
+
+void Body::set_collide_bits(unsigned long bits)
+{
+	dGeomSetCollideBits(dGeom, bits);
+};
+
+void Body::set_collide_bits()
+{
+	set_collide_bits(collide_bits);
 };
 
 void Body::make_static(dWorldID world) {
 	if (static_state) {
+		//dGeomSetBody(dGeom, 0);
 		dJointID fixed = dJointCreateFixed(world ,0);
 		dJointAttach(fixed, dBody, 0);
 		dJointSetFixed(fixed);
+
+		collide_bits = 0b0000;
+		color = BLACK;
 	}
 };
 
 void Body::update_freeze() {
-	const dReal *linear_vel = dBodyGetLinearVel(dBody);
-	const dReal *angular_vel = dBodyGetAngularVel(dBody);
-	const dReal *position = dGeomGetPosition(dGeom);
-	dQuaternion orientation;
-	dGeomGetQuaternion(dGeom, orientation);
+	const dReal* linear_vel = dBodyGetLinearVel(dBody);
+	const dReal* angular_vel = dBodyGetAngularVel(dBody);
+	const dReal* position = dBodyGetPosition(dBody);
+	const dReal* orientation = dBodyGetQuaternion(dBody);
 
-	freeze.position = (Vector3){position[0], position[1], position[2]};
-	freeze.orientation = (Vector4){orientation[0], orientation[1], orientation[2], orientation[3]};
-
-	freeze.linear_vel = (Vector3){linear_vel[0], linear_vel[1], linear_vel[2]};
-	freeze.angular_vel = (Vector3){angular_vel[0], angular_vel[1], angular_vel[2]};
+	freeze.linear_vel = {linear_vel[0], linear_vel[1], linear_vel[2]};
+	freeze.angular_vel = {angular_vel[0], angular_vel[1], angular_vel[2]};
+	freeze.position = {position[0], position[1], position[2]};
+	freeze.orientation = (Vector4){orientation[1], orientation[2], orientation[3], orientation[0]};
 };
 
-void Body::ReFreeze() {
-	dGeomSetPosition(dGeom,
+void Body::refreeze() {
+	dBodySetLinearVel(
+		dBody, 
+		freeze.linear_vel.x,
+		freeze.linear_vel.y,
+		freeze.linear_vel.z
+	);
+	dBodySetAngularVel(
+		dBody,
+		freeze.angular_vel.x,
+		freeze.angular_vel.y,
+		freeze.angular_vel.z
+	);
+	dBodySetPosition(
+		dBody,
 		freeze.position.x,
 		freeze.position.y,
 		freeze.position.z
 	);
-	dGeomSetQuaternion(dGeom, (dQuaternion){
+	dBodySetQuaternion(
+		dBody,
+		(dQuaternion){
 		freeze.orientation.w,
 		freeze.orientation.x,
 		freeze.orientation.y,
 		freeze.orientation.z,
 	});
-
-	dBodySetLinearVel(dBody, 
-		freeze.linear_vel.x,
-		freeze.linear_vel.y,
-		freeze.linear_vel.z
-	);
-	dBodySetAngularVel(dBody,
-		freeze.angular_vel.x,
-		freeze.angular_vel.y,
-		freeze.angular_vel.z
-	);
 };
 
 void Body::draw_object(Color draw_color) {
