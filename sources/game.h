@@ -8,14 +8,16 @@ enum Gamemode {
 };
 
 struct Gamerules {
-	int numplayers = 2;
-	int turnframes = 10;
-	int max_contacts = 8;
-	dReal reaction_time = 10;
+	std::string mod;
+	int numplayers;
+	int turnframes;
+	int max_contacts;
+	dReal reaction_time;
 	dReal engagedistance;
 	dReal engageheight;
-	dReal gravity[3];
 	dReal friction;
+
+	Vector3 gravity;
 };
 
 struct Gamestate {
@@ -41,59 +43,62 @@ struct Gamestate {
 	bool running = false;
 };
 
-struct FrameData : public FreezeData {
-	std::map<std::string, Player> player;
-};
-
 struct CollisionData {
 	dContact contacts;
 };
 
-struct Game {
-	dWorldID world;
-	dSpaceID space;
-	dJointGroupID contactgroup;
+namespace Game {
+	static dWorldID s_world;
+	static dSpaceID s_space;
+	static dJointGroupID s_contactgroup;
+	
+	static dGeomID s_floor;
+		
+	static Gamestate s_state;
+	static Gamerules s_rules;
+	
+	static array<Body> s_objects;
+	static array<Player> s_players;
+	
+	static dReal s_step;
 
-	dGeomID floor;
-	dReal step = 1.0E-2;
+	static CollisionData s_collision;
 
-	CollisionData collision;
+	static dNearCallback* s_nearCallback;
 
-	Gamestate state;
-	Gamerules rules;
-
-	std::string mod;
-
-	std::map<std::string, Body> objects;
-	std::map<std::string, Player> players;
-	std::map<int, FrameData> RecordedFrames;
+	void Init();
+	void Quit();
 
 	void TogglePause();
 	bool GetFreeze();
 	bool GetPause();
 	Gamerules GetGamerules();
-	std::map<std::string, Player> GetPlayers();
-	std::map<std::string, Body> GetObjects();
 
-	dNearCallback* nearCallback;
+	array<Player> GetPlayers();
+	array<Body> GetObjects();
+
 	void NearCallback(dGeomID, dGeomID);
+
+	int GetGameFrame();
+	dReal GetReactionTime();
+	dReal GetReactionCount();
 
 	void Start();
 	void NewGame();
-	void EndGame();
-	void ResetGame();
+	void Reset();
 	void ToggleGhosts();
+
+	void Update(dReal dt);
 	void DrawFloor();
-	void DrawFrame();
+	void Draw();
+
 	void SelectPlayer(Camera3D, Ray, RayCollision);
 	void SelectJoint(Camera3D, Ray, RayCollision);
-	void RecordFrame(int);
 	void PlayFrame(int);
 	void EditReplay();
 	void SaveReplay();
 	void StartFreeplay();
 	void StartReplay();
-	void UpdateFrame();
 	void Restart();
 	void UpdateFreeze();
 	void StepGame(int);

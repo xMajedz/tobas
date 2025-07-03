@@ -3,18 +3,22 @@
 #include "raymath.h"
 #include "game.h"
 
-struct Gamecam {
-	Camera3D camera;
-	Vector3 CameraZoom;
-	Vector3 CameraOffset;
+namespace Gamecam {
+	static Camera camera;
+	static Vector3 camera_offset;
 	
-	void CameraRotateZClockwise();
+	void Init();
+	Camera Get();
+
+	void UpdateDummycam();
+
+	/*void CameraRotateZClockwise();
 	void CameraRotateZCClockwise();
 	void CameraRotateXClockwise();
 	void CameraRotateXCClockwise();
 	void CameraZoomIn();
 	void CameraZoomOut();
-	void UpdatePlaycam();
+	void UpdatePlaycam();*/
 };
 
 void CameraRotateZ(Vector3* camera_offset, float degrees);

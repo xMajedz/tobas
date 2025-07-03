@@ -1,12 +1,13 @@
 workspace "tobas"
+	language "C++"
 	configurations { "Debug", "Release" }
-	objdir "build"
-	targetdir "build"
+	basedir "build"
 
 	includedirs {
 		"luau/Compiler/include", "luau/VM/include",
 
-		"raylib/src",
+		"raylib/src", "raygui/src",
+
 		"ode/include",
 		"enet/include",
 
@@ -32,23 +33,18 @@ workspace "tobas"
 		"sources/luau.h", "sources/luau.cpp",
 
 		"sources/api.h", "sources/api.cpp",
-		"sources/api_game.h", "sources/api_game.cpp",
-		"sources/api_callbacks.h", "sources/api_callbacks.cpp",
-		"sources/api_raylib.h", "sources/api_raylib.cpp",
-		"sources/api_raymath.h", "sources/api_raymath.cpp",
+		"sources/api_game.cpp",
+		"sources/api_raylib.cpp",
+		"sources/api_raygui.cpp",
+		"sources/api_raymath.cpp",
 
 		"sources/game.h", "sources/game.cpp",
 		"sources/camera.h", "sources/camera.cpp",
+		"sources/replay.h", "sources/replay.cpp",
 		"sources/player.h", "sources/player.cpp",
 		"sources/joint.h", "sources/joint.cpp",
 		"sources/body.h", "sources/body.cpp",
 	}
-
-project "tobas"
-	kind "WindowedApp"
-	language "C++"
-
-	files { "sources/main.cpp" }
 
 	filter { "platforms:Win*" }
 		links {"winmm", "gdi32", "opengl32"}
@@ -60,4 +56,35 @@ project "tobas"
 	filter { "configurations:Release" }
 		defines { "NDEBUG" }
 		optimize "On"
+
+project "tobas_sp"
+	kind "WindowedApp"
+	objdir "build"
+	basedir "build"
+	targetdir "build"
+	files { "sources/tobas_sp.cpp" }
+
+project "tobas"
+	kind "WindowedApp"
+	objdir "build"
+	basedir "build"
+	targetdir "build"
+	files {
+		"sources/netcode_server.h", "sources/netcode_server.cpp",
+		"sources/netcode_client.h", "sources/netcode_client.cpp",
+		"sources/tobas.cpp",
+	}
+
+project "tobas_server"
+	kind "ConsoleApp"
+	objdir "build"
+	basedir "build"
+	targetdir "build"
+	files {
+		"sources/netcode_server.h", "sources/netcode_server.cpp",
+		"sources/tobas_server.cpp",
+	}
+
+
+
 

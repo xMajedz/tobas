@@ -1,5 +1,18 @@
 #include "camera.h"
 
+void Gamecam::Init()
+{
+	camera.up = { 0.00, 0.00, 1.00 };
+	camera.fovy = 45.00;
+	camera.projection = CAMERA_PERSPECTIVE;
+	camera_offset = { 0.00, 5.00, 0.00 };
+}
+
+Camera Gamecam::Get()
+{
+	return camera;
+}
+
 void CameraRotateZ(Vector3* camera_offset, float degrees)
 {
 	Quaternion q = QuaternionFromMatrix(MatrixRotateZ(DEG2RAD * degrees));
@@ -46,10 +59,16 @@ void CameraZoomOut(Vector3* camera_offset)
 	camera_offset->z *= 1.10;
 }
 
+void Gamecam::UpdateDummycam()
+{
+	camera.position = { 0.00, 5.00, 0.00};
+	camera.target = { 0.00, 0.00, 2.00 }; 
+}
+
 void UpdatePlaycam(bool freeze, Camera3D* camera, Vector3* camera_offset, Player* selected_player)
 {
 
-	float x = 0.00;
+	/*float x = 0.00;
 	float y = 0.00;
 	float z = 0.00;
 	
@@ -113,10 +132,10 @@ void UpdatePlaycam(bool freeze, Camera3D* camera, Vector3* camera_offset, Player
 		if (IsKeyDown(KEY_D)) {
 			CameraRotateZClockwise(camera_offset);
 		}
-	}
+	}*/
 }
 
-void Gamecam::CameraRotateZClockwise()
+/*void Gamecam::CameraRotateZClockwise()
 {
 	Matrix m = MatrixRotateZ(DEG2RAD*10);
 	Quaternion q = QuaternionFromMatrix(m);
@@ -272,4 +291,4 @@ void Gamecam::CameraZoomOut()
 	CameraOffset.x = 1.1f * CameraOffset.x;
 	CameraOffset.y = 1.1f * CameraOffset.y;
 	CameraOffset.z = 1.1f * CameraOffset.z;
-}
+}*/

@@ -8,7 +8,8 @@
 #include <iostream>
 #define PRINT(X) std::cout << X << std::endl;
 
-Body::Body() {
+Body::Body()
+{
 	color = GREEN;
 	ghost_color = (Color){51, 51, 51, 51};
 
@@ -29,6 +30,11 @@ Body::Body() {
 	static_state = false;
 
 };
+
+Body::Body(const char* name)
+{
+	m_name = name;
+}
 
 void Body::create(dWorldID world, dSpaceID space) {
 	dBody = dBodyCreate(world);
@@ -146,6 +152,35 @@ void Body::refreeze() {
 	});
 };
 
+void Body::reset()
+{
+	dBodySetLinearVel(dBody, 0.00, 0.00, 0.00);
+	dBodySetAngularVel(dBody, 0.00, 0.00, 0.00);
+
+	dBodySetPosition(
+		dBody,
+		position.x,
+		position.y,
+		position.z
+	);
+
+	dBodySetQuaternion(
+		dBody,
+		(dQuaternion) {
+		orientation.w,
+		orientation.x,
+		orientation.y,
+		orientation.z,
+	});
+
+	freeze.linear_vel = {0.00, 0.00, 0.00};
+	freeze.angular_vel = {0.00, 0.00, 0.00};
+
+	freeze.position = position;
+	freeze.orientation = orientation;
+
+}
+
 void Body::draw_object(Color draw_color) {
 	switch(shape) {
 		case Box: {
@@ -222,6 +257,10 @@ void Body::draw() {
 void Body::toggle_ghost() {
 	ghost = ghost == false;
 };
+
+std::string Body::get_name() {
+	return m_name;
+}
 
 RayCollision Body::collide_mouse_ray(Ray ray, RayCollision collision) {
 	switch(shape) {

@@ -1,13 +1,12 @@
 #include "netcode_client.h"
-#define ENET_IMPLEMENTATION
 #include "netcode_common.h"
 #define LOCALHOST "127.0.0.1"
 
-ENetAddress address = { 0 };
+static ENetAddress address = { 0 };
 
-ENetPeer* host = { 0 };
+static ENetPeer* host = { 0 };
 
-ENetHost* client = { 0 };
+static ENetHost* client = { 0 };
 
 void client_connect() {
 	enet_initialize();

@@ -1,95 +1,77 @@
-#ifndef API_H
-#define API_H
-#include <luau.h>
-#include <common.h>
-#include <game.h>
+#pragma once
+#include "common.h"
+#include "luau.h"
+#include "game.h"
 
-struct API {
-	Game* game;
-	Player* player;
-	Joint* joint;
-	Body* body;
-	Body* object;
+#include <vector>
 
-	API();
-	API(Game* game_ptr);
-};
+namespace API
+{
+	static lua_State* L;
 
-int API_turnframes(lua_State* L);
+	static Gamerules rules;
 
-int API_numplayers(lua_State* L);
+	static std::vector<Body> objects;
+	static std::vector<Player> players;
+	 
+	static size_t o_count;
+	static size_t p_count;
 
-int API_friction(lua_State* L);
+	static Body* object;
+	static Player* player;
+	
+	static std::vector<Body> b_vector;
+	static std::vector<Joint> j_vector;
 
-int API_engagedistance(lua_State* L);
+	static size_t b_count;
+	static size_t j_count;
 
-int API_engageheight(lua_State* L);
+	static Body* body;
+	static Joint* joint;
+	
+	void Init();
+	void Reset();
+	void Close();
 
-int API_engagepos(lua_State* L);
+	lua_State* GetL();
+	Gamerules GetRules();
+	array<Body> GetObjects();
+	array<Player> GetPlayers();
+	array<Body> GetBody();
+	array<Joint> GetJoint();
+	
+	int TriggerCallback(const char* event);
+	int TriggerCallback(const char* event, dReal dt);
 
-int API_engagerot(lua_State* L);
+	int MouseButtonPressedCallback();
+	int MouseButtonDownCallback();
+	int MouseButtonUpCallback();
+	int UpdateCallback(dReal dt);
+	int DrawCallback();
+	int Draw2DCallback();
+	int Draw3DCallback();
+	int NewGameCallback();
+	int FreezeCallback();
+	int StepCallback();
 
-int API_gravity(lua_State* L);
+	int NearCallback(CollisionData s_collision);
+	int FileDroppedCallback(const char* dropped_file);
+	int ConsoleCallback(const char* message);
 
-int API_mod(lua_State* L);
+	int SetCallback(const char* event, const char* handle, lua_CFunction* callback);
+	int GetCallback(const char* event, const char* handle);
 
-int API_object(lua_State* L);
+	int loadmod(const char* modpath);
+	int loadscript(const char* scriptpath);
+}
 
-int API_player(lua_State* L);
-
-int API_body(lua_State* L);
-
-int API_joint(lua_State* L);
-
-int API_shape(lua_State* L);
-
-int API_position(lua_State* L);
-
-int API_orientation(lua_State* L);
-
-int API_sides(lua_State* L);
-
-int API_density(lua_State* L);
-
-int API_static(lua_State* L);
-
-int API_radius(lua_State* L);
-
-int API_length(lua_State* L);
-
-int API_strength(lua_State* L);
-
-int API_strength_alt(lua_State* L);
-
-int API_velocity(lua_State* L);
-
-int API_velocity_alt(lua_State* L);
-
-int API_axis(lua_State* L);
-
-int API_axis_alt(lua_State* L);
-
-int API_range(lua_State* L);
-
-int API_range_alt(lua_State* L);
-
-int API_connections(lua_State* L);
-
-int API_connection_type(lua_State* L);
-
-int API_dofile(lua_State* L);
-
-int loadscript(lua_State* L, const char* scriptpath);
-
-int API_loadscript(lua_State* L);
-
-int loadmod(lua_State* L, const char* modpath);
-
-int API_loadmod(lua_State* L);
-
-int API_require(lua_State* L);
-
-int API_GetWindowSize(lua_State* L);
 
 int luaopen_api_main(lua_State* L);
-#endif
+
+int luaopen_api_game(lua_State* L);
+
+int luaopen_api_raylib(lua_State* L);
+
+int luaopen_api_raygui(lua_State* L);
+
+int luaopen_api_raymath(lua_State* L);

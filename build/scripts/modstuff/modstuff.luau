@@ -34,6 +34,10 @@ function ms.loadTBM(TBM)
 	local euler2quat = function (u, v, w)
 		return Math.MatrixToQuaternion(Math.EulerToMatrix(u, v, w))
 	end
+
+	--RAYMATh.MatrixRotateXYZ(Vector3 angle)
+	--RAYMATH.QuaternionFromMatrix(Matrix mat)
+
 	API["mod"] (TBM["mod"])
 	API["gravity"] {TBM["gravity"][1] + 0, TBM["gravity"][2] + 0, TBM["gravity"][3] + 0}
 	API["turnframes"] {TBM["turnframes"] + 0}

@@ -95,20 +95,5 @@ function ds:drawstuff()
 	end
 end
 
-function EVENT.Draw2D.DS()
-	ds:drawstuff()
-end
-
-function EVENT.MouseButtonPressed.DS()
-	local MousePosition = RL.GetMousePosition()
-	for i, o in ds.interactive_objects do
-		local conditionX = MousePosition.x > o.posX and MousePosition.x < o.posX + o.width
-		local conditionY = MousePosition.y > o.posY and MousePosition.y < o.posY + o.height
-		if conditionX and conditionY then
-			o:click_callback()
-		end
-	end
-end
-
 return ds
 

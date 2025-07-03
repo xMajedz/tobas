@@ -1,6 +1,7 @@
-#include <api_raymath.h>
+#include "api.h"
+#include "raymath.h"
 
-int RAYMATH_MatrixIdentity(lua_State* L)
+static int RAYMATH_MatrixIdentity(lua_State* L)
 {
 	Matrix m = MatrixIdentity();
 	lua_newtable(L);
@@ -43,7 +44,7 @@ int RAYMATH_MatrixIdentity(lua_State* L)
 	return 1;
 }
 
-int RAYMATH_MatrixMultiply(lua_State* L)
+static int RAYMATH_MatrixMultiply(lua_State* L)
 {
 	if (lua_istable(L, -1)) {
 		Matrix left;
@@ -121,7 +122,7 @@ int RAYMATH_MatrixMultiply(lua_State* L)
 	return 1;
 }
 
-int RAYMATH_MatrixRotate(lua_State* L)
+static int RAYMATH_MatrixRotate(lua_State* L)
 {
 	if (lua_istable(L, -1)) {
 		Vector3 axis;
@@ -141,48 +142,48 @@ int RAYMATH_MatrixRotate(lua_State* L)
 	return 1;
 }
 
-int RAYMATH_MatrixRotateX(lua_State* L)
+static int RAYMATH_MatrixRotateX(lua_State* L)
 {
 	float angel;
 	MatrixRotateX(angel);
 	return 1;
 }
 
-int RAYMATH_MatrixRotateY(lua_State* L)
+static int RAYMATH_MatrixRotateY(lua_State* L)
 {
 	float angel;
 	MatrixRotateY(angel);
 	return 1;
 }
 
-int RAYMATH_MatrixRotateZ(lua_State* L)
+static int RAYMATH_MatrixRotateZ(lua_State* L)
 {
 	float angel;
 	MatrixRotateZ(angel);
 	return 1;
 }
 
-int RAYMATH_MatrixRotateXYZ(lua_State* L)
+static int RAYMATH_MatrixRotateXYZ(lua_State* L)
 {
 	Vector3 angel;
 	MatrixRotateXYZ(angel);
 	return 1;
 }
 
-int RAYMATH_QuaternionFromMatrix(lua_State* L)
+static int RAYMATH_QuaternionFromMatrix(lua_State* L)
 {
 	Matrix m;
 	QuaternionFromMatrix(m);
 	return 1;
 }
 
-int RAYMATH_QuaternionIdentity(lua_State* L)
+static int RAYMATH_QuaternionIdentity(lua_State* L)
 {
 	Quaternion q = QuaternionIdentity();
 	return 1;
 }
 
-int RAYMATH_QuaternionMultiply(lua_State* L)
+static int RAYMATH_QuaternionMultiply(lua_State* L)
 {
 	Quaternion q1;
 	Quaternion q2;
@@ -190,13 +191,28 @@ int RAYMATH_QuaternionMultiply(lua_State* L)
 	return 1;
 }
 
-int RAYMATH_Vector3RotateByQuaternion(lua_State* L)
+static int RAYMATH_Vector3RotateByQuaternion(lua_State* L)
 {
 	Vector3 v;
 	Quaternion q;
 	Vector3RotateByQuaternion(v, q);
 	return 1;
 }
+
+static const luaL_Reg api_raymath[] {
+	{"MatrixIdentity", RAYMATH_MatrixIdentity},
+	{"MatrixMultiply", RAYMATH_MatrixMultiply},
+	{"MatrixRotate", RAYMATH_MatrixRotate},
+	{"MatrixRotateX", RAYMATH_MatrixRotateX},
+	{"MatrixRotateY", RAYMATH_MatrixRotateY},
+	{"MatrixRotateZ", RAYMATH_MatrixRotateZ},
+	{"MatrixRotateXYZ", RAYMATH_MatrixRotateXYZ},
+	{"QuaternionFromMatrix", RAYMATH_QuaternionFromMatrix},
+	{"QuaternionIdentity", RAYMATH_QuaternionIdentity},
+	{"QuaternionMultiply", RAYMATH_QuaternionMultiply},
+	{"Vector3RotateByQuaternion", RAYMATH_Vector3RotateByQuaternion},
+	{NULL, NULL},
+};
 
 int luaopen_api_raymath(lua_State* L)
 {

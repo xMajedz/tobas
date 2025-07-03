@@ -1,24 +1,21 @@
-#include "luau.h"
 #include "api.h"
-#include "api_game.h"
+#include "game.h"
 
-extern API api;
-
-int GAME_get_game_frame(lua_State* L)
+static int GAME_get_game_frame(lua_State* L)
 {
-	lua_pushnumber(L, api.game->state.game_frame);
+	lua_pushnumber(L, Game::GetGameFrame());
 	return 1;
 }
 
-int GAME_get_reaction_time(lua_State* L)
+static int GAME_get_reaction_time(lua_State* L)
 {
-	lua_pushnumber(L, api.game->rules.reaction_time);
+	lua_pushnumber(L, Game::GetReactionTime());
 	return 1;
 }
 
-int GAME_get_reaction_count(lua_State* L)
+static int GAME_get_reaction_count(lua_State* L)
 {
-	lua_pushnumber(L, api.game->state.reaction_count);
+	lua_pushnumber(L, Game::GetReactionCount());
 	return 1;
 }
 

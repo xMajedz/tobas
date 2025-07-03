@@ -1,19 +1,7 @@
-#include <iostream>
-#include <api.h>
+#include "api.h"
 
-#define PRINT(X) std::cout << "-- TEST " << X << " --" << std::endl;
-#define PRINT_A PRINT("A")
-#define PRINT_B PRINT("B")
-#define PRINT_C PRINT("C")
-
-extern API api;
 extern Window window;
 extern Console console;
-
-API::API(Game* game_ptr)
-{
-	game = game_ptr;
-}
 
 enum GameContext {
 	NoContext,
@@ -23,15 +11,302 @@ enum GameContext {
 	JointContext,
 } DataContext = NoContext;
 
+void API::Init()
+{
+	L = luaL_newstate();
+	luaopen_api_main(L);
+	luaopen_api_game(L);
+	luaopen_api_raylib(L);
+	luaopen_api_raygui(L);
+	luaopen_api_raymath(L);
+	luaL_openlibs(L);
+	luaL_sandbox(L);
 
-int API_turnframes(lua_State* L)
+	loadscript("init");
+
+	player->body = GetBody();
+	b_vector.clear();
+	b_count = 0;
+	
+	player->joint = GetJoint();
+	j_vector.clear();
+	j_count = 0;
+}
+
+void API::Reset()
+{
+	rules = {.mod = ""};
+
+	objects.clear();
+	players.clear();
+	
+	object = 0;
+	player = 0;
+
+	o_count = 0;
+	p_count = 0;
+
+	b_vector.clear();
+	j_vector.clear();
+
+	body = 0;
+	joint = 0;
+
+	b_count = 0;
+	j_count = 0;
+}
+
+void API::Close()
+{
+	lua_close(L);
+}
+
+lua_State* API::GetL()
+{
+	return L;
+}
+
+Gamerules API::GetRules()
+{
+	return rules;
+}
+
+array<Body> API::GetObjects()
+{
+	auto o_array = new Body[o_count];
+	for (int i = 0; i < o_count; i += 1) {
+		o_array[i] = objects[i];
+	}
+	return (array<Body>){o_array, o_count};
+}
+
+array<Player> API::GetPlayers()
+{
+	auto p_array = new Player[p_count];
+	for (int i = 0; i < p_count; i += 1) {
+		p_array[i] = players[i];
+	}
+	return (array<Player>){p_array, p_count};
+}
+
+array<Body> API::GetBody()
+{
+	auto b_array = new Body[b_count];
+	for (int i = 0; i < b_count; i += 1) {
+		b_array[i] = b_vector[i];
+	}
+	return (array<Body>){b_array, b_count};
+}
+
+array<Joint> API::GetJoint()
+{
+	auto j_array = new Joint[j_count];
+	for (int i = 0; i < j_count; i += 1) {
+		j_array[i] = j_vector[i];
+	}
+	return (array<Joint>){j_array, j_count};
+}
+
+int API::TriggerCallback(const char* event)
+{
+	int status = 1;
+	lua_getglobal(L, "API");
+	lua_getfield(L, -1, event);
+	if (lua_istable(L, -3)) {
+		lua_pushnil(L);
+		while (lua_next(L, -4) != 0) {
+			if (lua_isfunction(L, -1)) {
+				status = lua_pcall(L, 0, 0, 0);
+				if ( status != LUA_OK) {
+LOG(lua_tostring(L, -1))
+				}
+			}
+		}
+	}
+	return status;
+}
+
+int API::TriggerCallback(const char* event, dReal dt)
+{
+	return TriggerCallback(event);
+}
+
+int API::MouseButtonPressedCallback()
+{
+	return TriggerCallback("MouseButtonPressed");
+}
+
+int API::MouseButtonDownCallback()
+{
+	return TriggerCallback("MouseButtonDown");
+}
+
+int API::MouseButtonUpCallback()
+{
+	return TriggerCallback("MouseButtonUp");
+}
+
+int API::UpdateCallback(dReal dt)
+{
+	return TriggerCallback("Update", dt);
+}
+
+int API::DrawCallback()
+{
+	return TriggerCallback("Draw");
+}
+
+int API::Draw2DCallback()
+{
+	return TriggerCallback("Draw2D");
+}
+
+int API::Draw3DCallback()
+{
+	return TriggerCallback("Draw3D");
+}
+
+int API::NewGameCallback()
+{
+	return TriggerCallback("NewGame");
+}
+
+int API::FreezeCallback()
+{
+	return TriggerCallback("Freeze");
+}
+
+int API::StepCallback()
+{
+	return TriggerCallback("Step");
+}
+
+int API::NearCallback(CollisionData collision)
+{
+	int status = 1;
+	lua_getglobal(L, "API");
+	lua_getfield(L, -1, "NearCallback");
+	if (lua_istable(L, -3)) {
+		lua_pushnil(L);
+		while (lua_next(L, -4) != 0) {
+			if (lua_isfunction(L, -1)) {
+				lua_newtable(L);
+				for (int i = 1; 3 <= i; i += 1) {
+					lua_pushnumber(L, collision.contacts.geom.pos[i]);
+					lua_rawseti(L, -2, i);
+				}
+				status = lua_pcall(L, 1, 0, 0);
+				if (status != LUA_OK) {
+LOG(lua_tostring(L, -1))
+				}
+			}
+		}
+	}
+	return status;
+}
+
+int API::FileDroppedCallback(const char* dropped_file)
+{
+LOG(dropped_file)
+	int status = 1;
+	lua_getglobal(L, "EVENT");
+	lua_getfield(L, -1, "FileDropped");
+	if (lua_istable(L, -3)) {
+		lua_pushnil(L);
+		while (lua_next(L, -4) != 0) {
+			if (lua_isfunction(L, -1)) {
+				lua_pushstring(L, dropped_file);
+				status = lua_pcall(L, 1, 0, 0);
+				if (status != LUA_OK) {
+LOG(lua_tostring(L, -1))
+				}
+			}
+		}
+	}
+	return status;
+}
+
+int API::ConsoleCallback(const char* message)
+{
+	int status = 1;
+	lua_getglobal(L, "EVENT");
+	lua_getfield(L, -1, "Console");
+	if (lua_istable(L, -3)) {
+		lua_pushnil(L);
+		while (lua_next(L, -4) != 0) {
+			if (lua_isfunction(L, -1)) {
+				lua_pushstring(L, message);
+				status = lua_pcall(L, 1, 0, 0);
+				if (status != LUA_OK) {
+LOG(lua_tostring(L, -1))
+				}
+			}
+		}
+		lua_pop(L, 1);
+	}
+	return status;
+}
+
+int API::SetCallback(const char* event, const char* handle, lua_CFunction* calllback)
+{
+	if (lua_isfunction(L, -3)) {
+		lua_getglobal(L, "API");
+		lua_getfield(L, -4, event);
+		if (lua_istable(L, -5)) {
+			lua_gettable(L, -6);
+			lua_setfield(L, -3, handle);
+		}
+	}
+	return 1;
+}
+
+int API::GetCallback(const char* event, const char* handle)
+{
+	return 1;
+}
+
+int API::loadmod (const char* modpath)
+{
+	return luau_dofile(
+		L,
+		TextFormat("mods/%s", modpath),
+		TextFormat("%s:%s", "loadmod", modpath)
+	);
+}
+
+int API::loadscript (const char* scriptpath)
+{
+	const char* path = TextFormat("scripts/%s", scriptpath);
+	return luau_dofile(
+		L,
+		path,
+		TextFormat("%s:%s", "loadscript", scriptpath)
+	);
+}
+
+static int API_SetCallback(lua_State* L)
+{
+	const char* event = lua_tostring(L, -1);
+	const char* handle = lua_tostring(L, -2);
+	return API::SetCallback(event, handle, 0);
+}
+
+static int API_GetCallback(lua_State* L)
+{
+	const char* event = lua_tostring(L, -1);
+	const char* handle = lua_tostring(L, -2);
+	API::GetCallback(event, handle);
+	return 1;
+}
+
+static int API_turnframes(lua_State* L)
 {
 	lua_rawgeti(L, -1, 1);
 	lua_Number turnframes = lua_tonumber(L, -1);
 
 	switch(DataContext) {
 		case NoContext: {
-			api.game->rules.turnframes = turnframes;
+			API::rules.turnframes = turnframes;
 		} break;
 		case ObjectContext: {
 			// Error Handling
@@ -49,14 +324,14 @@ int API_turnframes(lua_State* L)
 	return 1;
 }
 
-int API_numplayers(lua_State* L)
+static int API_numplayers(lua_State* L)
 {
 	lua_rawgeti(L, -1, 1);
 	lua_Number numplayers = lua_tonumber(L, -1); 
 
 	switch(DataContext) {
 		case NoContext: {
-			api.game->rules.numplayers = numplayers;
+			API::rules.numplayers = numplayers;
 		} break;
 		case ObjectContext: {
 			// Error Handling
@@ -74,14 +349,14 @@ int API_numplayers(lua_State* L)
 	return 1;
 }
 
-int API_friction(lua_State* L)
+static int API_friction(lua_State* L)
 {
 	lua_rawgeti(L, -1, 1);
 	lua_Number friction = lua_tonumber(L, -1);
 
 	switch(DataContext) {
 		case NoContext: {
-			api.game->rules.friction = friction;
+			API::rules.friction = friction;
 		} break;
 		case ObjectContext: {
 			// Error Handling
@@ -99,14 +374,14 @@ int API_friction(lua_State* L)
 	return 1;
 }
 
-int API_engagedistance(lua_State* L)
+static int API_engagedistance(lua_State* L)
 {
 	lua_rawgeti(L, -1, 1);
 	lua_Number distance = lua_tonumber(L, -1);
 
 	switch(DataContext) {
 		case NoContext: {
-			api.game->rules.engagedistance = distance;
+			API::rules.engagedistance = distance;
 		} break;
 		case ObjectContext: {
 			// Error Handling
@@ -124,14 +399,14 @@ int API_engagedistance(lua_State* L)
 	return 1;
 }
 
-int API_engageheight(lua_State* L)
+static int API_engageheight(lua_State* L)
 {
 	lua_rawgeti(L, -1, 1);
 	lua_Number height = lua_tonumber(L, -1);
 
 	switch(DataContext) {
 		case NoContext: {
-			api.game->rules.engageheight = height;
+			API::rules.engageheight = height;
 		} break;
 		case ObjectContext: {
 			// Error Handling
@@ -149,7 +424,7 @@ int API_engageheight(lua_State* L)
 	return 1;
 }
 
-int API_engagepos(lua_State* L)
+static int API_engagepos(lua_State* L)
 {
 	Vector3 pos;
 	lua_rawgeti(L, -1, 1);
@@ -164,10 +439,8 @@ int API_engagepos(lua_State* L)
 			// Error Handling
 		} break;
 		case PlayerContext: {
-			api.player->use_engagepos = true;
-			api.player->engagepos.x = pos.x;
-			api.player->engagepos.y = pos.y;
-			api.player->engagepos.z = pos.z;
+			API::player->use_engagepos = true;
+			API::player->engagepos = pos;
 		} break;
 		case ObjectContext: {
 			// Error Handling
@@ -185,7 +458,7 @@ int API_engagepos(lua_State* L)
 	return 1;
 }
 
-int API_engagerot(lua_State* L)
+static int API_engagerot(lua_State* L)
 {
 	Vector3 rot;
 
@@ -201,9 +474,8 @@ int API_engagerot(lua_State* L)
 			// Error Handling
 		} break;
 		case PlayerContext: {
-			api.player->engagerot.x = rot.x;
-			api.player->engagerot.y = rot.y;
-			api.player->engagerot.z = rot.z;
+			API::player->use_engagerot = true;
+			API::player->engagerot = rot;
 		} break;
 		case ObjectContext: {
 			// Error Handling
@@ -221,21 +493,19 @@ int API_engagerot(lua_State* L)
 	return 1;
 }
 
-int API_gravity(lua_State* L)
+static int API_gravity(lua_State* L)
 {
-	lua_Number gravity[3];
+	Vector3 gravity;
 	lua_rawgeti(L, -1, 1);
-	gravity[0] = lua_tonumber(L, -1); 
+	gravity.x = lua_tonumber(L, -1); 
 	lua_rawgeti(L, -2, 2);
-	gravity[1] = lua_tonumber(L, -1); 
+	gravity.y = lua_tonumber(L, -1); 
 	lua_rawgeti(L, -3, 3);
-	gravity[2] = lua_tonumber(L, -1); 
+	gravity.z = lua_tonumber(L, -1); 
 
 	switch(DataContext) {
 		case NoContext: {
-			api.game->rules.gravity[0] = gravity[0];
-			api.game->rules.gravity[1] = gravity[1];
-			api.game->rules.gravity[2] = gravity[2];
+			API::rules.gravity = gravity;
 		} break;
 		case ObjectContext: {
 			// Error Handling	
@@ -253,72 +523,83 @@ int API_gravity(lua_State* L)
 	return 1;
 }
 
-int API_mod(lua_State* L)
+static int API_mod(lua_State* L)
 {
-	std::string name = lua_tostring(L, -1);
-	api.game->mod = name;
+	API::rules.mod = lua_tostring(L, -1);
 
 	lua_Number result = 1;
 	lua_pushnumber(L, result);
 	return 1;
 }
 
-int API_object(lua_State* L)
+static int API_object(lua_State* L)
 {
 	DataContext = ObjectContext;
-	std::string name = lua_tostring(L, -1);
-	api.game->objects[name].name = name;
-	api.object = &(api.game->objects[name]);
+	Body o(lua_tostring(L, -1));
+	API::objects.push_back(o);
+	API::object = &API::objects[API::o_count];
+	API::o_count += 1;
 
 	lua_Number result = 1;
 	lua_pushnumber(L, result);
 	return 1;
 }
 
-int API_player(lua_State* L)
+static int API_player(lua_State* L)
 {
 	DataContext = PlayerContext;
-	std::string name = lua_tostring(L, -1);
+	const char* name = lua_tostring(L, -1);
 	lua_Number result = 0;
 
-	if (api.game->players.size() > api.game->rules.numplayers + 1) {
-		
-	} else {
-		api.game->players[name].name = name;
-		api.player = &(api.game->players[name]);
+	if (API::p_count < API::rules.numplayers) {
+		if (0 != API::p_count) {
+			API::player->body = API::GetBody();
+			API::b_vector.clear();
+			API::b_count = 0;
+
+			API::player->joint = API::GetJoint();
+			API::j_vector.clear();
+			API::j_count = 0;
+		}
+
+		Player p(name);
+		API::players.push_back(p);
+		API::player = &API::players[API::p_count];
+		API::p_count += 1;
 		result = 1;
 	}
 
-
 	lua_pushnumber(L, result);
 	return 1;
 }
 
-int API_body(lua_State* L)
+static int API_body(lua_State* L)
 {
 	DataContext = BodyContext;
-	std::string name = lua_tostring(L, -1);
-	api.player->body[name].name = name;
-	api.body = &(api.player->body[name]);
+	Body b(lua_tostring(L, -1));
+	API::b_vector.push_back(b);
+	API::body = &API::b_vector[API::b_count];
+	API::b_count += 1;
 
 	lua_Number result = 1;
 	lua_pushnumber(L, result);
 	return 1;
 }
 
-int API_joint(lua_State* L)
+static int API_joint(lua_State* L)
 {
 	DataContext = JointContext;
-	std::string name = lua_tostring(L, -1);
-	api.player->joint[name].name = name;
-	api.joint = &(api.player->joint[name]);
+	Joint j(lua_tostring(L, -1));
+	API::j_vector.push_back(j);
+	API::joint = &API::j_vector[API::j_count];
+	API::j_count += 1;
 
 	lua_Number result = 1;
 	lua_pushnumber(L, result);
 	return 1;
 }
 
-int API_shape(lua_State* L)
+static int API_shape(lua_State* L)
 {
 	std::string shape = lua_tostring(L, -1);
 
@@ -328,39 +609,39 @@ int API_shape(lua_State* L)
 		} break;
 		case ObjectContext: {
 			if ("box" == shape) {
-				api.object->shape = Box;
+				API::object->shape = Box;
 			} else if ("sphere" == shape) {
-					api.object->shape = Sphere;
+				API::object->shape = Sphere;
 			} else if ("capsule" == shape) {
-					api.object->shape = Capsule;
+				API::object->shape = Capsule;
 			} else if ("cylinder" == shape) {
-					api.object->shape = Cylinder;
+				API::object->shape = Cylinder;
 			} else  {
 				//Error Handling
 			}
 		} break;
 		case BodyContext: {
 			if ("box" == shape) {
-				api.body->shape = Box;
+				API::body->shape = Box;
 			} else if ("sphere" == shape) {
-				api.body->shape = Sphere;
+				API::body->shape = Sphere;
 			} else if ("capsule" == shape) {
-				api.body->shape = Capsule;
+				API::body->shape = Capsule;
 			} else if ("cylinder" == shape) {
-				api.body->shape = Cylinder;
+				API::body->shape = Cylinder;
 			} else  {
 				//Error Handling
 			}
 		} break;
 		case JointContext: {
 			if ("box"  == shape) {
-				api.joint->shape = Box;
+				API::joint->shape = Box;
 			} else if ("sphere" == shape) {
-				api.joint->shape = Sphere;
+				API::joint->shape = Sphere;
 			} else if ("capsule" == shape) {
-				api.joint->shape = Capsule;
+				API::joint->shape = Capsule;
 			} else if ("cylinder" == shape) {
-				api.joint->shape = Cylinder;
+				API::joint->shape = Cylinder;
 			} else  {
 				//Error Handling
 			}
@@ -372,7 +653,7 @@ int API_shape(lua_State* L)
 	return 1;
 }
 
-int API_position(lua_State* L)
+static int API_position(lua_State* L)
 {
 	Vector3 position;
 	lua_rawgeti(L, -1, 1);
@@ -387,16 +668,16 @@ int API_position(lua_State* L)
 			// Error Handling
 		} break;
 		case ObjectContext: {
-			api.object->position = position;
-			api.object->freeze.position = position;
+			API::object->position = position;
+			API::object->freeze.position = position;
 		} break;
 		case BodyContext: {
-			api.body->position = position;
-			api.body->freeze.position = position;
+			API::body->position = position;
+			API::body->freeze.position = position;
 		} break;
 		case JointContext: {
-			api.joint->position = position;
-			api.joint->freeze.position = position;
+			API::joint->position = position;
+			API::joint->freeze.position = position;
 		} break;
 	}
 
@@ -405,7 +686,7 @@ int API_position(lua_State* L)
 	return 1;
 }
 
-int API_orientation(lua_State* L)
+static int API_orientation(lua_State* L)
 {
 	Vector4 orientation;
 	lua_rawgeti(L, -1, 1);
@@ -422,51 +703,17 @@ int API_orientation(lua_State* L)
 			// Error Handling
 		} break;
 		case ObjectContext: {
-			api.object->orientation = (Vector4){
-				orientation.x,
-				orientation.y,
-				orientation.z,
-				orientation.w,
-			};
-
-			api.object->freeze.orientation = (Vector4){
-				orientation.x,
-				orientation.y,
-				orientation.z,
-				orientation.w,
-			};
+			API::object->orientation = orientation;
+			API::object->freeze.orientation = orientation;
 
 		} break;
 		case BodyContext: {
-			api.body->orientation = (Vector4){
-				orientation.x,
-				orientation.y,
-				orientation.z,
-				orientation.w,
-			};
-
-			api.body->freeze.orientation = (Vector4){
-				orientation.x,
-				orientation.y,
-				orientation.z,
-				orientation.w,
-			};
+			API::body->orientation = orientation;
+			API::body->freeze.orientation = orientation;
 		} break;
 		case JointContext: {
-
-			api.joint->orientation = (Vector4){
-				orientation.x,
-				orientation.y,
-				orientation.z,
-				orientation.w,
-			};
-
-			api.joint->freeze.orientation = (Vector4){
-				orientation.x,
-				orientation.y,
-				orientation.z,
-				orientation.w,
-			};
+			API::joint->orientation = orientation;
+			API::joint->freeze.orientation = orientation;
 		} break;
 	}
 
@@ -475,34 +722,28 @@ int API_orientation(lua_State* L)
 	return 1;
 }
 
-int API_sides(lua_State* L)
+static int API_sides(lua_State* L)
 {
-	lua_Number sides[3];
+	Vector3 sides;
 	lua_rawgeti(L, -1, 1);
-	sides[0] = lua_tonumber(L, -1); 
+	sides.x = lua_tonumber(L, -1); 
 	lua_rawgeti(L, -2, 2);
-	sides[1] = lua_tonumber(L, -1); 
+	sides.y = lua_tonumber(L, -1); 
 	lua_rawgeti(L, -3, 3);
-	sides[2] = lua_tonumber(L, -1); 
+	sides.z = lua_tonumber(L, -1); 
 
 	switch(DataContext) {
 		case NoContext: {
 			// Error Handling
 		} break;
 		case ObjectContext: {
-			api.object->sides.x = sides[0];
-			api.object->sides.y = sides[1];
-			api.object->sides.z = sides[2];
+			API::object->sides = sides;
 		} break;
 		case BodyContext: {
-			api.body->sides.x = sides[0];
-			api.body->sides.y = sides[1];
-			api.body->sides.z = sides[2];
+			API::body->sides = sides;
 		} break;
 		case JointContext: {
-			api.joint->sides.x = sides[0];
-			api.joint->sides.y = sides[1];
-			api.joint->sides.z = sides[2];
+			API::joint->sides = sides;
 		} break;
 	}
 
@@ -511,7 +752,7 @@ int API_sides(lua_State* L)
 	return 1;
 }
 
-int API_density(lua_State* L)
+static int API_density(lua_State* L)
 {
 	lua_rawgeti(L, -1, 1);
 	lua_Number density = lua_tonumber(L, -1); 
@@ -521,13 +762,13 @@ int API_density(lua_State* L)
 			// Error Handling
 		} break;
 		case ObjectContext: {
-			api.object->density = density;
+			API::object->density = density;
 		} break;
 		case BodyContext: {
-			api.body->density = density;
+			API::body->density = density;
 		} break;
 		case JointContext: {
-			api.joint->density = density;
+			API::joint->density = density;
 		} break;
 	}
 
@@ -536,20 +777,20 @@ int API_density(lua_State* L)
 	return 1;
 }
 
-int API_static(lua_State* L)
+static int API_static(lua_State* L)
 {
 	switch(DataContext) {
 		case NoContext: {
 			// Error Handling
 		} break;
 		case ObjectContext: {
-			api.object->static_state = true;
+			API::object->static_state = true;
 		} break;
 		case BodyContext: {
-			api.body->static_state = true;
+			API::body->static_state = true;
 		} break;
 		case JointContext: {
-			api.joint->static_state = true;
+			API::joint->static_state = true;
 		} break;
 	}
 
@@ -558,7 +799,7 @@ int API_static(lua_State* L)
 	return 1;
 }
 
-int API_radius(lua_State* L)
+static int API_radius(lua_State* L)
 {
 	lua_rawgeti(L, -1, 1);
 	lua_Number radius = lua_tonumber(L, -1); 
@@ -568,13 +809,13 @@ int API_radius(lua_State* L)
 			// Error Handling
 		} break;
 		case ObjectContext: {
-			api.object->radius = radius;
+			API::object->radius = radius;
 		} break;
 		case BodyContext: {
-			api.body->radius = radius;
+			API::body->radius = radius;
 		} break;
 		case JointContext: {
-			api.joint->radius = radius;
+			API::joint->radius = radius;
 		} break;
 	}
 
@@ -583,7 +824,7 @@ int API_radius(lua_State* L)
 	return 1;
 }
 
-int API_length(lua_State* L)
+static int API_length(lua_State* L)
 {
 	lua_rawgeti(L, -1, 1);
 	lua_Number length = lua_tonumber(L, -1); 
@@ -593,13 +834,13 @@ int API_length(lua_State* L)
 			// Error Handling
 		} break;
 		case ObjectContext: {
-			api.object->length = length;
+			API::object->length = length;
 		} break;
 		case BodyContext: {
-			api.body->length = length;
+			API::body->length = length;
 		} break;
 		case JointContext: {
-			api.joint->length = length;
+			API::joint->length = length;
 		} break;
 	}
 
@@ -608,7 +849,7 @@ int API_length(lua_State* L)
 	return 1;
 }
 
-int API_strength(lua_State* L)
+static int API_strength(lua_State* L)
 {
 	lua_Number strength;
 	lua_rawgeti(L, -1, 1);
@@ -616,7 +857,7 @@ int API_strength(lua_State* L)
 
 	switch(DataContext) {
 		case JointContext: {
-			api.joint->strength = strength;
+			API::joint->strength = strength;
 		} break;
 	}
 
@@ -625,7 +866,7 @@ int API_strength(lua_State* L)
 	return 1;
 }
 
-int API_strength_alt(lua_State* L)
+static int API_strength_alt(lua_State* L)
 {
 	lua_Number strength_alt;
 	lua_rawgeti(L, -1, 1);
@@ -633,7 +874,7 @@ int API_strength_alt(lua_State* L)
 
 	switch(DataContext) {
 		case JointContext: {
-			api.joint->strength_alt = strength_alt;
+			API::joint->strength_alt = strength_alt;
 		} break;
 	}
 
@@ -643,7 +884,7 @@ int API_strength_alt(lua_State* L)
 }
 
 
-int API_velocity(lua_State* L)
+static int API_velocity(lua_State* L)
 {
 	lua_Number velocity;
 	lua_rawgeti(L, -1, 1);
@@ -651,7 +892,7 @@ int API_velocity(lua_State* L)
 
 	switch(DataContext) {
 		case JointContext: {
-			api.joint->velocity = velocity;
+			API::joint->velocity = velocity;
 		} break;
 	}
 
@@ -660,7 +901,7 @@ int API_velocity(lua_State* L)
 	return 1;
 }
 
-int API_velocity_alt(lua_State* L)
+static int API_velocity_alt(lua_State* L)
 {
 	lua_Number velocity_alt;
 	lua_rawgeti(L, -1, 1);
@@ -668,7 +909,7 @@ int API_velocity_alt(lua_State* L)
 
 	switch(DataContext) {
 		case JointContext: {
-			api.joint->velocity_alt = velocity_alt;
+			API::joint->velocity_alt = velocity_alt;
 		} break;
 	}
 
@@ -677,21 +918,19 @@ int API_velocity_alt(lua_State* L)
 	return 1;
 }
 
-int API_axis(lua_State* L)
+static int API_axis(lua_State* L)
 {
-	lua_Number axis[3];
+	Vector3 axis;
 	lua_rawgeti(L, -1, 1);
-	axis[0] = lua_tonumber(L, -1); 
+	axis.x = lua_tonumber(L, -1); 
 	lua_rawgeti(L, -2, 2);
-	axis[1] = lua_tonumber(L, -1); 
+	axis.y = lua_tonumber(L, -1); 
 	lua_rawgeti(L, -3, 3);
-	axis[2] = lua_tonumber(L, -1); 
+	axis.z = lua_tonumber(L, -1); 
 
 	switch(DataContext) {
 		case JointContext: {
-			api.joint->axis[0] = axis[0];
-			api.joint->axis[1] = axis[1];
-			api.joint->axis[2] = axis[2];
+			API::joint->axis = axis;
 		} break;
 	}
 
@@ -700,21 +939,19 @@ int API_axis(lua_State* L)
 	return 1;
 }
 
-int API_axis_alt(lua_State* L)
+static int API_axis_alt(lua_State* L)
 {
-	lua_Number axis_alt[3];
+	Vector3 axis_alt;
 	lua_rawgeti(L, -1, 1);
-	axis_alt[0] = lua_tonumber(L, -1); 
+	axis_alt.x = lua_tonumber(L, -1); 
 	lua_rawgeti(L, -2, 2);
-	axis_alt[1] = lua_tonumber(L, -1); 
+	axis_alt.y = lua_tonumber(L, -1); 
 	lua_rawgeti(L, -3, 3);
-	axis_alt[2] = lua_tonumber(L, -1); 
+	axis_alt.z = lua_tonumber(L, -1); 
 
 	switch(DataContext) {
 		case JointContext: {
-			api.joint->axis_alt[0] = axis_alt[0];
-			api.joint->axis_alt[1] = axis_alt[1];
-			api.joint->axis_alt[2] = axis_alt[2];
+			API::joint->axis_alt = axis_alt;
 		} break;
 	}
 
@@ -723,7 +960,7 @@ int API_axis_alt(lua_State* L)
 	return 1;
 }
 
-int API_range(lua_State* L)
+static int API_range(lua_State* L)
 {
 	lua_Number range[2];
 		
@@ -734,8 +971,8 @@ int API_range(lua_State* L)
 
 	switch(DataContext) {
 		case JointContext: {
-			api.joint->range[0] = range[0];
-			api.joint->range[1] = range[1];
+			API::joint->range[0] = range[0];
+			API::joint->range[1] = range[1];
 		} break;
 	}
 
@@ -744,7 +981,7 @@ int API_range(lua_State* L)
 	return 1;
 }
 
-int API_range_alt(lua_State* L)
+static int API_range_alt(lua_State* L)
 {
 	lua_Number range_alt[2];
 	lua_rawgeti(L, -1, 1);
@@ -754,8 +991,8 @@ int API_range_alt(lua_State* L)
 
 	switch(DataContext) {
 		case JointContext: {
-			api.joint->range_alt[0] = range_alt[0];
-			api.joint->range_alt[1] = range_alt[1];
+			API::joint->range_alt[0] = range_alt[0];
+			API::joint->range_alt[1] = range_alt[1];
 		} break;
 	}
 	lua_Number result = 1;
@@ -763,7 +1000,7 @@ int API_range_alt(lua_State* L)
 	return 1;
 }
 
-int API_connections(lua_State* L)
+static int API_connections(lua_State* L)
 {
 	std::string connections[2];
 		
@@ -774,8 +1011,8 @@ int API_connections(lua_State* L)
 
 	switch(DataContext) {
 		case JointContext: {
-			api.joint->connections[0] = connections[0];
-			api.joint->connections[1] = connections[1];
+			API::joint->connections[0] = connections[0];
+			API::joint->connections[1] = connections[1];
 		} break;
 	}
 
@@ -784,20 +1021,20 @@ int API_connections(lua_State* L)
 	return 1;
 }
 
-int API_connection_type(lua_State* L)
+static int API_connection_type(lua_State* L)
 {
 	std::string connectionType = lua_tostring(L, -1); 	
 
 	switch(DataContext) {
 		case JointContext: {
 			if ("hinge" == connectionType) {
-				api.joint->connectionType = Hinge;
+				API::joint->connectionType = Hinge;
 			} else if ("slider" == connectionType) {
-				api.joint->connectionType = Slider;
+				API::joint->connectionType = Slider;
 			} else if ("universal" == connectionType) {
-				api.joint->connectionType = Universal;
+				API::joint->connectionType = Universal;
 			} else if ("hinge2" == connectionType) {
-				api.joint->connectionType = Hinge2;
+				API::joint->connectionType = Hinge2;
 			} else {
 			// Error Handling
 			}
@@ -809,7 +1046,7 @@ int API_connection_type(lua_State* L)
 	return 1;
 }
 
-int API_GetWindowSize(lua_State* L)
+static int API_GetWindowSize(lua_State* L)
 {
 	lua_newtable(L);
 	lua_pushnumber(L, window.width);
@@ -819,7 +1056,7 @@ int API_GetWindowSize(lua_State* L)
 	return 1;
 }
 
-int API_dofile(lua_State* L)
+static int API_dofile(lua_State* L)
 {
 	const char* filepath = lua_tostring(L, -1);
 	lua_Number result = luau_dofile(L, filepath);
@@ -827,50 +1064,33 @@ int API_dofile(lua_State* L)
 	return result;
 }
 
-int API_require(lua_State* L)
+static int API_require(lua_State* L)
 {
 	const char* filename = lua_tostring(L, -1);
 	lua_Number result = luau_require(L, filename);
 	lua_gettop(L);
 	return 1;
 }
-
-int loadmod (lua_State* L, const char* modpath)
-{
-	return luau_dofile(
-		L,
-		TextFormat("mods/%s", modpath),
-		TextFormat("%s:%s", "loadmod", modpath)
-	);
-}
-
-int API_loadmod(lua_State* L)
+static int API_loadmod(lua_State* L)
 {
 	const char* modpath = lua_tostring(L, -1);
-	lua_Number result = loadmod(L, modpath);
+	lua_Number result = API::loadmod(modpath);
 	lua_pushnumber(L, result);
 	return 1;
 }
 
-int loadscript (lua_State* L, const char* scriptpath)
-{
-	const char* path = TextFormat("scripts/%s", scriptpath);
-	return luau_dofile(
-		L,
-		path,
-		TextFormat("%s:%s", "loadscript", scriptpath)
-	);
-}
-
-int API_loadscript(lua_State* L)
+static int API_loadscript(lua_State* L)
 {
 	const char* scriptpath = lua_tostring(L, -1);
-	lua_Number result = loadscript(L, scriptpath);
+	lua_Number result = API::loadscript(scriptpath);
 	lua_pushnumber(L, result);
 	return 1;
 }
 
 static const luaL_Reg api_main[] {
+	{"SetCallback", API_SetCallback},
+	{"GetCallback", API_GetCallback},
+
 	{"GetWindowSize", API_GetWindowSize},
 
 	{"dofile", API_dofile},
@@ -914,7 +1134,31 @@ static const luaL_Reg api_main[] {
 	{NULL, NULL},
 };
 
+static const char* events[] = {
+	"NewGame",
+	"Freeze",
+	"Step",
+	"Update",
+	"Draw",
+	"Draw2D",
+	"Draw3D",
+	"MouseButtonPressed",
+	"MouseButtonDown",
+	"MouseButtonUp",
+
+	"NearCallback",
+	"FileDropped",
+	"Console",
+};
+
 int luaopen_api_main(lua_State* L) {
 	luaL_register(L, "API", api_main);
+
+	lua_getglobal(L, "API");
+	for (auto event : events) {
+		lua_newtable(L);
+		lua_setfield(L, -2, event);
+	}
+	lua_pop(L, 1);
 	return 1;
 }

@@ -18,7 +18,7 @@ struct FreezeData {
 };
 
 struct Body {
-	std::string name;
+	std::string m_name;
 
 	dMass mass;
 
@@ -49,6 +49,8 @@ struct Body {
 	unsigned long collide_bits;
 
 	Body();
+	Body(const char* name);
+
 	void make_static(dWorldID world);
 	void set_category_bits(unsigned long bits);
 	void set_category_bits();
@@ -57,11 +59,13 @@ struct Body {
 	void create(dWorldID world, dSpaceID space);
 	void update_freeze();
 	void refreeze();
+	void reset();
 	void draw_object(Color draw_color);
 	void draw(Color draw_color);
 	void draw_freeze();
 	void draw_ghost();
 	void draw();
 	void toggle_ghost();
+	std::string get_name();
 	RayCollision collide_mouse_ray(Ray ray, RayCollision collision);
 };

@@ -1,15 +1,129 @@
-#include "luau.h"
-#include "raylib.h"
-#include "api_callbacks.h"
 #include "game.h"
+#include "replay.h"
+#include "luau.h"
+#include "api.h"
 
-#include <fstream>
-#include <iostream>
+void Game::Init()
+{
+	dInitODE();
+	s_step = 1.0E-2;
+	s_world = dWorldCreate();
 
-#define PRINT(X) std::cout << "-- TEST " << X << " --" << std::endl;
-#define PRINT_A PRINT("A")
-#define PRINT_B PRINT("B")
-#define PRINT_C PRINT("C")
+	API::Init();
+
+	s_rules.max_contacts = 8;
+	s_nearCallback = [](void* unsafe, dGeomID o1, dGeomID o2)
+	{
+		Game::NearCallback(o1, o2);
+		API::NearCallback(s_collision);
+	};
+}
+
+void Game::NewGame()
+{
+	API::NewGameCallback();
+	dMass mass;
+
+	s_rules = API::GetRules();
+	s_objects = API::GetObjects();
+	s_players = API::GetPlayers();
+
+	s_state.game_frame = 0;
+
+	s_state.freeze = true;
+	s_state.freeze_time = GetTime();
+	s_state.freeze_frames = 50;
+	s_state.freeze_count = 0;
+
+	s_state.step_frames = 0;
+	s_state.step_count = 0;
+
+	s_space = dHashSpaceCreate(0);
+  	s_contactgroup = dJointGroupCreate(0);
+	s_floor = dCreatePlane(s_space, 0, 0, 1, 0);
+
+	dGeomSetCategoryBits(s_floor, 0b0001);
+	dGeomSetCollideBits(s_floor, 0b0000);
+
+  	dWorldSetGravity(s_world, s_rules.gravity.x, s_rules.gravity.y, s_rules.gravity.z);
+
+	for (int i = 0; i < s_objects.length; i += 1) {
+		auto&& o = s_objects[i];
+		//o.create(s_world, s_space);
+		//o.make_static(s_world);
+		//o.set_category_bits();
+		//o.set_collide_bits();
+	}
+
+	Color colors[] = {
+		MAROON,
+		DARKBLUE,
+		DARKGREEN,
+		DARKPURPLE,
+	};
+
+	unsigned long cat_bits[][2] = {
+		{0b000000000010, 0b000000000100},
+		{0b000000001000, 0b000000010000},
+		{0b000000100000, 0b000001000000},
+		{0b000010000000, 0b000100000000},
+	};
+
+	unsigned long col_bits[][2] = {
+		{
+			cat_bits[1][0]|cat_bits[2][0]|cat_bits[3][0],
+			cat_bits[1][1]|cat_bits[2][1]|cat_bits[3][1],
+		},
+		{
+			cat_bits[0][0]|cat_bits[2][0]|cat_bits[3][0],
+			cat_bits[0][1]|cat_bits[2][1]|cat_bits[3][1],
+		},
+		{
+			cat_bits[0][0]|cat_bits[1][0]|cat_bits[3][0],
+			cat_bits[0][1]|cat_bits[1][1]|cat_bits[3][1],
+		},
+		{
+			cat_bits[0][0]|cat_bits[1][0]|cat_bits[2][0],
+			cat_bits[0][1]|cat_bits[1][1]|cat_bits[2][1],
+		},
+	};
+
+	for (int i = 0; i < s_players.length; i += 1) {
+		auto&& p = s_players[i];
+		p.joint_color = colors[i];
+
+		//p.set_category_bits(0b0000, 0b0000);
+		//p.set_collide_bits(0b0001, 0b0001);
+		//p.set_offset();
+		if (s_rules.engageheight) {
+			///p.set_engageheight(s_rules.engageheight);
+		}
+		if (s_rules.engagedistance) {
+			//p.set_engagedistance(s_rules.engagedistance,  i * (360/s_rules.numplayers));
+		}
+
+		//p.create(s_world, s_space);
+		if (s_state.selected_player == "NONE") {
+			s_state.selected_player = p.get_name();
+		}
+	}
+	Replay::Record();
+}
+
+void Game::Quit()
+{
+	for (int i = 0; i < s_players.length; i += 1) {
+		delete[] s_players[i].body.start;
+		delete[] s_players[i].joint.start;
+	}
+	delete[] s_players.start;
+	delete[] s_objects.start;
+	API::Close();
+	dJointGroupDestroy(s_contactgroup);
+	dSpaceDestroy(s_space);
+	dCloseODE();
+
+}
 
 void Game::NearCallback(dGeomID o1, dGeomID o2)
 {
@@ -19,353 +133,238 @@ void Game::NearCallback(dGeomID o1, dGeomID o2)
 	unsigned long cat2 = dGeomGetCategoryBits(o2);
 	unsigned long col2 = dGeomGetCollideBits(o2);
 
- 	if (!((cat1 & col2) || (cat2 & col1))) {
-		return;
-	}
+ 	if (!((cat1 & col2) || (cat2 & col1))) return;
 
 	dBodyID b1 = dGeomGetBody(o1);
 	dBodyID b2 = dGeomGetBody(o2);
 
-	dContact contact[rules.max_contacts];
+	dContact contact[s_rules.max_contacts];
 
-	for (int i = 0; i < rules.max_contacts; i += 1) {
+	for (int i = 0; i < s_rules.max_contacts; i += 1) {
 		contact[i].surface = (dSurfaceParameters) {
 			.mode = dContactApprox1,
-			.mu = rules.friction,
+			.mu = s_rules.friction,
 		};
 	}
 
-	collision.contacts = contact[0];
-
-	if (int numc = dCollide(o1, o2, rules.max_contacts, &contact[0].geom, sizeof(dContact))) {
-		for (int i = 0; i < numc; i++) {
-			dJointID c = dJointCreateContact(world, contactgroup, contact + i);
+	if (int numc = dCollide(o1, o2, s_rules.max_contacts, &contact[0].geom, sizeof(dContact))) {
+		for (int i = 0; i < numc; i += 1) {
+			dJointID c = dJointCreateContact(s_world, s_contactgroup, contact + i);
 			dJointAttach(c, b1, b2);
 		}
 	}
 }
 
-Gamerules Game::GetGamerules()
-{
-	return rules;
-}
-
-std::map<std::string, Player> Game::GetPlayers()
-{
-	return players;
-}
-
-std::map<std::string, Body> Game::GetObjects()
-{
-	return objects;
-}
-
-void Game::TogglePause()
-{
-	state.pause = state.pause == false;
-}
-
-bool Game::GetPause()
-{
-	return state.pause;
-}
-
-bool Game::GetFreeze()
-{
-	return state.freeze;
-}
-
-void Game::NewGame()
-{
-	dMass mass;
-
-	state.game_frame = 0;
-
-	state.freeze = true;
-	state.freeze_time = GetTime();
-	state.freeze_frames = 50;
-	state.freeze_count = 0;
-
-	state.step_frames = 0;
-	state.step_count = 0;
-
-	space = dHashSpaceCreate(0);
-  	contactgroup = dJointGroupCreate(0);
-	floor = dCreatePlane(space, 0, 0, 1, 0);
-
-	dGeomSetCategoryBits(floor, 0b0001);
-	dGeomSetCollideBits(floor, 0b0000);
-
-  	dWorldSetGravity(
-		world,
-		rules.gravity[0],
-		rules.gravity[1],
-		rules.gravity[2]
-	);
-
-	for (auto& [object_name, o] : objects) {
-		o.create(world, space);
-		o.make_static(world);
-		o.set_category_bits();
-		o.set_collide_bits();
-	}
-
-	auto object_count = objects.size();
-	
-	int count = 0;
-
-	Color colors[] = {
-		MAROON,
-		DARKBLUE,
-		DARKGREEN,
-		DARKPURPLE,
-	};
-
-	unsigned long bits[][2] = {
-		{1<<2, 1<<3},
-		{1<<4, 1<<5},
-		{1<<6, 1<<7},
-		{1<<8, 1<<9},
-	};
-
-	for (auto& [player_name, p] : players) {
-		p.joint_color = colors[count];
-
-		p.set_category_bits(0b0000, 0b0000);
-		p.set_collide_bits(0b0001, 0b0001);
-		p.set_offset();
-		if (rules.engageheight) {
-			p.set_engageheight(rules.engageheight);
-		}
-		if (rules.engagedistance) {
-			p.set_engagedistance(rules.engagedistance,  count * (360/rules.numplayers));
-		}
-
-		p.create(world, space);
-
-		if (state.selected_player == "NONE") {
-			state.selected_player = player_name;
-		}
-		count += 1;
-	}
-
-	auto player_count = players.size();
-}
-
-void Game::ResetGame()
-{
-	std::map<std::string, Body> new_object_map;
-	objects = new_object_map;
-	std::map<std::string, Player> new_player_map;
-	players = new_player_map;
-
-	dJointGroupDestroy(contactgroup);
-	dSpaceDestroy(space);
-
-	NewGame();
-}
-
 void Game::UpdateFreeze()
 {
-	state.freeze = true;
-	state.freeze_time = GetTime();
-	state.step_count = 0;
+	API::FreezeCallback();
 
-	for (auto& [object_name, o] : objects) {
+	s_state.freeze = true;
+	s_state.freeze_time = GetTime();
+	s_state.step_count = 0;
+
+	for (int i = 0; i < s_objects.length; i += 1) {
+		auto&& o = s_objects[i];
 		o.update_freeze();
 	}
 
-	for (auto& [player_name, p] : players) {
+	for (int i = 0; i < s_players.length; i += 1) {
+		auto&& p = s_players[i];
 		p.update_freeze();
 	}
 }
 
 void Game::ReFreeze()
 {
-	state.freeze_count = 0;
+	s_state.freeze_count = 0;
 
-	for (auto& [object_name, o] : objects) {
+	for (int i = 0; i < s_objects.length; i += 1) {
+		auto&& o = s_objects[i];
 		o.refreeze();
 	}
 
-	for (auto& [player_name, p] : players) {
+	for (int i = 0; i < s_players.length; i += 1) {
+		auto&& p = s_players[i];
 		p.refreeze();
+	}
+}
+
+void Game::Restart()
+{
+	for (int i = 0; i < s_objects.length; i += 1) {
+		auto&& o = s_objects[i];
+		o.reset();
+	}
+	
+	for (int i = 0; i < s_players.length; i += 1) {
+		auto&& p = s_players[i];
+		p.reset();
+	}
+}
+
+void Game::Reset()
+{
+	/*std::map<std::string, Body> new_object_map;
+	objects = new_object_map;
+	std::map<std::string, Player> new_player_map;
+	players = new_player_map;*/
+
+	dJointGroupDestroy(s_contactgroup);
+	dSpaceDestroy(s_space);
+
+	NewGame();
+}
+
+
+void Game::StepGame(int frame_count)
+{
+	API::StepCallback();
+	s_state.freeze = false;
+	s_state.step_frames = frame_count;
+	ReFreeze();
+}
+
+void Game::Update(dReal dt)
+{
+	API::UpdateCallback(dt);
+	return;
+	if (!s_state.pause) {
+		if (!s_state.freeze) {
+			++s_state.game_frame;
+			switch (s_state.gamemode) {
+				case FREEPLAY: {
+					if (++s_state.step_count >= s_state.step_frames) {
+						UpdateFreeze();
+					}
+
+					Replay::Record(s_state.game_frame);
+				} break;
+				case REPLAY: {
+					const auto& frames = Replay::Get();
+					dReal size = frames.size();
+					if (s_state.game_frame > size + 100) {
+						//StartReplay();
+					} else if (s_state.game_frame < size) {
+						Replay::Play(s_state.game_frame);
+					}
+				} break;
+			}
+		} else {
+			switch (s_state.gamemode) {
+				case FREEPLAY: {
+					if (++s_state.freeze_count >= s_state.freeze_frames) {
+						ReFreeze();
+					}
+	
+					if (s_rules.reaction_time != 0) {
+						s_state.reaction_count = GetTime() - s_state.freeze_time;
+						if (s_state.reaction_count >= s_rules.reaction_time) {
+							StepGame(s_rules.turnframes);
+						}
+					}
+				} break;
+			}
+		}
+
+		dSpaceCollide(s_space, 0, s_nearCallback);
+		dWorldStep(s_world, s_step);
+		dJointGroupEmpty(s_contactgroup);
 	}
 }
 
 void Game::DrawFloor()
 {
 	rlPushMatrix();
-	float angle;
 	Vector3 axis;
-	Matrix m = MatrixRotateX(DEG2RAD*90);
-	Quaternion q = QuaternionFromMatrix(m);
+	float angle;
+	Quaternion q = QuaternionFromMatrix(MatrixRotateX(DEG2RAD*90));
 	QuaternionToAxisAngle(q, &axis, &angle);
 	rlRotatef(RAD2DEG * angle, axis.x, axis.y, axis.z);
 	DrawGrid(20, 1.0f);
 	rlPopMatrix();
 }
 
-void Game::ToggleGhosts()
+void Game::Draw()
 {
-	for (auto& [player_name, p] : players) {
-		if (player_name != state.selected_player) {
-			p.toggle_ghost();
-		}
-	}
-}
-
-void Game::DrawFrame()
-{
+	API::DrawCallback();
 	DrawFloor();
-	if (state.freeze) {
-		for (auto& [object_name, o] : objects) {
+	return;
+	if (s_state.freeze) {
+		for (int i = 0; i < s_objects.length; i += 1) {
+			auto&& o = s_objects[i];
 			o.draw_freeze();
 			o.draw_ghost();
 		}
 				
-		for (auto& [player_name, p] : players) {
+		for (int i = 0; i < s_players.length; i += 1) {
+			auto&& p = s_players[i];
 			p.draw_freeze();
 			p.draw_ghost();
 		}
 	} else {
-		for (auto& [object_name, o] : objects) {
+		for (int i = 0; i < s_objects.length; i += 1) {
+			auto&& o = s_objects[i];
 			o.draw();
 		}
 
-		for (auto& [player_name, p] : players) {
+		for (int i = 0; i < s_players.length; i += 1) {
+			auto&& p = s_players[i];
 			p.draw();
 		}
 	}
 }
 
-void Game::EndGame()
+int Game::GetGameFrame()
 {
-	dJointGroupDestroy(contactgroup);
-	dSpaceDestroy(space);
-	dCloseODE();
+	return s_state.game_frame;
 }
 
-void Game::StepGame(int frame_count)
+dReal Game::GetReactionTime()
 {
-	state.freeze = false;
-	state.step_frames = frame_count;
-	ReFreeze();
+	return s_rules.reaction_time;
 }
 
-void Game::Restart()
+dReal Game::GetReactionCount()
 {
-	for (auto& [object_name, o] : objects) {
-		dBodySetPosition(
-			o.dBody,
-			o.position.x,
-			o.position.y,
-			o.position.z
-		);
+	return s_state.reaction_count;
+}
 
-		dQuaternion q = {
-			o.orientation.w,
-			o.orientation.x,
-			o.orientation.y,
-			o.orientation.z,
-		};
+bool Game::GetPause()
+{
+	return s_state.pause;
+}
 
-		dBodySetQuaternion(o.dBody, q);
+bool Game::GetFreeze()
+{
+	return s_state.freeze;
+}
 
-		dBodySetLinearVel(o.dBody, 0.00, 0.00, 0.00);
-		dBodySetAngularVel(o.dBody, 0.00, 0.00, 0.00);
+Gamerules Game::GetGamerules()
+{
+	return s_rules;
+}
 
-		o.freeze.position.x = o.position.x;
-		o.freeze.position.y = o.position.y;
-		o.freeze.position.z = o.position.z;
+array<Body> Game::GetObjects()
+{
+	return s_objects;
+}
 
-		o.freeze.orientation.w = o.orientation.w;
-		o.freeze.orientation.x = o.orientation.x;
-		o.freeze.orientation.y = o.orientation.y;
-		o.freeze.orientation.z = o.orientation.z;
+array<Player> Game::GetPlayers()
+{
+	return s_players;
+}
 
-		o.freeze.linear_vel.x = 0.00;
-		o.freeze.linear_vel.y = 0.00;
-		o.freeze.linear_vel.z = 0.00;
+void Game::TogglePause()
+{
+	s_state.pause = s_state.pause == false;
+}
 
-		o.freeze.angular_vel.x = 0.00;
-		o.freeze.angular_vel.y = 0.00;
-		o.freeze.angular_vel.z = 0.00;
-	}
-	
+/*
+void Game::ToggleGhosts()
+{
 	for (auto& [player_name, p] : players) {
-		for (auto& [body_name, b] : p.body) {
-			dBodySetPosition(
-				b.dBody,
-				b.position.x,
-				b.position.y,
-				b.position.z);
-
-			dQuaternion q = {
-				b.orientation.w,
-				b.orientation.x,
-				b.orientation.y,
-				b.orientation.z,
-			};
-
-			dBodySetQuaternion(b.dBody, q);
-
-			dBodySetLinearVel(b.dBody, 0.00, 0.00, 0.00);
-			dBodySetAngularVel(b.dBody, 0.00, 0.00, 0.00);
-	
-			b.freeze.position.x = b.position.x;
-			b.freeze.position.y = b.position.y;
-			b.freeze.position.z = b.position.z;
-	
-			b.freeze.orientation.w = b.orientation.w;
-			b.freeze.orientation.x = b.orientation.x;
-			b.freeze.orientation.y = b.orientation.y;
-			b.freeze.orientation.z = b.orientation.z;
-	
-			b.freeze.linear_vel.x = 0.00;
-			b.freeze.linear_vel.y = 0.00;
-			b.freeze.linear_vel.z = 0.00;
-	
-			b.freeze.angular_vel.x = 0.00;
-			b.freeze.angular_vel.y = 0.00;
-			b.freeze.angular_vel.z = 0.00;
-		}
-		
-		for (auto& [joint_name, j] : p.joint) {
-			dGeomSetPosition(
-				j.dGeom,
-				j.position.x,
-				j.position.y,
-				j.position.z);
-
-			dQuaternion q = {
-				j.orientation.w,
-				j.orientation.x,
-				j.orientation.y,
-				j.orientation.z,
-			};
-
-			dGeomSetQuaternion(j.dGeom, q);
-
-			dBodySetLinearVel(j.dBody, 0.00, 0.00, 0.00);
-			dBodySetAngularVel(j.dBody, 0.00, 0.00, 0.00);
-	
-			j.freeze.position.x = j.position.x;
-			j.freeze.position.y = j.position.y;
-			j.freeze.position.z = j.position.z;
-	
-			j.freeze.orientation.w = j.orientation.w;
-			j.freeze.orientation.x = j.orientation.x;
-			j.freeze.orientation.y = j.orientation.y;
-			j.freeze.orientation.z = j.orientation.z;
-	
-			j.freeze.linear_vel.x = 0.00;
-			j.freeze.linear_vel.y = 0.00;
-			j.freeze.linear_vel.z = 0.00;
-	
-			j.freeze.angular_vel.x = 0.00;
-			j.freeze.angular_vel.y = 0.00;
-			j.freeze.angular_vel.z = 0.00;
+		if (player_name != state.selected_player) {
+			p.toggle_ghost();
 		}
 	}
 }
@@ -412,115 +411,6 @@ void Game::SelectJoint(Camera3D Camera, Ray MouseRay, RayCollision MouseCollisio
 	}
 }
 
-void Game::RecordFrame(int game_frame)
-{
-	std::ofstream tempframefile("tempframefile.txt");
-	tempframefile << "FRAME " << game_frame << "\n";
-	for (auto const& [player_name, p] : players) {
-		RecordedFrames[game_frame].player[player_name] = p;
-		for (auto const& [joint_name, j] : p.joint) {
-			tempframefile << "JOINT " <<
-				player_name << " " <<
-				joint_name << " " <<
-				j.state << " " <<
-				j.state_alt << std::endl;
-		}
-		for (auto const& [body_name, b] : p.body) {
-			tempframefile << "POS " <<
-				player_name << " " <<
-				body_name << " " <<
-				b.freeze.position.x << " " <<
-				b.freeze.position.y << " " <<
-				b.freeze.position.z << std::endl;
-			tempframefile << "QAT " <<
-				player_name << " " <<
-				body_name << " " <<
-				b.freeze.orientation.w << " " <<
-				b.freeze.orientation.x << " " <<
-				b.freeze.orientation.y << " " <<
-				b.freeze.orientation.z << std::endl;
-			tempframefile << "LINVEL " <<
-				player_name << " " <<
-				body_name << " " <<
-				b.freeze.linear_vel.x << " " <<
-				b.freeze.linear_vel.y << " " <<
-				b.freeze.linear_vel.z << std::endl;
-			tempframefile << "ANGVEL " <<
-				player_name << " " <<
-				body_name << " " <<
-				b.freeze.angular_vel.x << " " <<
-				b.freeze.angular_vel.y << " " <<
-				b.freeze.angular_vel.z << std::endl;
-		}
-	}
-	tempframefile.close();
-
-	std::ofstream tempreplayfile("tempreplayfile.txt", std::ios::app);
-	tempreplayfile << "FRAME " << game_frame << "\n";
-	for (auto const& [player_name, p] : players) {
-		tempreplayfile << "PLAYER " << player_name << "\n";
-		RecordedFrames[game_frame].player[player_name] = p;
-		for (auto const& [joint_name, j] : p.joint) {
-			tempreplayfile << j.name << " " << j.state << " " << j.state_alt << "\n";
-		}
-	}
-	tempreplayfile.close();
-}
-
-void Game::PlayFrame(int game_frame)
-{
-	FrameData frame = RecordedFrames[game_frame];
-	for (auto& [player_name, p] : frame.player) {
-		for (auto& [joint_name, j] : p.joint) {
-			switch(j.state) {
-				case RELAX: {
-					j.state = RELAX;
-					players[p.name].joint[j.name]
-					.TriggerPassiveState(0.00);
-				} break;
-				case HOLD: {
-					j.state = HOLD;
-					players[p.name].joint[j.name]
-					.TriggerPassiveState(j.strength);
-				} break;
-				case FORWARD: {
-					j.state = FORWARD;
-					players[p.name].joint[j.name]
-					.TriggerActiveState(1.00);
-				} break; 
-				case BACKWARD: {
-					j.state = BACKWARD;
-					players[p.name].joint[j.name]
-					.TriggerActiveState(-1.00);
-				} break;
-			}
-		
-			switch(j.state_alt) {
-				case RELAX: {
-					j.state_alt = RELAX;
-					players[p.name].joint[j.name]
-					.TriggerPassiveStateAlt(0.00);
-				} break;
-				case HOLD: {
-					j.state_alt = HOLD;
-					players[p.name].joint[j.name]
-					.TriggerPassiveStateAlt(j.strength_alt);
-				} break;
-				case FORWARD: {
-					j.state_alt = FORWARD;
-					players[p.name].joint[j.name]
-					.TriggerActiveStateAlt(1.00);
-				} break;
-				case BACKWARD: {
-					j.state_alt = BACKWARD;
-					players[p.name].joint[j.name]
-					.TriggerActiveStateAlt(-1.00);
-				} break;
-			}
-		}
-	}
-}
-
 void Game::EditReplay()
 {
 	state.gamemode = FREEPLAY;
@@ -554,21 +444,6 @@ void Game::EditReplay()
 	tempreplayfile.close();
 }
 
-void Game::SaveReplay()
-{
-	std::ofstream savedreplayfile("savedreplayfile.txt");
-	for (auto const& [game_frame, frame] : RecordedFrames) {
-		savedreplayfile << "FRAME " << game_frame << "\n";
-		for (auto const& [player_name, p] : frame.player) {
-			savedreplayfile << "PLAYER " << player_name << "\n";
-			for (auto const& [joint_name, j] : p.joint) {
-				savedreplayfile << j.name << " " << j.state << " " << j.state_alt << "\n";
-			}
-		}
-	}
-	savedreplayfile.close();
-}
-
 void Game::StartFreeplay()
 {
 	state.gamemode = FREEPLAY;
@@ -587,16 +462,7 @@ void Game::StartFreeplay()
 
 	UpdateFreeze();
 
-	std::ofstream tempreplayfile("tempreplayfile.txt");
-	tempreplayfile << "FRAME 0\n";
-	for (auto const& [player_name, p] : GetPlayers()) {
-		tempreplayfile << "PLAYER " << player_name << "\n";
-		for (auto const& [joint_name, j] : p.joint) {
-			RecordedFrames[0].player[player_name].joint[joint_name] = j;
-			tempreplayfile << j.name << " " << j.state << " " << j.state_alt << "\n";
-		}
-	}
-	tempreplayfile.close();
+	Replay::Record();
 }
 
 void Game::StartReplay()
@@ -617,51 +483,6 @@ void Game::StartReplay()
 	Restart();
 }
 
-void Game::UpdateFrame()
-{
-	if (!state.pause) {
-		if (!state.freeze) {
-			++state.game_frame;
-			switch (state.gamemode) {
-				case FREEPLAY: {
-					if (++state.step_count >= state.step_frames) {
-						UpdateFreeze();
-					}
-
-					RecordFrame(state.game_frame);
-				} break;
-				case REPLAY: {
-					dReal size = RecordedFrames.size();
-					if (state.game_frame > size + 100) {
-						StartReplay();
-					} else if (state.game_frame < size) {
-						PlayFrame(state.game_frame);
-					}
-				} break;
-			}
-		} else {
-			switch (state.gamemode) {
-				case FREEPLAY: {
-					if (++state.freeze_count >= state.freeze_frames) {
-						ReFreeze();
-					}
-	
-					if (rules.reaction_time != 0) {
-						state.reaction_count = GetTime() - state.freeze_time;
-						if (state.reaction_count >= rules.reaction_time) {
-							StepGame(rules.turnframes);
-						}
-					}
-				} break;
-			}
-		}
-
-		dSpaceCollide(space, 0, nearCallback);
-		dWorldStep(world, step);
-		dJointGroupEmpty(contactgroup);
-	}
-}
-
 void Game::Start () {
 	state.running = true;
 };
@@ -674,10 +495,8 @@ void Game::Loop () {
 	int i = 1;
 };
 
-/*
 void Console::log(lua_State* L, char* message)
 {
 	last_message = message;
 	ConsoleCallback(L, last_message);
-};
-*/
+};*/

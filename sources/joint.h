@@ -23,8 +23,12 @@ struct Joint : public Body {
 	JointState state;
 	JointState state_alt;
 
-	dReal axis[3];
-	dReal axis_alt[3];
+	Joint();
+	Joint(const char* name);
+
+	Vector3 axis;
+	Vector3 axis_alt;
+
 	dReal range[2];
 	dReal range_alt[2];
 	dReal strength;

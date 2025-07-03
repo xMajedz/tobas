@@ -1,6 +1,7 @@
-#include <common.h>
-#include <body.h>
-#include <joint.h>
+#include "common.h"
+#include "body.h"
+#include "joint.h"
+#include <vector>
 
 enum PlayerPassiveStates {
 	HOLD_ALL,
@@ -9,10 +10,10 @@ enum PlayerPassiveStates {
 }; 
 
 struct Player {
-	std::string name;
-
-	std::map<std::string, Body> body;
-	std::map<std::string, Joint> joint;
+	std::string m_name;
+	
+	array<Body> body;
+	array<Joint> joint;
 
 	size_t b_count;
 	size_t j_count;
@@ -41,7 +42,11 @@ struct Player {
 	
 	dMass mass;
 
+	Player(const char* name);
 	Player();
+
+	std::string get_name();
+
 	void create(dWorldID world, dSpaceID space);
 
 	void set_offset();
@@ -52,6 +57,7 @@ struct Player {
 	void set_collide_bits(unsigned long b_bits, unsigned long j_bits);
 	void update_freeze();
 	void refreeze();
+	void reset();
 	void draw();
 	void draw_freeze();
 	void draw_ghost();

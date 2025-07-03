@@ -1,7 +1,8 @@
-#include <api_raylib.h>
-#include <iostream>
+#include "api.h"
+#include "raylib.h"
+#include "common.h"
 
-int api_DrawText(lua_State* L)
+static int RAYLIB_DrawText(lua_State* L)
 {
 	Color color;
 	lua_rawgeti(L, -1, 1);
@@ -24,7 +25,7 @@ int api_DrawText(lua_State* L)
 	return 1;
 }
 
-int api_DrawRectangle(lua_State* L)
+static int RAYLIB_DrawRectangle(lua_State* L)
 {
 	Color color;
 	lua_rawgeti(L, -1, 1);
@@ -47,7 +48,7 @@ int api_DrawRectangle(lua_State* L)
 	return 1;
 }
 
-int api_DrawRectangleLines(lua_State* L)
+static int RAYLIB_DrawRectangleLines(lua_State* L)
 {
 	Color color;
 	lua_rawgeti(L, -1, 1);
@@ -69,7 +70,7 @@ int api_DrawRectangleLines(lua_State* L)
 	lua_pushnumber(L, result);
 	return 1;
 }
-int api_LoadFileText(lua_State* L)
+static int RAYLIB_LoadFileText(lua_State* L)
 {
 	const char* filename = lua_tostring(L, -1);
 	char* text = LoadFileText(filename);
@@ -78,7 +79,7 @@ int api_LoadFileText(lua_State* L)
 	return 1;
 }
 
-int api_LoadDirectoryFilesEx(lua_State* L)
+static int RAYLIB_LoadDirectoryFilesEx(lua_State* L)
 {
 	const char* path = lua_tostring(L, -1);
 	const char* filter = lua_tostring(L, -2);
@@ -94,7 +95,7 @@ int api_LoadDirectoryFilesEx(lua_State* L)
 }
 
 
-int api_LoadDirectoryFiles(lua_State* L)
+static int RAYLIB_LoadDirectoryFiles(lua_State* L)
 {
 	const char* path = lua_tostring(L, -1);
 	FilePathList list = LoadDirectoryFiles(path);
@@ -107,7 +108,7 @@ int api_LoadDirectoryFiles(lua_State* L)
 	return 1;
 }
 
-int api_GetMousePosition(lua_State* L)
+static int RAYLIB_GetMousePosition(lua_State* L)
 {
 	Vector2 MousePosition = GetMousePosition();
 	lua_newtable(L);
@@ -118,23 +119,37 @@ int api_GetMousePosition(lua_State* L)
 	return 1;
 }
 
-int api_GetTime(lua_State* L)
+static int RAYLIB_GetTime(lua_State* L)
 {
 	lua_pushnumber(L, GetTime());
 	return 1;
 }
 
-int api_GetFrameTime(lua_State* L)
+static int RAYLIB_GetFrameTime(lua_State* L)
 {
 	lua_pushnumber(L, GetFrameTime());
 	return 1;
 }
 
-int api_GetFPS(lua_State* L)
+static int RAYLIB_GetFPS(lua_State* L)
 {
 	lua_pushnumber(L, GetFPS());
 	return 1;
 }
+
+static const luaL_Reg api_raylib[] {
+	{"DrawText", RAYLIB_DrawText},
+	{"DrawRectangle", RAYLIB_DrawRectangle},
+	{"DrawRectangleLines", RAYLIB_DrawRectangleLines},
+	{"LoadFileText", RAYLIB_LoadFileText},
+	{"LoadDirectoryFilesEx", RAYLIB_LoadDirectoryFilesEx},
+	{"LoadDirectoryFiles", RAYLIB_LoadDirectoryFiles},
+	{"GetMousePosition", RAYLIB_GetMousePosition},
+	{"GetTime", RAYLIB_GetTime},
+	{"GetFrameTime", RAYLIB_GetFrameTime},
+	{"GetFPS", RAYLIB_GetFPS},
+	{NULL, NULL},
+};
 
 int luaopen_api_raylib(lua_State* L)
 {

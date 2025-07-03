@@ -3,6 +3,13 @@
 #include <iostream>
 #define PRINT(X) std::cout << X << std::endl;
 
+Joint::Joint() {}
+
+Joint::Joint(const char* name)
+{
+	m_name = name;
+}
+
 void Joint::refreeze_joint() {
 	dGeomSetPosition(
 		dGeom,
@@ -10,7 +17,9 @@ void Joint::refreeze_joint() {
 		freeze.position.y,
 		freeze.position.z
 	);
-	dGeomSetQuaternion(dGeom, (dQuaternion) {
+	dGeomSetQuaternion(
+		dGeom,
+		(dQuaternion) {
 		freeze.orientation.w,
 		freeze.orientation.x,
 		freeze.orientation.y,
@@ -21,38 +30,29 @@ void Joint::refreeze_joint() {
 		dBody,
 		freeze.linear_vel.x,
 		freeze.linear_vel.y,
-		freeze.linear_vel.z);
+		freeze.linear_vel.z
+	);
 	dBodySetAngularVel(
 		dBody,
 		freeze.angular_vel.x,
 		freeze.angular_vel.y,
-		freeze.angular_vel.z);
+		freeze.angular_vel.z
+	);
 };
 
 void Joint::update_joint_freeze() {
-	dQuaternion orientation;
-	dGeomGetQuaternion(dGeom, orientation);
-
-	const dReal *position = dGeomGetPosition(dGeom);
-	freeze.position.x = position[0];
-	freeze.position.y = position[1];
-	freeze.position.z = position[2];
-
-	freeze.orientation.w = orientation[0];
-	freeze.orientation.x = orientation[1];
-	freeze.orientation.y = orientation[2];
-	freeze.orientation.z = orientation[3];
-
 	const dReal *linear_vel = dBodyGetLinearVel(dBody);
 	const dReal *angular_vel = dBodyGetAngularVel(dBody);
+	const dReal *position = dGeomGetPosition(dGeom);
+	//const dReal *orientation = dBodyGetQuaternion(dBody);
 
-	freeze.linear_vel.x = linear_vel[0];
-	freeze.linear_vel.y = linear_vel[1];
-	freeze.linear_vel.z = linear_vel[2];
+	freeze.linear_vel = (Vector3) {linear_vel[0], linear_vel[1], linear_vel[2]};
+	freeze.angular_vel = (Vector3) {angular_vel[0], angular_vel[1], angular_vel[2]};
+	freeze.position = (Vector3) {position[0], position[1], position[2]};
 
-	freeze.angular_vel.x = angular_vel[0];
-	freeze.angular_vel.y = angular_vel[1];
-	freeze.angular_vel.z = angular_vel[2];
+	dQuaternion orientation;
+	dGeomGetQuaternion(dGeom, orientation);
+	freeze.orientation = (Vector4){orientation[1], orientation[2], orientation[3], orientation[0]};
 };
 
 void Joint::create_joint(dWorldID world, dSpaceID space, dMass mass, Body b1, Body b2) {
@@ -61,36 +61,39 @@ void Joint::create_joint(dWorldID world, dSpaceID space, dMass mass, Body b1, Bo
 	switch(shape) {
 		case Box: {
 			dGeom = dCreateBox(space, sides.x, sides.y, sides.z);
-			//dMassSetBox(&mass, density, sides.x, sides.y, sides.z);
+			dMassSetBox(&mass, density, sides.x, sides.y, sides.z);
 		} break;
 		case Sphere: {
 			dGeom = dCreateSphere(space, radius);
-			//dMassSetSphere(&mass, density, radius);
+			dMassSetSphere(&mass, density, radius);
 		} break;
 		case Capsule: {
 			dGeom = dCreateCapsule(space, radius, length);
-			//dMassSetCapsule(&mass, density, 1, length, radius);
+			dMassSetCapsule(&mass, density, 1, length, radius);
 		} break;
 		case Cylinder: {
 			dGeom = dCreateCylinder(space, radius, length);
-			//dMassSetCylinder(&mass, density, 1, length, radius);
+			dMassSetCylinder(&mass, density, 1, length, radius);
 		} break;
 	}
 
 	dGeomSetBody(dGeom, dBody);
 	
-	dGeomSetOffsetPosition(dGeom,
+	dGeomSetOffsetPosition(
+		dGeom,
 		position.x - b1.position.x,
 		position.y - b1.position.y,
 		position.z - b1.position.z
 	);
 
-	dGeomSetOffsetQuaternion(dGeom, (dQuaternion) {
+	/*dGeomSetOffsetQuaternion(
+		dGeom,
+		(dQuaternion) {
 		orientation.w,
 		orientation.x,
 		orientation.y,
 		orientation.z,
-	});
+	});*/
 
 	switch(connectionType) {
 		case Hinge: {
@@ -103,9 +106,9 @@ void Joint::create_joint(dWorldID world, dSpaceID space, dMass mass, Body b1, Bo
 				position.z);
 			dJointSetHingeAxis(
 				dJoint,
-				axis[0],
-				axis[1],
-				axis[2]);
+				axis.x,
+				axis.y,
+				axis.z);
 	
 			dJointSetHingeParam(
 				dJoint,
@@ -121,9 +124,9 @@ void Joint::create_joint(dWorldID world, dSpaceID space, dMass mass, Body b1, Bo
 			dJointAttach(dJoint, dBody, b2.dBody);
 			dJointSetSliderAxis(
 				dJoint,
-				axis[0],
-				axis[1],
-				axis[2]);
+				axis.x,
+				axis.y,
+				axis.z);
 	
 			dJointSetSliderParam(
 				dJoint,
@@ -151,14 +154,14 @@ void Joint::create_joint(dWorldID world, dSpaceID space, dMass mass, Body b1, Bo
 	
 			dJointSetUniversalAxis1(
 				dJoint,
-				axis[0],
-				axis[1],
-				axis[2]);
+				axis.x,
+				axis.y,
+				axis.z);
 			dJointSetUniversalAxis2(
 				dJoint,
-				axis_alt[0],
-				axis_alt[1],
-				axis_alt[2]);
+				axis_alt.x,
+				axis_alt.y,
+				axis_alt.z);
 	
 			dJointSetUniversalParam(
 				dJoint,
@@ -195,7 +198,17 @@ void Joint::create_joint(dWorldID world, dSpaceID space, dMass mass, Body b1, Bo
 				position.y,
 				position.z);
 		
-			dJointSetHinge2Axes(dJoint, axis, axis_alt);
+			dJointSetHinge2Axes(dJoint,
+				(dVector3){
+				axis.x,
+				axis.y,
+				axis.z,
+			},
+				(dVector3){
+				axis_alt.x,
+				axis_alt.y,
+				axis_alt.z,
+			});
 	
 			dJointSetHinge2Param(
 				dJoint,
