@@ -1,3 +1,28 @@
+newaction {
+	trigger = "run",
+	description = "distribute a release",
+	onStart = function() 
+		os.execute "make -j8 -C build"
+		os.execute "build/tobas_sp"
+	end,
+}
+
+newaction {
+	trigger = "build",
+	description = "distribute a release",
+	onStart = function() 
+		os.execute "make -j8 -C build"
+	end,
+}
+
+newaction {
+	trigger = "dist",
+	description = "distribute a release",
+	onStart = function() 
+		os.execute "ls"
+	end,
+}
+
 workspace "tobas"
 	language "C++"
 	configurations { "Debug", "Release" }
