@@ -314,6 +314,11 @@ void Game::Draw()
 	}
 }
 
+const char* Game::GetMod()
+{
+	return s_rules.mod.c_str();
+}
+
 int Game::GetGameFrame()
 {
 	return s_state.game_frame;
@@ -494,9 +499,4 @@ bool Game::Running () {
 void Game::Loop () {
 	int i = 1;
 };
-
-void Console::log(lua_State* L, char* message)
-{
-	last_message = message;
-	ConsoleCallback(L, last_message);
-};*/
+*/

@@ -3,8 +3,6 @@
 #include "luau.h"
 #include "game.h"
 
-#include <vector>
-
 namespace API
 {
 	static lua_State* L;
@@ -41,6 +39,7 @@ namespace API
 	array<Joint> GetJoint();
 	
 	int TriggerCallback(const char* event);
+	int TriggerCallback(const char* event, const char* str);
 	int TriggerCallback(const char* event, dReal dt);
 
 	int MouseButtonPressedCallback();
@@ -58,12 +57,25 @@ namespace API
 	int FileDroppedCallback(const char* dropped_file);
 	int ConsoleCallback(const char* message);
 
-	int SetCallback(const char* event, const char* handle, lua_CFunction* callback);
-	int GetCallback(const char* event, const char* handle);
+	void SetCallback(const char* event, const char* handle, lua_CFunction function);
+	lua_CFunction GetCallback(const char* event, const char* handle);
 
 	int loadmod(const char* modpath);
 	int loadscript(const char* scriptpath);
 }
+
+namespace Console {
+	static const char* messages[1024];
+	static const char* s_last_message;
+	static bool s_has_event;
+
+	void log(const char* message);
+	void SetMessage(const char* message);
+	const char* GetMessage();
+	void ResetHasEvent();
+	void SetHasEvent();
+	bool GetHasEvent();
+};
 
 
 int luaopen_api_main(lua_State* L);

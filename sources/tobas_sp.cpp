@@ -2,7 +2,6 @@
 #include "game.h"
 #include "camera.h"
 
-Console console;
 Window window;
 
 std::string SelectJoint(Camera3D camera, Ray* MouseRay, RayCollision* MouseCollision, Player* player)
@@ -173,14 +172,19 @@ int main()
 	
 		if (IsMouseButtonUp(MOUSE_BUTTON_LEFT)) {
 			MouseButtonUpCallback(L);
-		}
+		}*/
 	
 		if (IsFileDropped()) {
 			FilePathList dropped_files = LoadDroppedFiles();
-			FileDroppedCallback(L, *(dropped_files.paths));
+			API::FileDroppedCallback(*(dropped_files.paths));
 			UnloadDroppedFiles(dropped_files);
 	        }
-		*/
+
+		if (Console::GetHasEvent()) {
+			const char* message = Console::GetMessage();
+			API::ConsoleCallback(message);
+			Console::ResetHasEvent();
+		}
 	}
 
 	CloseWindow();

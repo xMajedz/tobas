@@ -3,7 +3,6 @@
 #include "netcode_client.h"
 #include "netcode_server.h"
 
-Console console;
 Window window;
 
 int main()

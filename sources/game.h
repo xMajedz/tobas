@@ -79,6 +79,7 @@ namespace Game {
 
 	void NearCallback(dGeomID, dGeomID);
 
+	const char* GetMod();
 	int GetGameFrame();
 	dReal GetReactionTime();
 	dReal GetReactionCount();
@@ -111,11 +112,4 @@ namespace Game {
 struct Window {
 	int width;
 	int height;
-};
-
-struct Console {
-	char* messages[1024];
-	char* last_message;
-
-	//void log(lua_State* L, char* message);
 };

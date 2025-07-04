@@ -26,17 +26,32 @@ ms.connections["r_thigh"] = "r_hip"
 ms.connections["l_leg"] = "l_knee"
 ms.connections["r_leg"] = "r_knee"
 
+function ms.euler2quat(u, v, w)
+	return Math.MatrixToQuaternion(Math.EulerToMatrix(u, v, w))
+end
+
+function ms.euler2quat2(u, v, w)
+	return RAYMATH.QuaternionFromMatrix(RAYMATH.MatrixRotateXYZ({u, v, w}))
+end
+--local q = RAYMATH.QuaternionIdentity() 
+--local q = RAYMATH.QuaternionFromMatrix(RAYMATH.MatrixIdentity()) 
+--local q = RAYMATH.QuaternionFromMatrix(RAYMATH.MatrixRotateX(90)) 
+--print(RAYMATH.RAD2DEG)
+--print(RAYMATH.DEG2RAD)
+--print(q.w)
+--print(q.x)
+--print(q.y)
+--print(q.z)
+
+--RAYMATh.MatrixRotateXYZ(Vector3 angle)
+--RAYMATH.QuaternionFromMatrix(Matrix mat)
+
 function ms.loadmodTBM(modname)
 	ms.loadTBM(ms.parseTBM(modname))
 end
 
 function ms.loadTBM(TBM)
-	local euler2quat = function (u, v, w)
-		return Math.MatrixToQuaternion(Math.EulerToMatrix(u, v, w))
-	end
-
-	--RAYMATh.MatrixRotateXYZ(Vector3 angle)
-	--RAYMATH.QuaternionFromMatrix(Matrix mat)
+	local euler2quat = ms["euler2quat"]
 
 	API["mod"] (TBM["mod"])
 	API["gravity"] {TBM["gravity"][1] + 0, TBM["gravity"][2] + 0, TBM["gravity"][3] + 0}

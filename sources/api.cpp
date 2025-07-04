@@ -1,7 +1,6 @@
 #include "api.h"
 
 extern Window window;
-extern Console console;
 
 enum GameContext {
 	NoContext,
@@ -22,20 +21,34 @@ void API::Init()
 	luaL_openlibs(L);
 	luaL_sandbox(L);
 
+	lua_State* T = lua_newthread(L);
+	luaL_sandboxthread(T);
+
+	API::SetCallback("NewGame", "init", [](lua_State* L) {
+		LOG("NewGame")
+		return 1;
+	});
+
+	rules = {.mod = "NONE"};
+
 	loadscript("init");
 
-	player->body = GetBody();
-	b_vector.clear();
-	b_count = 0;
-	
-	player->joint = GetJoint();
-	j_vector.clear();
-	j_count = 0;
+	if (b_count > 0) {
+		player->body = GetBody();
+		b_vector.clear();
+		b_count = 0;
+	}
+		
+	if (j_count > 0) {
+		player->joint = GetJoint();
+		j_vector.clear();
+		j_count = 0;
+	}
 }
 
 void API::Reset()
 {
-	rules = {.mod = ""};
+	rules = {.mod = "NONE"};
 
 	objects.clear();
 	players.clear();
@@ -73,38 +86,22 @@ Gamerules API::GetRules()
 
 array<Body> API::GetObjects()
 {
-	auto o_array = new Body[o_count];
-	for (int i = 0; i < o_count; i += 1) {
-		o_array[i] = objects[i];
-	}
-	return (array<Body>){o_array, o_count};
+	return array<Body>(o_count, objects);
 }
 
 array<Player> API::GetPlayers()
 {
-	auto p_array = new Player[p_count];
-	for (int i = 0; i < p_count; i += 1) {
-		p_array[i] = players[i];
-	}
-	return (array<Player>){p_array, p_count};
+	return array<Player>(p_count, players);
 }
 
 array<Body> API::GetBody()
 {
-	auto b_array = new Body[b_count];
-	for (int i = 0; i < b_count; i += 1) {
-		b_array[i] = b_vector[i];
-	}
-	return (array<Body>){b_array, b_count};
+	return array<Body>(b_count, b_vector);
 }
 
 array<Joint> API::GetJoint()
 {
-	auto j_array = new Joint[j_count];
-	for (int i = 0; i < j_count; i += 1) {
-		j_array[i] = j_vector[i];
-	}
-	return (array<Joint>){j_array, j_count};
+	return array<Joint>(j_count, j_vector);
 }
 
 int API::TriggerCallback(const char* event)
@@ -115,9 +112,10 @@ int API::TriggerCallback(const char* event)
 	if (lua_istable(L, -3)) {
 		lua_pushnil(L);
 		while (lua_next(L, -4) != 0) {
+//LOG(event << "."<< lua_tostring(L, -2))
 			if (lua_isfunction(L, -1)) {
 				status = lua_pcall(L, 0, 0, 0);
-				if ( status != LUA_OK) {
+				if (status != LUA_OK) {
 LOG(lua_tostring(L, -1))
 				}
 			}
@@ -207,9 +205,8 @@ LOG(lua_tostring(L, -1))
 
 int API::FileDroppedCallback(const char* dropped_file)
 {
-LOG(dropped_file)
 	int status = 1;
-	lua_getglobal(L, "EVENT");
+	lua_getglobal(L, "API");
 	lua_getfield(L, -1, "FileDropped");
 	if (lua_istable(L, -3)) {
 		lua_pushnil(L);
@@ -229,7 +226,7 @@ LOG(lua_tostring(L, -1))
 int API::ConsoleCallback(const char* message)
 {
 	int status = 1;
-	lua_getglobal(L, "EVENT");
+	lua_getglobal(L, "API");
 	lua_getfield(L, -1, "Console");
 	if (lua_istable(L, -3)) {
 		lua_pushnil(L);
@@ -242,27 +239,28 @@ LOG(lua_tostring(L, -1))
 				}
 			}
 		}
-		lua_pop(L, 1);
 	}
 	return status;
 }
 
-int API::SetCallback(const char* event, const char* handle, lua_CFunction* calllback)
+void API::SetCallback(const char* event, const char* handle, lua_CFunction callback)
 {
-	if (lua_isfunction(L, -3)) {
-		lua_getglobal(L, "API");
-		lua_getfield(L, -4, event);
-		if (lua_istable(L, -5)) {
-			lua_gettable(L, -6);
-			lua_setfield(L, -3, handle);
-		}
-	}
-	return 1;
+	lua_getglobal(L, "API");
+	lua_pushstring(L, event);
+	lua_gettable(L, -2);
+	lua_pushcfunction(L, callback, handle);
+	lua_setfield(L, -2, handle);
 }
 
-int API::GetCallback(const char* event, const char* handle)
+lua_CFunction API::GetCallback(const char* event, const char* handle)
 {
-	return 1;
+	lua_getglobal(L, "API");
+	lua_pushstring(L, event);
+	lua_gettable(L, -2);
+	lua_getfield(L, -2, handle);
+LOG(event)
+LOG(handle)
+	return lua_tocfunction(L, -2);
 }
 
 int API::loadmod (const char* modpath)
@@ -286,16 +284,20 @@ int API::loadscript (const char* scriptpath)
 
 static int API_SetCallback(lua_State* L)
 {
-	const char* event = lua_tostring(L, -1);
+	lua_CFunction callback = lua_tocfunction(L, -1);
 	const char* handle = lua_tostring(L, -2);
-	return API::SetCallback(event, handle, 0);
+	const char* event = lua_tostring(L, -3);
+	API::SetCallback(event, handle, callback);
+	lua_pushinteger(L, 1);
+	return 1;
 }
 
 static int API_GetCallback(lua_State* L)
 {
-	const char* event = lua_tostring(L, -1);
-	const char* handle = lua_tostring(L, -2);
-	API::GetCallback(event, handle);
+	const char* handle = lua_tostring(L, -1);
+	const char* event = lua_tostring(L, -2);
+	//lua_CFunction fn = [](lua_State* L) { return 1; };
+	lua_pushcfunction(L, API::GetCallback(event, handle), handle);
 	return 1;
 }
 
@@ -1087,7 +1089,48 @@ static int API_loadscript(lua_State* L)
 	return 1;
 }
 
+void Console::log(const char* message)
+{
+	SetMessage(message);
+}
+
+const char* Console::GetMessage()
+{
+	return s_last_message;
+}
+
+void Console::SetMessage(const char* message)
+{
+	s_last_message = message;
+	SetHasEvent();
+}
+
+void Console::SetHasEvent()
+{
+	s_has_event = true;
+}
+
+void Console::ResetHasEvent()
+{
+	s_has_event = false;
+}
+
+bool Console::GetHasEvent()
+{
+	return s_has_event;
+}
+
+static int API_log(lua_State* L)
+{
+	Console::log(lua_tostring(L, -1));
+	lua_Number result = 1;
+	lua_pushnumber(L, result);
+	return 1;
+};
+
 static const luaL_Reg api_main[] {
+	{"log", API_log},
+
 	{"SetCallback", API_SetCallback},
 	{"GetCallback", API_GetCallback},
 

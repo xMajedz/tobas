@@ -1,7 +1,6 @@
 #include "game.h"
 #include "netcode_server.h"
 
-Console console;
 Window window;
 
 int main()

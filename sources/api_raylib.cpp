@@ -151,8 +151,73 @@ static const luaL_Reg api_raylib[] {
 	{NULL, NULL},
 };
 
+struct RaylibColor {
+	const char* name;
+	Color color;
+};
+
+static RaylibColor raylib_colors[] = {
+	{"LIGHTGRAY",LIGHTGRAY},
+	{"GRAY",GRAY},
+	{"DARKGRAY",DARKGRAY},
+	{"YELLOW",YELLOW},
+	{"GOLD",GOLD},
+	{"ORANGE",ORANGE},
+	{"PINK",PINK},
+	{"RED",RED},
+	{"MAROON",MAROON},
+	{"GREEN",GREEN},
+	{"LIME",LIME},
+	{"DARKGREEN",DARKGREEN},
+	{"SKYBLUE",SKYBLUE},
+	{"BLUE",BLUE},
+	{"DARKBLUE",DARKBLUE},
+	{"PURPLE",PURPLE},
+	{"VIOLET",VIOLET},
+	{"DARKPURPLE",DARKPURPLE},
+	{"BEIGE",BEIGE},
+	{"BROWN",BROWN},
+	{"DARKBROWN",DARKBROWN},
+	{"WHITE",WHITE},
+	{"BLACK",BLACK},
+	{"BLANK",BLANK},
+	{"MAGENTA",MAGENTA},
+	{"RAYWHITE",RAYWHITE},
+};
+
 int luaopen_api_raylib(lua_State* L)
 {
-	luaL_register(L, "RL", api_raylib);
+	luaL_register(L, "RAYLIB", api_raylib);
+
+	lua_getglobal(L, "RAYLIB");
+
+	lua_pushnumber(L, RAYLIB_VERSION_MAJOR);
+	lua_setfield(L, -2, "VERSION_MAJOR");
+	lua_pushnumber(L, RAYLIB_VERSION_MINOR);
+	lua_setfield(L, -2, "VERSION_MINOR");
+	lua_pushnumber(L, RAYLIB_VERSION_PATCH);
+	lua_setfield(L, -2, "VERSION_PATCH");
+	lua_pushstring(L, RAYLIB_VERSION);
+	lua_setfield(L, -2, "VERSION");
+	lua_pushnumber(L, PI);
+	lua_setfield(L, -2, "PI");
+	lua_pushnumber(L, DEG2RAD);
+	lua_setfield(L, -2, "DEG2RAD");
+	lua_pushnumber(L, RAD2DEG);
+	lua_setfield(L, -2, "RAD2DEG");
+
+	for (auto& [name, col] : raylib_colors) {
+		lua_newtable(L);
+		lua_pushnumber(L, col.r);
+		lua_rawseti(L, -2, 1);
+		lua_pushnumber(L, col.g);
+		lua_rawseti(L, -2, 2);
+		lua_pushnumber(L, col.b);
+		lua_rawseti(L, -2, 3);
+		lua_pushnumber(L, col.a);
+		lua_rawseti(L, -2, 4);
+		lua_setfield(L, -2, name);
+	}
+	lua_pop(L, 1);
 	return 1;
 }

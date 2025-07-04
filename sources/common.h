@@ -4,6 +4,7 @@
 #include "raymath.h"
 #include "rlgl.h"
 #include <string>
+#include <vector>
 #include <map>
 
 #include <iostream>
@@ -18,7 +19,29 @@ template <typename T> struct array {
 	T* start;
 	size_t length;
 
-	T operator[](int index) {
+	array(){}
+	array(int size)
+	{
+		start = new T[size];
+		length = size;
+	};
+
+	array(int size, std::vector<T> v)
+	{
+		start = new T[size];
+		length = size;
+		for (int i = 0; i < length; i += 1) {
+			*(start + i) = v[i];
+		}
+	}
+
+	~array()
+	{
+//LOG("array_destruct")
+	};
+
+	T operator[](int index)
+	{
 		return *(start + index);
 	};
 };

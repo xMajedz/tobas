@@ -1,25 +1,52 @@
 newaction {
-	trigger = "run",
+	trigger = "dist",
 	description = "distribute a release",
 	onStart = function() 
+		os.mkdir "dist"
+	end,
+	onProject = function(prj)
+		os.execute("zip dist/"
+			.. prj.name  .. "-" .. (_OPTIONS["release"] or "git")
+			.. ".zip mods scripts replays build/" .. prj.name
+		)
+	end,
+	onEnd = function() 
+		os.execute "ls dist"
+	end,
+}
+
+newaction {
+	trigger = "dist-clean",
+	description = "clean dist",
+	onStart = function() 
+		os.rmdir "dist"
+	end,
+}
+
+newaction {
+	trigger = "run",
+	description = "build and run source",
+	onStart = function() 
 		os.execute "make -j8 -C build"
+	end,
+	onEnd = function()
 		os.execute "build/tobas_sp"
 	end,
 }
 
 newaction {
 	trigger = "build",
-	description = "distribute a release",
+	description = "build source",
 	onStart = function() 
 		os.execute "make -j8 -C build"
 	end,
 }
 
 newaction {
-	trigger = "dist",
-	description = "distribute a release",
+	trigger = "clean",
+	description = "clean",
 	onStart = function() 
-		os.execute "ls"
+		os.rmdir "build"
 	end,
 }
 

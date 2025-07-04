@@ -1,33 +1,40 @@
 #include "api.h"
 #include "game.h"
 
-static int GAME_get_game_frame(lua_State* L)
+static int Game_GetMod(lua_State* L)
+{
+	lua_pushstring(L, Game::GetMod());
+	return 1;
+}
+
+static int Game_GetGameFrame(lua_State* L)
 {
 	lua_pushnumber(L, Game::GetGameFrame());
 	return 1;
 }
 
-static int GAME_get_reaction_time(lua_State* L)
+static int Game_GetReactionTime(lua_State* L)
 {
 	lua_pushnumber(L, Game::GetReactionTime());
 	return 1;
 }
 
-static int GAME_get_reaction_count(lua_State* L)
+static int Game_GetReactionCount(lua_State* L)
 {
 	lua_pushnumber(L, Game::GetReactionCount());
 	return 1;
 }
 
 static const luaL_Reg api_game[] {
-	{"get_game_frame", GAME_get_game_frame},
-	{"get_reaction_time", GAME_get_reaction_time},
-	{"get_reaction_count", GAME_get_reaction_count},
+	{"GetMod", Game_GetMod},
+	{"GetGameFrame", Game_GetGameFrame},
+	{"GetReactionTime", Game_GetReactionTime},
+	{"GetReactionCount", Game_GetReactionCount},
 	{NULL, NULL},
 };
 
 int luaopen_api_game(lua_State* L)
 {
-	luaL_register(L, "GAME", api_game);
+	luaL_register(L, "Game", api_game);
 	return 1;
 }
