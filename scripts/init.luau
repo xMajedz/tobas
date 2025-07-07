@@ -1,28 +1,40 @@
 local require = API["require"]
---local ds = require("drawstuff")
 local ms = require("modstuff")
 
-local loadmod = API["loadmod"]
---loadmod("shootboxing15")
-
 local loadmodTBM = ms["loadmodTBM"]
---loadmodTBM("shootboxing15")
+loadmodTBM("shootboxing15")
 
 local mods_paths = RAYLIB.LoadDirectoryFiles("mods")
 local scripts_paths = RAYLIB.LoadDirectoryFiles("scripts")
 local replays_paths = RAYLIB.LoadDirectoryFiles("replays")
 
-local init = {}
 
-print(RAYGUI.GuiGetStyle(0, 16))
-print(RAYGUI.GuiSetStyle(0, 16, 30))
-print(RAYGUI.GuiGetStyle(0, 16))
+RAYGUI.GuiGetStyle(0, 16)
+RAYGUI.GuiSetStyle(0, 16, 30)
+RAYGUI.GuiGetStyle(0, 16)
 
 local NewGame_init = API.GetCallback("NewGame", "init")
 
+local window = API.GetWindowSize()
+
+local init = {}
+
 function init.Mod()
-	local title = Game.GetMod()
-	RAYGUI.GuiLabel(20, 20, 90, 20, title)
+	local PlayerCount = Game.GetPlayerCount()
+	local P = "";
+	for i = 1, PlayerCount do
+		P = P .. " " .. (i - 1) .. ":"
+		P = P .. " B: " .. Game.GetPlayerBodyCount(i - 1)
+		P = P .. " J: " .. Game.GetPlayerJointCount(i - 1)
+	end
+	local title = string.format(
+		"%s O:%d P:%d%s",
+		Game.GetMod(),
+		Game.GetObjectCount(),
+		PlayerCount,
+		P
+	)
+	RAYGUI.GuiLabel(20, 20, window.width-20, 20, title)
 end
 
 function init.GameFrame()
@@ -34,8 +46,6 @@ function init.ReactionCount()
 	local title = Game.GetReactionTime() - Game.GetReactionCount()
 	RAYGUI.GuiLabel(20, 100, 90, 20, tostring(title))
 end
-
-local window = API.GetWindowSize()
 
 function API.Draw2D.init()
 	init.Mod()

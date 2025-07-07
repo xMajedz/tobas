@@ -2,7 +2,7 @@
 
 #include <fstream>
 
-void Replay::Record(int game_frame)
+void Replay::RecordFrame(int game_frame)
 {
 	/*std::string tempframe = "F";
 	tempframe.append(TextFormat(" %d\n",game_frame));
@@ -67,9 +67,9 @@ void Replay::Record(int game_frame)
 	tempframefile.close();*/
 }
 
-void Replay::Record()
+void Replay::RecordFrame()
 {
-	Record(0);
+	RecordFrame(0);
 }
 
 void Replay::Play(int game_frame)

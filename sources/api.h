@@ -9,8 +9,8 @@ namespace API
 
 	static Gamerules rules;
 
-	static std::vector<Body> objects;
-	static std::vector<Player> players;
+	static std::vector<Body>   o_vector;
+	static std::vector<Player> p_vector;
 	 
 	static size_t o_count;
 	static size_t p_count;
@@ -18,12 +18,13 @@ namespace API
 	static Body* object;
 	static Player* player;
 	
-	static std::vector<Body> b_vector;
+	static std::map<std::string_view, BodyID> b_map;
+	static std::vector<Body>  b_vector;
 	static std::vector<Joint> j_vector;
 
 	static size_t b_count;
 	static size_t j_count;
-
+	
 	static Body* body;
 	static Joint* joint;
 	
@@ -35,8 +36,6 @@ namespace API
 	Gamerules GetRules();
 	array<Body> GetObjects();
 	array<Player> GetPlayers();
-	array<Body> GetBody();
-	array<Joint> GetJoint();
 	
 	int TriggerCallback(const char* event);
 	int TriggerCallback(const char* event, const char* str);
@@ -54,14 +53,15 @@ namespace API
 	int StepCallback();
 
 	int NearCallback(CollisionData s_collision);
-	int FileDroppedCallback(const char* dropped_file);
-	int ConsoleCallback(const char* message);
+
+	int FileDroppedCallback(std::string_view dropped_file);
+	int ConsoleCallback(std::string_view message);
 
 	void SetCallback(const char* event, const char* handle, lua_CFunction function);
 	lua_CFunction GetCallback(const char* event, const char* handle);
 
-	int loadmod(const char* modpath);
-	int loadscript(const char* scriptpath);
+	int loadmod(std::string_view modpath);
+	int loadscript(std::string_view scriptpath);
 }
 
 namespace Console {

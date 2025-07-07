@@ -218,6 +218,7 @@ int luaopen_api_raylib(lua_State* L)
 		lua_rawseti(L, -2, 4);
 		lua_setfield(L, -2, name);
 	}
+
 	lua_pop(L, 1);
 	return 1;
 }

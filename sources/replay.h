@@ -10,8 +10,8 @@ namespace Replay
 {
 	static std::map<int, FrameData> s_frames;
 	
-	void Record(int game_frame);
-	void Record();
+	void RecordFrame(int game_frame);
+	void RecordFrame();
 	void Play(int game_frame);
 
 	void Save(std::string replay_name);

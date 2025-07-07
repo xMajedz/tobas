@@ -1,5 +1,7 @@
-#include <common.h>
-#include <body.h>
+#include "common.h"
+#include "body.h"
+
+typedef int JointID;
 
 enum JointType {
 	Hinge,
@@ -18,13 +20,15 @@ enum JointState {
 struct Joint : public Body {
 	dJointID dJoint;
 
-	std::string connections[2];
+
 	JointType connectionType;
 	JointState state;
 	JointState state_alt;
 
 	Joint();
 	Joint(const char* name);
+
+	BodyID connections[2];
 
 	Vector3 axis;
 	Vector3 axis_alt;

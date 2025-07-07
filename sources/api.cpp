@@ -21,26 +21,20 @@ void API::Init()
 	luaL_openlibs(L);
 	luaL_sandbox(L);
 
-	lua_State* T = lua_newthread(L);
-	luaL_sandboxthread(T);
-
 	API::SetCallback("NewGame", "init", [](lua_State* L) {
-		LOG("NewGame")
 		return 1;
 	});
-
-	rules = {.mod = "NONE"};
 
 	loadscript("init");
 
 	if (b_count > 0) {
-		player->body = GetBody();
+		player->body = array<Body>(b_count, b_vector);
 		b_vector.clear();
 		b_count = 0;
 	}
 		
 	if (j_count > 0) {
-		player->joint = GetJoint();
+		player->joint = array<Joint>(j_count, j_vector);
 		j_vector.clear();
 		j_count = 0;
 	}
@@ -50,8 +44,8 @@ void API::Reset()
 {
 	rules = {.mod = "NONE"};
 
-	objects.clear();
-	players.clear();
+	o_vector.clear();
+	p_vector.clear();
 	
 	object = 0;
 	player = 0;
@@ -84,44 +78,38 @@ Gamerules API::GetRules()
 	return rules;
 }
 
+
 array<Body> API::GetObjects()
 {
-	return array<Body>(o_count, objects);
+	return array<Body>(API::o_count, API::o_vector);
 }
 
 array<Player> API::GetPlayers()
 {
-	return array<Player>(p_count, players);
-}
-
-array<Body> API::GetBody()
-{
-	return array<Body>(b_count, b_vector);
-}
-
-array<Joint> API::GetJoint()
-{
-	return array<Joint>(j_count, j_vector);
+	return array<Player>(API::p_count, API::p_vector);
 }
 
 int API::TriggerCallback(const char* event)
 {
-	int status = 1;
+	//lua_State* T = lua_newthread(L);
+	//luaL_sandboxthread(T);
+
 	lua_getglobal(L, "API");
 	lua_getfield(L, -1, event);
+
 	if (lua_istable(L, -3)) {
 		lua_pushnil(L);
 		while (lua_next(L, -4) != 0) {
-//LOG(event << "."<< lua_tostring(L, -2))
 			if (lua_isfunction(L, -1)) {
-				status = lua_pcall(L, 0, 0, 0);
-				if (status != LUA_OK) {
+				if (lua_pcall(L, 0, 0, 0) != LUA_OK) {
 LOG(lua_tostring(L, -1))
 				}
 			}
 		}
 	}
-	return status;
+
+	//lua_resume(T, 0, 0);
+	return 1;
 }
 
 int API::TriggerCallback(const char* event, dReal dt)
@@ -203,7 +191,7 @@ LOG(lua_tostring(L, -1))
 	return status;
 }
 
-int API::FileDroppedCallback(const char* dropped_file)
+int API::FileDroppedCallback(std::string_view dropped_file)
 {
 	int status = 1;
 	lua_getglobal(L, "API");
@@ -212,7 +200,7 @@ int API::FileDroppedCallback(const char* dropped_file)
 		lua_pushnil(L);
 		while (lua_next(L, -4) != 0) {
 			if (lua_isfunction(L, -1)) {
-				lua_pushstring(L, dropped_file);
+				lua_pushlstring(L, dropped_file.data(), dropped_file.size());
 				status = lua_pcall(L, 1, 0, 0);
 				if (status != LUA_OK) {
 LOG(lua_tostring(L, -1))
@@ -223,7 +211,7 @@ LOG(lua_tostring(L, -1))
 	return status;
 }
 
-int API::ConsoleCallback(const char* message)
+int API::ConsoleCallback(std::string_view message)
 {
 	int status = 1;
 	lua_getglobal(L, "API");
@@ -232,7 +220,7 @@ int API::ConsoleCallback(const char* message)
 		lua_pushnil(L);
 		while (lua_next(L, -4) != 0) {
 			if (lua_isfunction(L, -1)) {
-				lua_pushstring(L, message);
+				lua_pushlstring(L, message.data(), message.size());
 				status = lua_pcall(L, 1, 0, 0);
 				if (status != LUA_OK) {
 LOG(lua_tostring(L, -1))
@@ -258,27 +246,26 @@ lua_CFunction API::GetCallback(const char* event, const char* handle)
 	lua_pushstring(L, event);
 	lua_gettable(L, -2);
 	lua_getfield(L, -2, handle);
-LOG(event)
-LOG(handle)
+//LOG(event)
+//LOG(handle)
 	return lua_tocfunction(L, -2);
 }
 
-int API::loadmod (const char* modpath)
+int API::loadmod (std::string_view modpath)
 {
-	return luau_dofile(
+	return Luau::dofile(
 		L,
-		TextFormat("mods/%s", modpath),
-		TextFormat("%s:%s", "loadmod", modpath)
+		TextFormat("mods/%s", modpath.data()),
+		TextFormat("%s:%s", "loadmod", modpath.data())
 	);
 }
 
-int API::loadscript (const char* scriptpath)
+int API::loadscript (std::string_view scriptpath)
 {
-	const char* path = TextFormat("scripts/%s", scriptpath);
-	return luau_dofile(
+	return Luau::dofile(
 		L,
-		path,
-		TextFormat("%s:%s", "loadscript", scriptpath)
+		TextFormat("scripts/%s", scriptpath.data()),
+		TextFormat("%s:%s", "loadscript", scriptpath.data())
 	);
 }
 
@@ -538,8 +525,8 @@ static int API_object(lua_State* L)
 {
 	DataContext = ObjectContext;
 	Body o(lua_tostring(L, -1));
-	API::objects.push_back(o);
-	API::object = &API::objects[API::o_count];
+	API::o_vector.push_back(o);
+	API::object = &API::o_vector[API::o_count];
 	API::o_count += 1;
 
 	lua_Number result = 1;
@@ -555,18 +542,18 @@ static int API_player(lua_State* L)
 
 	if (API::p_count < API::rules.numplayers) {
 		if (0 != API::p_count) {
-			API::player->body = API::GetBody();
+			API::player->body = array<Body>(API::b_count, API::b_vector);
 			API::b_vector.clear();
 			API::b_count = 0;
 
-			API::player->joint = API::GetJoint();
+			API::player->joint = array<Joint>(API::j_count, API::j_vector);
 			API::j_vector.clear();
 			API::j_count = 0;
 		}
 
 		Player p(name);
-		API::players.push_back(p);
-		API::player = &API::players[API::p_count];
+		API::p_vector.push_back(p);
+		API::player = &API::p_vector[API::p_count];
 		API::p_count += 1;
 		result = 1;
 	}
@@ -578,7 +565,9 @@ static int API_player(lua_State* L)
 static int API_body(lua_State* L)
 {
 	DataContext = BodyContext;
-	Body b(lua_tostring(L, -1));
+	std::string_view name = lua_tostring(L, -1);
+	Body b(name);
+	API::b_map[name] = API::b_count;
 	API::b_vector.push_back(b);
 	API::body = &API::b_vector[API::b_count];
 	API::b_count += 1;
@@ -1004,7 +993,7 @@ static int API_range_alt(lua_State* L)
 
 static int API_connections(lua_State* L)
 {
-	std::string connections[2];
+	std::string_view connections[2];
 		
 	lua_rawgeti(L, -1, 1);
 	connections[0] = lua_tostring(L, -1); 
@@ -1013,8 +1002,8 @@ static int API_connections(lua_State* L)
 
 	switch(DataContext) {
 		case JointContext: {
-			API::joint->connections[0] = connections[0];
-			API::joint->connections[1] = connections[1];
+			API::joint->connections[0] = API::b_map[connections[0]];
+			API::joint->connections[1] = API::b_map[connections[1]];
 		} break;
 	}
 
@@ -1061,7 +1050,7 @@ static int API_GetWindowSize(lua_State* L)
 static int API_dofile(lua_State* L)
 {
 	const char* filepath = lua_tostring(L, -1);
-	lua_Number result = luau_dofile(L, filepath);
+	lua_Number result = Luau::dofile(L, filepath);
 	lua_gettop(L);
 	return result;
 }
@@ -1069,7 +1058,7 @@ static int API_dofile(lua_State* L)
 static int API_require(lua_State* L)
 {
 	const char* filename = lua_tostring(L, -1);
-	lua_Number result = luau_require(L, filename);
+	lua_Number result = Luau::require(L, filename);
 	lua_gettop(L);
 	return 1;
 }
@@ -1083,7 +1072,7 @@ static int API_loadmod(lua_State* L)
 
 static int API_loadscript(lua_State* L)
 {
-	const char* scriptpath = lua_tostring(L, -1);
+	std::string_view  scriptpath = lua_tostring(L, -1);
 	lua_Number result = API::loadscript(scriptpath);
 	lua_pushnumber(L, result);
 	return 1;
@@ -1194,6 +1183,20 @@ static const char* events[] = {
 	"Console",
 };
 
+static const char* shapes[] = {
+	"Box",
+	"Sphere",
+	"Capsule",
+	"Cylinder",
+};
+
+static const char* joint_types[] = {
+	"Hinge",
+	"Slider",
+	"Universal",
+	"Hinge2",
+};
+
 int luaopen_api_main(lua_State* L) {
 	luaL_register(L, "API", api_main);
 
@@ -1202,6 +1205,24 @@ int luaopen_api_main(lua_State* L) {
 		lua_newtable(L);
 		lua_setfield(L, -2, event);
 	}
+
+	int count;
+	lua_newtable(L);
+	count = 0;
+	for (auto shape : shapes) {
+		lua_pushinteger(L, count);
+		lua_setfield(L, -2, shape);
+		count += 1;
+	}
+	lua_setfield(L, -2, "SHAPE");
+	count = 0;
+	for (auto type : joint_types) {
+		lua_pushinteger(L, count);
+		lua_setfield(L, -2, type);
+		count += 1;
+	}
+	lua_setfield(L, -2, "JOINT_TYPE");
+
 	lua_pop(L, 1);
 	return 1;
 }

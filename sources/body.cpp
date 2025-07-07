@@ -1,12 +1,9 @@
-#include <common.h>
-#include <ode/ode.h>
-#include <raylib.h>
-#include <raymath.h>
-#include <rlgl.h>
-#include <body.h>
-
-#include <iostream>
-#define PRINT(X) std::cout << X << std::endl;
+#include "body.h"
+#include "common.h"
+#include "ode/ode.h"
+#include "raylib.h"
+#include "raymath.h"
+#include "rlgl.h"
 
 Body::Body()
 {
@@ -28,16 +25,34 @@ Body::Body()
 
 	select = false;
 	static_state = false;
-
 };
 
-Body::Body(const char* name)
+Body::Body(std::string_view name)
 {
 	m_name = name;
-}
+	color = GREEN;
+	ghost_color = (Color){51, 51, 51, 51};
+
+	position = (Vector3){0.00, 0.00, 0.00};
+
+	orientation = (Vector4){0.00, 0.00, 0.00, 1.00};
+
+	freeze.position = (Vector3){0.00, 0.00, 0.00};
+
+	freeze.orientation = orientation;
+	freeze.linear_vel = (Vector3){0.00, 0.00, 0.00};
+	freeze.angular_vel = (Vector3){0.00, 0.00, 0.00};
+
+	category_bits = 0b0001;
+	collide_bits = 0b0000;
+
+	select = false;
+	static_state = false;
+};
 
 void Body::create(dWorldID world, dSpaceID space) {
 	dBody = dBodyCreate(world);
+
 	dBodySetPosition(
 		dBody,
 		position.x,
@@ -76,7 +91,6 @@ void Body::create(dWorldID world, dSpaceID space) {
 	dMassAdjust(&mass, 0.50);
 	dBodySetMass(dBody, &mass);
 	dGeomSetBody(dGeom, dBody);
-
 };
 
 void Body::set_category_bits(unsigned long bits)
@@ -136,6 +150,7 @@ void Body::refreeze() {
 		freeze.angular_vel.y,
 		freeze.angular_vel.z
 	);
+
 	dBodySetPosition(
 		dBody,
 		freeze.position.x,
@@ -204,14 +219,16 @@ void Body::draw_object(Color draw_color) {
 }
 
 void Body::draw(Color draw_color) {
-	dQuaternion dQ;
-	dRtoQ(dGeomGetRotation(dGeom), dQ);
-
 	float angle;
 	Vector3 axis;
-	Quaternion q = { dQ[1], dQ[2], dQ[3], dQ[0] };
-	QuaternionToAxisAngle(q, &axis, &angle);
-	const dReal *pos = dGeomGetPosition(dGeom);
+	const dReal* dQ = dBodyGetQuaternion(dBody);
+	QuaternionToAxisAngle(
+		(Quaternion) { dQ[1], dQ[2], dQ[3], dQ[0] },
+		&axis,
+		&angle
+	);
+
+	const dReal *pos = dBodyGetPosition(dBody);
 	rlPushMatrix();
 	rlTranslatef(pos[0], pos[1], pos[2]);
 	rlRotatef(RAD2DEG * angle, axis.x, axis.y, axis.z);

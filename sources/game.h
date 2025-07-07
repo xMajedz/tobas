@@ -8,7 +8,8 @@ enum Gamemode {
 };
 
 struct Gamerules {
-	std::string mod;
+	std::string_view mod;
+
 	int numplayers;
 	int turnframes;
 	int max_contacts;
@@ -23,9 +24,6 @@ struct Gamerules {
 struct Gamestate {
 	Gamemode gamemode = FREEPLAY;
 
-	bool freeze = false;
-	bool pause = false;
-
 	int game_frame;
 
 	dReal reaction_count;
@@ -38,9 +36,12 @@ struct Gamestate {
 	int step_frames;
 	int step_count;
 
-	std::string selected_player = "NONE";
-	std::string selected_joint = "NONE";
+	PlayerID selected_player = -1;
+	JointID  selected_joint  = -1;
+
 	bool running = false;
+	bool freeze = false;
+	bool pause = false;
 };
 
 struct CollisionData {
@@ -48,23 +49,23 @@ struct CollisionData {
 };
 
 namespace Game {
-	static dWorldID s_world;
-	static dSpaceID s_space;
-	static dJointGroupID s_contactgroup;
+	static dWorldID world;
+	static dSpaceID space;
+	static dJointGroupID contactgroup;
 	
-	static dGeomID s_floor;
+	static dGeomID floor;
 		
-	static Gamestate s_state;
-	static Gamerules s_rules;
+	static Gamestate state;
+	static Gamerules rules;
 	
-	static array<Body> s_objects;
-	static array<Player> s_players;
+	static array<Body> objects;
+	static array<Player> players;
 	
-	static dReal s_step;
+	static dReal step;
 
-	static CollisionData s_collision;
+	static CollisionData collision;
 
-	static dNearCallback* s_nearCallback;
+	static dNearCallback* nearCallback;
 
 	void Init();
 	void Quit();
@@ -72,14 +73,24 @@ namespace Game {
 	void TogglePause();
 	bool GetFreeze();
 	bool GetPause();
-	Gamerules GetGamerules();
 
+	Player GetPlayer(PlayerID player_id);
+	Player GetSelectedPlayer();
+	PlayerID GetSelectedPlayerID();
+
+	Gamerules GetGamerules();
 	array<Player> GetPlayers();
 	array<Body> GetObjects();
 
 	void NearCallback(dGeomID, dGeomID);
 
-	const char* GetMod();
+	std::string_view GetMod();
+
+	size_t GetObjectCount();
+	size_t GetPlayerCount();
+	size_t GetPlayerBodyCount(PlayerID player_id);
+	size_t GetPlayerJointCount(PlayerID player_id);
+
 	int GetGameFrame();
 	dReal GetReactionTime();
 	dReal GetReactionCount();

@@ -1,3 +1,4 @@
+local LoadFileText = RAYLIB["LoadFileText"]
 local fs = {content = "", lines = {}}
 
 function fs.clear_content()
@@ -7,7 +8,7 @@ end
 
 function fs.readfile(pathtofile)
     if (pathtofile) then
-	    fs.content = RL.LoadFileText(pathtofile)
+	    fs.content = LoadFileText(pathtofile)
 	    fs.content = fs.content:gsub("\r", "") 
         return fs.content:split("\n")
     end

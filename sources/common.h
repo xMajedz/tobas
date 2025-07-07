@@ -3,9 +3,11 @@
 #include "raylib.h"
 #include "raymath.h"
 #include "rlgl.h"
-#include <string>
-#include <vector>
+
 #include <map>
+#include <vector>
+#include <string>
+#include <string_view>
 
 #include <iostream>
 #define LOG_PREFIX "LOG: "
@@ -16,32 +18,41 @@
 #define LOG_C LOG("C")
 
 template <typename T> struct array {
-	T* start;
-	size_t length;
-
+private:
+	T* m_data;
+	size_t m_size;
+public:
 	array(){}
 	array(int size)
 	{
-		start = new T[size];
-		length = size;
+		m_data = new T[size];
+		m_size = size;
 	};
 
 	array(int size, std::vector<T> v)
 	{
-		start = new T[size];
-		length = size;
-		for (int i = 0; i < length; i += 1) {
-			*(start + i) = v[i];
+		m_data = new T[size];
+		m_size = size;
+		for (int i = 0; i < m_size; i += 1) {
+			*(m_data + i) = v[i];
 		}
-	}
+	};
 
 	~array()
 	{
 //LOG("array_destruct")
 	};
 
+	T* data() {
+		return m_data;
+	};
+
+	size_t size() {
+		return m_size;
+	};
+
 	T operator[](int index)
 	{
-		return *(start + index);
+		return *(m_data + index);
 	};
 };

@@ -1,62 +1,76 @@
-#include <luau.h>
-#include <raylib.h>
-#include <iostream>
-#define PRINT(X) std::cout << "-- TEST " << X << " --" << std::endl;
-#define PRINT_A PRINT("A")
-#define PRINT_B PRINT("B")
-#define PRINT_C PRINT("C")
-#define LUAU_FREE(Data) free(Data)
+#include "luau.h"
 
-int luau_do(lua_State* L, const char* string, const char* chunkname)
+struct Bytecode {
+private:
+	char* m_data;
+	size_t m_size;
+public:
+	char* data()
+	{
+		return m_data;
+	};
+
+	size_t size()
+	{
+		return m_size;
+	};
+
+	Bytecode(std::string_view string)
+	{
+		m_data = luau_compile(string.data(), string.size(), NULL, &m_size);
+	};
+
+	~Bytecode()
+	{
+		delete m_data;
+	};
+};
+
+static int run(lua_State* L, std::string_view string, std::string_view chunkname)
 {
-	Bytecode bytecode = {0};
-	bytecode.data = luau_compile(string, strlen(string), NULL, &bytecode.size);
-	int result = luau_load(L, TextFormat("=%s", chunkname), bytecode.data, bytecode.size, 0);
-	int nresult = 1;
-	int status = lua_pcall(L, 0, nresult, 0);
-	if (status != LUA_OK) {
-PRINT(lua_tostring(L, -1))
-		return status;
-	}
-	LUAU_FREE(bytecode.data);
-	return nresult;
+	Bytecode bytecode(string);
+	int result = luau_load(L, TextFormat("=%s", chunkname.data()), bytecode.data(), bytecode.size(), 0);
+	int nresults = 1;
+	int status = lua_pcall(L, 0, nresults, 0);
+	if (status != LUA_OK) { LOG(lua_tostring(L, -1)) }
+	return nresults;
 }
 
-int luau_dostring(lua_State* L, const char* string, const char* chunkname)
+int Luau::dostring(lua_State* L, std::string_view string, std::string_view chunkname)
 {
-	return luau_do(L, string, chunkname);
+	return run(L, string, chunkname);
 }
 
-int luau_dostring(lua_State* L, const char* string)
+int Luau::dostring(lua_State* L, std::string_view string)
 {
-	return luau_dostring(L, string, "dostring");
+	return dostring(L, string, "dostring");
 }
 
-int luau_dofile(lua_State* L, const char* filepath, const char* chunkname)
+int Luau::dofile(lua_State* L, std::string_view filepath, std::string_view chunkname)
 {
-	const char* path = TextFormat("%s.luau", filepath);
+	const char* path = TextFormat("%s.luau", filepath.data());
 	if (!FileExists(path)) return 1;
 	char* text = LoadFileText(path);
-	int status = luau_dostring(L, text, chunkname);
+	int status = dostring(L, text, chunkname);
 	UnloadFileText(text);
 	return status;
 }
 
-int luau_dofile(lua_State* L, const char* filepath)
+int Luau::dofile(lua_State* L, std::string_view filepath)
 {
-	return luau_dofile(L, filepath, TextFormat("dofile:%s", filepath));
+	return dofile(L, filepath, TextFormat("dofile:%s", filepath.data()));
 }
 
-int luau_require(lua_State* L, const char* filename)
+int Luau::require(lua_State* L, std::string_view filename)
 {
-	//scripts/?.luau;scripts/?/?.luau
+	const char* _requirepaths = "scripts/?.luau;scripts/?/?.luau";
 	const char* requirepaths[] = {"scripts/%s", "scripts/%s/%s"};
 	int status = 1;
-	for (auto& path : requirepaths) { 
-		status = luau_dofile(
+	for (const auto& path : requirepaths) { 
+		status = dofile(
 				L,
-				TextFormat(path, filename, filename),
-				TextFormat("require:%s", filename)
+				TextFormat(path, filename.data(), filename.data()),
+				TextFormat("require:%s", filename.data())
 		);
 		if (status == LUA_OK) return status;
 	}

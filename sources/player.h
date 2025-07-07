@@ -3,6 +3,8 @@
 #include "joint.h"
 #include <vector>
 
+typedef int PlayerID;
+
 enum PlayerPassiveStates {
 	HOLD_ALL,
 	RELAX_ALL,
@@ -10,7 +12,7 @@ enum PlayerPassiveStates {
 }; 
 
 struct Player {
-	std::string m_name;
+	std::string_view m_name;
 	
 	array<Body> body;
 	array<Joint> joint;
@@ -42,10 +44,10 @@ struct Player {
 	
 	dMass mass;
 
-	Player(const char* name);
+	Player(std::string_view name);
 	Player();
 
-	std::string get_name();
+	std::string_view get_name();
 
 	void create(dWorldID world, dSpaceID space);
 

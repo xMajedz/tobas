@@ -1,6 +1,8 @@
 #pragma once
 #include <common.h>
 
+typedef int BodyID;
+
 enum BodyShape {
 	Box,
 	Sphere,
@@ -49,7 +51,7 @@ struct Body {
 	unsigned long collide_bits;
 
 	Body();
-	Body(const char* name);
+	Body(std::string_view name);
 
 	void make_static(dWorldID world);
 	void set_category_bits(unsigned long bits);

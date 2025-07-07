@@ -13,69 +13,70 @@ Camera Gamecam::Get()
 	return camera;
 }
 
-void CameraRotateZ(Vector3* camera_offset, float degrees)
+void Gamecam::CameraRotateZ(float degrees)
 {
 	Quaternion q = QuaternionFromMatrix(MatrixRotateZ(DEG2RAD * degrees));
-	*camera_offset = Vector3RotateByQuaternion(*camera_offset, q);
+	camera_offset = Vector3RotateByQuaternion(camera_offset, q);
 }
 
-void CameraRotateX(Vector3* camera_offset, float degrees)
+void Gamecam::CameraRotateX(float degrees)
 {
 	Quaternion q = QuaternionFromMatrix(MatrixRotateX(DEG2RAD * degrees));
-	*camera_offset = Vector3RotateByQuaternion(*camera_offset, q);
+	camera_offset = Vector3RotateByQuaternion(camera_offset, q);
 }
 
-void CameraRotateZClockwise(Vector3* camera_offset)
+void Gamecam::CameraRotateZClockwise()
 {
-	CameraRotateZ(camera_offset, 10);
+	CameraRotateZ(10);
 }
 
-void CameraRotateZCClockwise(Vector3* camera_offset)
+void Gamecam::CameraRotateZCClockwise()
 {
-	CameraRotateZ(camera_offset, -10);
+	CameraRotateZ(-10);
 }
 
-void CameraRotateXClockwise(Vector3* camera_offset)
+void Gamecam::CameraRotateXClockwise()
 {
-	CameraRotateX(camera_offset, 10);
+	CameraRotateX(10);
 }
 
-void CameraRotateXCClockwise(Vector3* camera_offset)
+void Gamecam::CameraRotateXCClockwise()
 {
-	CameraRotateX(camera_offset, -10);
+	CameraRotateX(-10);
 }
 
-void CameraZoomIn(Vector3* camera_offset)
+void Gamecam::CameraZoomIn()
 {
-	camera_offset->x *= 0.90;
-	camera_offset->y *= 0.90;
-	camera_offset->z *= 0.90;
+	camera_offset.x *= 0.90;
+	camera_offset.y *= 0.90;
+	camera_offset.z *= 0.90;
 }
 
-void CameraZoomOut(Vector3* camera_offset)
+void Gamecam::CameraZoomOut()
 {
-	camera_offset->x *= 1.10;
-	camera_offset->y *= 1.10;
-	camera_offset->z *= 1.10;
+	camera_offset.x *= 1.10;
+	camera_offset.y *= 1.10;
+	camera_offset.z *= 1.10;
 }
 
-void Gamecam::UpdateDummycam()
+void Gamecam::UpdateSpectatorcam(bool freeze, array<Player> players)
 {
-	camera.position = { 0.00, 5.00, 0.00};
-	camera.target = { 0.00, 0.00, 2.00 }; 
-}
-
-void UpdatePlaycam(bool freeze, Camera3D* camera, Vector3* camera_offset, Player* selected_player)
-{
-
-	/*float x = 0.00;
+	float x = 0.00;
 	float y = 0.00;
 	float z = 0.00;
-	
-	auto b_count = selected_player->b_count; 
+};
+
+void Gamecam::UpdatePlaycam(bool freeze, Player selected_player)
+{
+	float x = 0.00;
+	float y = 0.00;
+	float z = 0.00;
+
+	size_t b_count = selected_player.body.size();
 
 	if (b_count > 0) {
-		for (auto const [body_name, b] : selected_player->body) {
+		for (int i = 0; i < b_count ; i += 1) {
+			auto&& b = selected_player.body[i];
 			if (freeze) {
 				x += b.freeze.position.x;
 				y += b.freeze.position.y;
@@ -87,53 +88,54 @@ void UpdatePlaycam(bool freeze, Camera3D* camera, Vector3* camera_offset, Player
 				z += position[2];
 			}
 		}
+
 		x = x/b_count;
 		y = y/b_count;
 		z = z/b_count;
 	}
 
-	camera->position.x = camera_offset->x + x;
-	camera->position.y = camera_offset->y + y;
-	camera->position.z = camera_offset->z + z;
+	camera.position.x = camera_offset.x + x;
+	camera.position.y = camera_offset.y + y;
+	camera.position.z = camera_offset.z + z;
 
-	camera->target.x = x;
-	camera->target.y = y;
-	camera->target.z = z;
+	camera.target.x = x;
+	camera.target.y = y;
+	camera.target.z = z;
 
 	if (IsKeyDown(KEY_LEFT_SHIFT)) {
 		if (IsKeyDown(KEY_W)) {
-			CameraRotateXClockwise(camera_offset);
+			CameraRotateXClockwise();
 		}
 
 		if (IsKeyDown(KEY_A)) {
-			CameraRotateZClockwise(camera_offset);
+			CameraRotateZClockwise();
 		}
 
 		if (IsKeyDown(KEY_S)) {
-			CameraRotateXCClockwise(camera_offset);
+			CameraRotateXCClockwise();
 		}
 
 		if (IsKeyDown(KEY_D)) {
-			CameraRotateZCClockwise(camera_offset);
+			CameraRotateZCClockwise();
 		}
 	} else {
 		if (IsKeyDown(KEY_W)) {
-			CameraZoomIn(camera_offset);
+			CameraZoomIn();
 		}
 
 		if (IsKeyDown(KEY_A)) {
-			CameraRotateZCClockwise(camera_offset);
+			CameraRotateZCClockwise();
 		}
 
 		if (IsKeyDown(KEY_S)) {
-			CameraZoomOut(camera_offset);
+			CameraZoomOut();
 		}
 
 		if (IsKeyDown(KEY_D)) {
-			CameraRotateZClockwise(camera_offset);
+			CameraRotateZClockwise();
 		}
-	}*/
-}
+	}
+};
 
 /*void Gamecam::CameraRotateZClockwise()
 {
@@ -292,3 +294,9 @@ void Gamecam::CameraZoomOut()
 	CameraOffset.y = 1.1f * CameraOffset.y;
 	CameraOffset.z = 1.1f * CameraOffset.z;
 }*/
+
+void Gamecam::UpdateDummycam()
+{
+	camera.position = { 0.00, 5.00, 0.00};
+	camera.target = { 0.00, 0.00, 2.00 }; 
+}

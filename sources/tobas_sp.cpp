@@ -4,7 +4,7 @@
 
 Window window;
 
-std::string SelectJoint(Camera3D camera, Ray* MouseRay, RayCollision* MouseCollision, Player* player)
+int SelectJoint(Camera3D camera, Ray* MouseRay, RayCollision* MouseCollision, Player* player)
 {
 	/*int hits = 0;
 	RayCollision collision = { 0 };
@@ -21,11 +21,12 @@ std::string SelectJoint(Camera3D camera, Ray* MouseRay, RayCollision* MouseColli
 		}
 	}
 	return joint_name;*/
-	return "NONE";
+	return -1;
 }
 
-void SelectPlayer(Camera3D* camera, Ray* MousseRay, RayCollision* MouseCollision)
+int SelectPlayer(Camera3D* camera, Ray* MousseRay, RayCollision* MouseCollision)
 {
+	return -1;
 }
 
 int main()
@@ -35,21 +36,24 @@ int main()
 	InitWindow(window.width, window.height, "TOBAS");
 
 	Game::Init();
-	Game::NewGame();
 
-	Ray MouseRay = { 0 };
-	RayCollision MouseCollision = { 0 };
+	Game::NewGame();
 
 	Gamecam::Init();
 	const auto& camera = Gamecam::Get();
 
-	bool showMessageBox = false;
+	Ray MouseRay = { 0 };
+	RayCollision MouseCollision = { 0 };
 
 	SetExitKey(0);
 	while (!WindowShouldClose()) {
 		SetWindowTitle(TextFormat("TOBAS %dFPS", GetFPS()));
 
-		Gamecam::UpdateDummycam();
+		if (0 > Game::GetSelectedPlayerID()) {
+			Gamecam::UpdateSpectatorcam(Game::GetFreeze(), Game::GetPlayers());
+		} else {
+			Gamecam::UpdatePlaycam(Game::GetFreeze(), Game::GetSelectedPlayer());
+		}
 		
 		Game::Update(GetFrameTime());
 		BeginDrawing();
@@ -61,23 +65,9 @@ int main()
 			API::Draw2DCallback();
 		EndDrawing();
 
-		/*Player* selected_player;
+		/*
+		 game.state.selected_joint = SelectJoint(camera, &MouseRay, &MouseCollision, selected_player);
 
-		if (game.state.selected_player != "NONE") {
-			selected_player = &(game.players[game.state.selected_player]);
-	
-			UpdatePlaycam(game.state.freeze, &camera, &camera_offset, selected_player);
-		}
-
-
-		game.state.selected_joint = SelectJoint(camera, &MouseRay, &MouseCollision, selected_player);
-
-		Joint* selected_joint;
-
-		if (game.state.selected_joint != "NONE") {
-			selected_joint = &(selected_player->joint[game.state.selected_joint]);
-
-		}
 		
 		if (IsKeyPressed(KEY_Z)) {
 			if (IsKeyDown(KEY_LEFT_CONTROL)) {
