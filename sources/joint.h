@@ -46,7 +46,7 @@ struct Joint : public Body {
 	void draw_joint(Color draw_color);	
 	void draw_joint_freeze();	
 	void draw_joint_ghost();	
-	void draw_joint();	
+	void draw_joint(bool freeze);	
 
 	void TriggerActiveStateAlt(dReal direction);	
 	void TriggerPassiveStateAlt(dReal strength);	

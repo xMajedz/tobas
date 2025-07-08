@@ -15,29 +15,14 @@ void API::Init()
 	L = luaL_newstate();
 	luaopen_api_main(L);
 	luaopen_api_game(L);
+	luaopen_api_net(L);
 	luaopen_api_raylib(L);
 	luaopen_api_raygui(L);
 	luaopen_api_raymath(L);
 	luaL_openlibs(L);
 	luaL_sandbox(L);
 
-	API::SetCallback("NewGame", "init", [](lua_State* L) {
-		return 1;
-	});
-
 	loadscript("init");
-
-	if (b_count > 0) {
-		player->body = array<Body>(b_count, b_vector);
-		b_vector.clear();
-		b_count = 0;
-	}
-		
-	if (j_count > 0) {
-		player->joint = array<Joint>(j_count, j_vector);
-		j_vector.clear();
-		j_count = 0;
-	}
 }
 
 void API::Reset()
@@ -47,8 +32,8 @@ void API::Reset()
 	o_vector.clear();
 	p_vector.clear();
 	
-	object = 0;
-	player = 0;
+	o = 0;
+	p = 0;
 
 	o_count = 0;
 	p_count = 0;
@@ -56,8 +41,8 @@ void API::Reset()
 	b_vector.clear();
 	j_vector.clear();
 
-	body = 0;
-	joint = 0;
+	b = 0;
+	j = 0;
 
 	b_count = 0;
 	j_count = 0;
@@ -79,15 +64,15 @@ Gamerules API::GetRules()
 }
 
 
-array<Body> API::GetObjects()
+std::vector<Body> API::GetObjects()
 {
-	return array<Body>(API::o_count, API::o_vector);
-}
+	return API::o_vector;
+};
 
-array<Player> API::GetPlayers()
+std::vector<Player> API::GetPlayers()
 {
-	return array<Player>(API::p_count, API::p_vector);
-}
+	return API::p_vector;
+};
 
 int API::TriggerCallback(const char* event)
 {
@@ -177,10 +162,6 @@ int API::NearCallback(CollisionData collision)
 		while (lua_next(L, -4) != 0) {
 			if (lua_isfunction(L, -1)) {
 				lua_newtable(L);
-				for (int i = 1; 3 <= i; i += 1) {
-					lua_pushnumber(L, collision.contacts.geom.pos[i]);
-					lua_rawseti(L, -2, i);
-				}
 				status = lua_pcall(L, 1, 0, 0);
 				if (status != LUA_OK) {
 LOG(lua_tostring(L, -1))
@@ -428,8 +409,8 @@ static int API_engagepos(lua_State* L)
 			// Error Handling
 		} break;
 		case PlayerContext: {
-			API::player->use_engagepos = true;
-			API::player->engagepos = pos;
+			API::p->use_engagepos = true;
+			API::p->engagepos = pos;
 		} break;
 		case ObjectContext: {
 			// Error Handling
@@ -463,8 +444,8 @@ static int API_engagerot(lua_State* L)
 			// Error Handling
 		} break;
 		case PlayerContext: {
-			API::player->use_engagerot = true;
-			API::player->engagerot = rot;
+			API::p->use_engagerot = true;
+			API::p->engagerot = rot;
 		} break;
 		case ObjectContext: {
 			// Error Handling
@@ -526,7 +507,7 @@ static int API_object(lua_State* L)
 	DataContext = ObjectContext;
 	Body o(lua_tostring(L, -1));
 	API::o_vector.push_back(o);
-	API::object = &API::o_vector[API::o_count];
+	API::o = &API::o_vector[API::o_count];
 	API::o_count += 1;
 
 	lua_Number result = 1;
@@ -541,19 +522,12 @@ static int API_player(lua_State* L)
 	lua_Number result = 0;
 
 	if (API::p_count < API::rules.numplayers) {
-		if (0 != API::p_count) {
-			API::player->body = array<Body>(API::b_count, API::b_vector);
-			API::b_vector.clear();
-			API::b_count = 0;
-
-			API::player->joint = array<Joint>(API::j_count, API::j_vector);
-			API::j_vector.clear();
-			API::j_count = 0;
-		}
+		API::b_count = 0;
+		API::j_count = 0;
 
 		Player p(name);
 		API::p_vector.push_back(p);
-		API::player = &API::p_vector[API::p_count];
+		API::p = &API::p_vector[API::p_count];
 		API::p_count += 1;
 		result = 1;
 	}
@@ -568,8 +542,8 @@ static int API_body(lua_State* L)
 	std::string_view name = lua_tostring(L, -1);
 	Body b(name);
 	API::b_map[name] = API::b_count;
-	API::b_vector.push_back(b);
-	API::body = &API::b_vector[API::b_count];
+	API::p->body.push_back(b);
+	API::b = &API::p->body[API::b_count];
 	API::b_count += 1;
 
 	lua_Number result = 1;
@@ -581,8 +555,8 @@ static int API_joint(lua_State* L)
 {
 	DataContext = JointContext;
 	Joint j(lua_tostring(L, -1));
-	API::j_vector.push_back(j);
-	API::joint = &API::j_vector[API::j_count];
+	API::p->joint.push_back(j);
+	API::j = &API::p->joint[API::j_count];
 	API::j_count += 1;
 
 	lua_Number result = 1;
@@ -600,39 +574,39 @@ static int API_shape(lua_State* L)
 		} break;
 		case ObjectContext: {
 			if ("box" == shape) {
-				API::object->shape = Box;
+				API::o->shape = Box;
 			} else if ("sphere" == shape) {
-				API::object->shape = Sphere;
+				API::o->shape = Sphere;
 			} else if ("capsule" == shape) {
-				API::object->shape = Capsule;
+				API::o->shape = Capsule;
 			} else if ("cylinder" == shape) {
-				API::object->shape = Cylinder;
+				API::o->shape = Cylinder;
 			} else  {
 				//Error Handling
 			}
 		} break;
 		case BodyContext: {
 			if ("box" == shape) {
-				API::body->shape = Box;
+				API::b->shape = Box;
 			} else if ("sphere" == shape) {
-				API::body->shape = Sphere;
+				API::b->shape = Sphere;
 			} else if ("capsule" == shape) {
-				API::body->shape = Capsule;
+				API::b->shape = Capsule;
 			} else if ("cylinder" == shape) {
-				API::body->shape = Cylinder;
+				API::b->shape = Cylinder;
 			} else  {
 				//Error Handling
 			}
 		} break;
 		case JointContext: {
 			if ("box"  == shape) {
-				API::joint->shape = Box;
+				API::j->shape = Box;
 			} else if ("sphere" == shape) {
-				API::joint->shape = Sphere;
+				API::j->shape = Sphere;
 			} else if ("capsule" == shape) {
-				API::joint->shape = Capsule;
+				API::j->shape = Capsule;
 			} else if ("cylinder" == shape) {
-				API::joint->shape = Cylinder;
+				API::j->shape = Cylinder;
 			} else  {
 				//Error Handling
 			}
@@ -659,16 +633,16 @@ static int API_position(lua_State* L)
 			// Error Handling
 		} break;
 		case ObjectContext: {
-			API::object->position = position;
-			API::object->freeze.position = position;
+			API::o->position = position;
+			API::o->freeze.position = position;
 		} break;
 		case BodyContext: {
-			API::body->position = position;
-			API::body->freeze.position = position;
+			API::b->position = position;
+			API::b->freeze.position = position;
 		} break;
 		case JointContext: {
-			API::joint->position = position;
-			API::joint->freeze.position = position;
+			API::j->position = position;
+			API::j->freeze.position = position;
 		} break;
 	}
 
@@ -694,17 +668,17 @@ static int API_orientation(lua_State* L)
 			// Error Handling
 		} break;
 		case ObjectContext: {
-			API::object->orientation = orientation;
-			API::object->freeze.orientation = orientation;
+			API::o->orientation = orientation;
+			API::o->freeze.orientation = orientation;
 
 		} break;
 		case BodyContext: {
-			API::body->orientation = orientation;
-			API::body->freeze.orientation = orientation;
+			API::b->orientation = orientation;
+			API::b->freeze.orientation = orientation;
 		} break;
 		case JointContext: {
-			API::joint->orientation = orientation;
-			API::joint->freeze.orientation = orientation;
+			API::j->orientation = orientation;
+			API::j->freeze.orientation = orientation;
 		} break;
 	}
 
@@ -728,13 +702,13 @@ static int API_sides(lua_State* L)
 			// Error Handling
 		} break;
 		case ObjectContext: {
-			API::object->sides = sides;
+			API::o->sides = sides;
 		} break;
 		case BodyContext: {
-			API::body->sides = sides;
+			API::b->sides = sides;
 		} break;
 		case JointContext: {
-			API::joint->sides = sides;
+			API::j->sides = sides;
 		} break;
 	}
 
@@ -753,13 +727,13 @@ static int API_density(lua_State* L)
 			// Error Handling
 		} break;
 		case ObjectContext: {
-			API::object->density = density;
+			API::o->density = density;
 		} break;
 		case BodyContext: {
-			API::body->density = density;
+			API::b->density = density;
 		} break;
 		case JointContext: {
-			API::joint->density = density;
+			API::j->density = density;
 		} break;
 	}
 
@@ -775,13 +749,13 @@ static int API_static(lua_State* L)
 			// Error Handling
 		} break;
 		case ObjectContext: {
-			API::object->static_state = true;
+			API::o->static_state = true;
 		} break;
 		case BodyContext: {
-			API::body->static_state = true;
+			API::b->static_state = true;
 		} break;
 		case JointContext: {
-			API::joint->static_state = true;
+			API::j->static_state = true;
 		} break;
 	}
 
@@ -800,13 +774,13 @@ static int API_radius(lua_State* L)
 			// Error Handling
 		} break;
 		case ObjectContext: {
-			API::object->radius = radius;
+			API::o->radius = radius;
 		} break;
 		case BodyContext: {
-			API::body->radius = radius;
+			API::b->radius = radius;
 		} break;
 		case JointContext: {
-			API::joint->radius = radius;
+			API::j->radius = radius;
 		} break;
 	}
 
@@ -825,13 +799,13 @@ static int API_length(lua_State* L)
 			// Error Handling
 		} break;
 		case ObjectContext: {
-			API::object->length = length;
+			API::o->length = length;
 		} break;
 		case BodyContext: {
-			API::body->length = length;
+			API::b->length = length;
 		} break;
 		case JointContext: {
-			API::joint->length = length;
+			API::j->length = length;
 		} break;
 	}
 
@@ -848,7 +822,7 @@ static int API_strength(lua_State* L)
 
 	switch(DataContext) {
 		case JointContext: {
-			API::joint->strength = strength;
+			API::j->strength = strength;
 		} break;
 	}
 
@@ -865,7 +839,7 @@ static int API_strength_alt(lua_State* L)
 
 	switch(DataContext) {
 		case JointContext: {
-			API::joint->strength_alt = strength_alt;
+			API::j->strength_alt = strength_alt;
 		} break;
 	}
 
@@ -883,7 +857,7 @@ static int API_velocity(lua_State* L)
 
 	switch(DataContext) {
 		case JointContext: {
-			API::joint->velocity = velocity;
+			API::j->velocity = velocity;
 		} break;
 	}
 
@@ -900,7 +874,7 @@ static int API_velocity_alt(lua_State* L)
 
 	switch(DataContext) {
 		case JointContext: {
-			API::joint->velocity_alt = velocity_alt;
+			API::j->velocity_alt = velocity_alt;
 		} break;
 	}
 
@@ -921,7 +895,7 @@ static int API_axis(lua_State* L)
 
 	switch(DataContext) {
 		case JointContext: {
-			API::joint->axis = axis;
+			API::j->axis = axis;
 		} break;
 	}
 
@@ -942,7 +916,7 @@ static int API_axis_alt(lua_State* L)
 
 	switch(DataContext) {
 		case JointContext: {
-			API::joint->axis_alt = axis_alt;
+			API::j->axis_alt = axis_alt;
 		} break;
 	}
 
@@ -962,8 +936,8 @@ static int API_range(lua_State* L)
 
 	switch(DataContext) {
 		case JointContext: {
-			API::joint->range[0] = range[0];
-			API::joint->range[1] = range[1];
+			API::j->range[0] = range[0];
+			API::j->range[1] = range[1];
 		} break;
 	}
 
@@ -982,8 +956,8 @@ static int API_range_alt(lua_State* L)
 
 	switch(DataContext) {
 		case JointContext: {
-			API::joint->range_alt[0] = range_alt[0];
-			API::joint->range_alt[1] = range_alt[1];
+			API::j->range_alt[0] = range_alt[0];
+			API::j->range_alt[1] = range_alt[1];
 		} break;
 	}
 	lua_Number result = 1;
@@ -1002,8 +976,8 @@ static int API_connections(lua_State* L)
 
 	switch(DataContext) {
 		case JointContext: {
-			API::joint->connections[0] = API::b_map[connections[0]];
-			API::joint->connections[1] = API::b_map[connections[1]];
+			API::j->connections[0] = API::b_map[connections[0]];
+			API::j->connections[1] = API::b_map[connections[1]];
 		} break;
 	}
 
@@ -1019,13 +993,13 @@ static int API_connection_type(lua_State* L)
 	switch(DataContext) {
 		case JointContext: {
 			if ("hinge" == connectionType) {
-				API::joint->connectionType = Hinge;
+				API::j->connectionType = Hinge;
 			} else if ("slider" == connectionType) {
-				API::joint->connectionType = Slider;
+				API::j->connectionType = Slider;
 			} else if ("universal" == connectionType) {
-				API::joint->connectionType = Universal;
+				API::j->connectionType = Universal;
 			} else if ("hinge2" == connectionType) {
-				API::joint->connectionType = Hinge2;
+				API::j->connectionType = Hinge2;
 			} else {
 			// Error Handling
 			}
@@ -1085,35 +1059,35 @@ void Console::log(const char* message)
 
 const char* Console::GetMessage()
 {
-	return s_last_message;
+	return last_message;
 }
 
 void Console::SetMessage(const char* message)
 {
-	s_last_message = message;
-	SetHasEvent();
+	last_message = message;
+	messages[message_count] = last_message;
+	SetHasMessage();
 }
 
-void Console::SetHasEvent()
+void Console::SetHasMessage()
 {
-	s_has_event = true;
+	has_message = true;
 }
 
-void Console::ResetHasEvent()
+void Console::ResetHasMessage()
 {
-	s_has_event = false;
+	has_message = false;
 }
 
-bool Console::GetHasEvent()
+bool Console::GetHasMessage()
 {
-	return s_has_event;
+	return has_message;
 }
 
 static int API_log(lua_State* L)
 {
 	Console::log(lua_tostring(L, -1));
-	lua_Number result = 1;
-	lua_pushnumber(L, result);
+	lua_pushinteger(L, 1);
 	return 1;
 };
 

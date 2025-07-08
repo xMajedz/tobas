@@ -267,8 +267,13 @@ void Body::draw_ghost() {
 	}
 };
 
-void Body::draw() {
-	draw(color);
+void Body::draw(bool freeze) {
+	if (freeze) {
+		draw_freeze();
+		draw_ghost();
+	} else {
+		draw(color);
+	}
 };
 
 void Body::toggle_ghost() {

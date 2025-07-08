@@ -288,8 +288,13 @@ void Joint::draw_joint_ghost() {
 	}
 };
 
-void Joint::draw_joint() {
-	draw_joint(color);
+void Joint::draw_joint(bool freeze) {
+	if (freeze) {
+		draw_joint_freeze();
+		draw_joint_ghost();
+	} else {
+		draw_joint(color);
+	}
 };
 
 void Joint::TriggerActiveStateAlt(dReal direction) {

@@ -3,6 +3,16 @@
 Player::Player(std::string_view name)
 {
 	m_name = name;
+
+	body_color = WHITE;
+	joint_select_color = WHITE;
+	joint_color = BLACK;
+	ghost_color = joint_color;
+	ghost_color.a = 55;
+
+	m_offset = {0.00, 0.00, 0.00};
+
+	ghost = true;
 };
 
 Player::Player()
@@ -25,8 +35,7 @@ std::string_view Player::get_name()
 
 void Player::create(dWorldID world, dSpaceID space)
 {
-	for (int i = 0; i < body.size(); i += 1) {
-		auto&& b = body[i];
+	for (auto& b : body) {
 		b.color = body_color;
 		b.ghost_color = ghost_color;
 
@@ -43,9 +52,8 @@ void Player::create(dWorldID world, dSpaceID space)
 		b.set_category_bits(body_category_bits);
 		b.set_collide_bits(body_collide_bits);
 	}
-return;
-	for (int i = 0; i < joint.size(); i += 1) {
-		auto&& j = joint[i];
+
+	for (auto& j : joint) {
 		j.color = joint_color;
 		j.ghost_color = ghost_color;
 
@@ -78,15 +86,13 @@ void Player::set_offset(Vector3 offset)
 void Player::set_offset()
 {
 	Vector3 sum = {0.00, 0.00, 0.00};
-	for (int i = 0; i < body.size(); i += 1) {
-		auto&& b = body[i];
+	for (auto& b : body) {
 		sum.x += b.position.x;
 		sum.y += b.position.y;
 		sum.z += b.position.z;
 	}
 
-	for (int i = 0; i < joint.size(); i += 1) {
-		auto&& j = joint[i];
+	for (auto& j : joint) {
 		sum.x += j.position.x;
 		sum.y += j.position.y;
 		sum.z += j.position.z;
@@ -101,14 +107,12 @@ void Player::set_offset()
 
 void Player::set_engageheight(float offset)
 {
-	for (int i = 0; i < body.size(); i += 1) {
-		auto&& b = body[i];
+	for (auto& b : body) {
 		b.position.z += offset;
 		b.freeze.position.z += offset;
 	}
 
-	for (int i = 0; i < joint.size(); i += 1) {
-		auto&& j = joint[i];
+	for (auto& j : joint) {
 		j.position.z += offset;
 		j.freeze.position.z += offset;
 	}
@@ -117,8 +121,7 @@ void Player::set_engageheight(float offset)
 void Player::set_engagedistance(float offset, float angle)
 {
 	Quaternion q = QuaternionFromMatrix(MatrixRotateZ(DEG2RAD * angle));
-	for (int i = 0; i < body.size(); i += 1) {
-		auto&& b = body[i];
+	for (auto& b : body) {
 		Vector3 offsetv = {
 			b.position.x - m_offset.x,
 			b.position.y - m_offset.y + offset,
@@ -134,8 +137,7 @@ void Player::set_engagedistance(float offset, float angle)
 		b.freeze.orientation = b.orientation;
 	}
 
-	for (int i = 0; i < joint.size(); i += 1) {
-		auto&& j = joint[i];
+	for (auto& j : joint) {
 		Vector3 offsetv = {
 			j.position.x - m_offset.x,
 			j.position.y - m_offset.y + offset,
@@ -153,94 +155,58 @@ void Player::set_engagedistance(float offset, float angle)
 }
 
 void Player::set_collide_bits(unsigned long b_bits, unsigned long j_bits) {
-		body_collide_bits = b_bits;
-		joint_collide_bits = j_bits;
+	body_collide_bits = b_bits;
+	joint_collide_bits = j_bits;
 };
 
 void Player::set_category_bits(unsigned long b_bits, unsigned long j_bits) {
-		body_category_bits = b_bits;
-		joint_category_bits = j_bits;
+	body_category_bits = b_bits;
+	joint_category_bits = j_bits;
 };
 
 void Player::update_freeze() {
-	for (int i = 0; i < body.size(); i += 1) {
-		auto&& b = body[i];
+	for (auto& b : body) {
 		b.update_freeze();
 	}
 
-	for (int i = 0; i < joint.size(); i += 1) {
-		auto&& j = joint[i];
-		//j.update_joint_freeze();
+	for (auto& j : joint) {
+		j.update_joint_freeze();
 	}
 };
 
 void Player::refreeze() {
-	for (int i = 0; i < body.size(); i += 1) {
-		auto&& b = body[i];
+	for (auto& b : body) {
 		b.refreeze();
 	}
 
-	for (int i = 0; i < joint.size(); i += 1) {
-		auto&& j = joint[i];
-		//j.refreeze_joint();
+	for (auto& j : joint) {
+		j.refreeze_joint();
 	}
 };
 
 void Player::reset() {
-	for (int i = 0; i < body.size(); i += 1) {
-		auto&& b = body[i];
+	for (auto& b : body) {
 		b.reset();
 	}
 };
 
-void Player::draw() {
-	for (int i = 0; i < body.size(); i += 1) {
-		auto&& b = body[i];
-		b.draw();
+void Player::draw(bool freeze) {
+	for (auto& b : body) {
+		b.draw(freeze);
 	}
 
-	for (int i = 0; i < joint.size(); i += 1) {
-		auto&& j = joint[i];
-		//j.draw_joint();
-	}
-};
-
-void Player::draw_freeze() {
-
-	for (int i = 0; i < body.size(); i += 1) {
-		auto&& b = body[i];
-		b.draw_freeze();
-	}
-
-	for (int i = 0; i < joint.size(); i += 1) {
-		auto&& j = joint[i];
-		//j.draw_joint_freeze();
-	}
-};
-
-void Player::draw_ghost() {
-	if (ghost) {
-		for (int i = 0; i < body.size(); i += 1) {
-			auto&& b = body[i];
-			b.draw_ghost();
-		}
-
-		for (int i = 0; i < joint.size(); i += 1) {
-			auto&& j = joint[i];
-			//j.draw_joint_ghost();
-		}
+	for (auto& j : joint) {
+		j.draw_joint(freeze);
 	}
 };
 
 void Player::toggle_ghost() {
-	for (int i = 0; i < body.size(); i += 1) {
-		auto&& b = body[i];
+	for (auto& b : body) {
 		b.toggle_ghost();
 	}
 
-	for (int i = 0; i < joint.size(); i += 1) {
-		//auto&& j = joint[i];
-		//j.toggle_ghost();
+	for (auto& j : joint) {
+		j.toggle_ghost();
 	}
 };
 

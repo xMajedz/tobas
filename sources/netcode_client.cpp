@@ -1,6 +1,5 @@
 #include "netcode_client.h"
 #include "netcode_common.h"
-#include <cstdio>
 
 static ENetAddress address = { 0 };
 
@@ -12,11 +11,7 @@ static bool disconnected = true;
 
 static bool connected = false;
 
-enum Status {
-	DISCONNECTED = 0,
-	CONNECTED,
-	CONNECTING,
-};
+enum Status { DISCONNECTED = 0, CONNECTED, CONNECTING };
 
 static Status status = DISCONNECTED;
 
@@ -31,6 +26,8 @@ int client_connect()
     		return 1;
   	}
 
+	Config cfg = parse_cfg();
+
 	client = enet_host_create(NULL, 1, 1, 0, 0);
 
 	if (client == NULL) {
@@ -38,9 +35,8 @@ int client_connect()
 		return 1;
 	}
 
-	//enet_address_set_host(&address, "::1");
-	enet_address_set_host(&address, "127.0.0.1");
-	address.port = 4545;
+	enet_address_set_host(&address, cfg.host.c_str());
+	address.port = cfg.port;
 
 	host = enet_host_connect(client, &address, 1, 0);
 
@@ -52,7 +48,9 @@ int client_connect()
 	ENetEvent event;
 
 	if (enet_host_service(client, &event, 1000) > 0 && event.type == ENET_EVENT_TYPE_CONNECT) {
-		std::puts("Client: Connection to localhost:4545 succeeded.");	
+		std::cout <<
+			"Client: Connection to " << cfg.host << ":" << cfg.port << " succeeded." <<
+		std::endl;	
 
 		size_t buf_size = 1;
 		uint8_t buf[buf_size] = { 2 };
@@ -61,7 +59,9 @@ int client_connect()
 		connected = true;
 		status = CONNECTED;
 	} else {
-		std::puts("Client: Connection to localhost:4545 failed.");
+		std::cout <<
+			"Client: Connection to " << cfg.host << ":" << cfg.port << " failed." <<
+		std::endl;	
 		enet_peer_reset(host);
 		return 1;
 	}
@@ -71,6 +71,11 @@ int client_connect()
 
 int client_update()
 {
+	if (!disconnected) {
+		client_close();
+		return 1;
+	}
+
 	ENetEvent event;
 
   	while (enet_host_service(client, &event, 0) > 0) {
@@ -92,11 +97,6 @@ int client_update()
 		}
 	}
 
-	if (!disconnected) {
-		enet_peer_reset(host);
-		client_close();
-	}
-
 	return 0;
 }
 
@@ -108,6 +108,7 @@ int client_disconnect()
 
 int client_close()
 {
+	enet_peer_disconnect(host, 0);
 	enet_host_destroy(client);
 	enet_deinitialize();
 	return 0;

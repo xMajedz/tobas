@@ -1,7 +1,6 @@
 #include "common.h"
 #include "body.h"
 #include "joint.h"
-#include <vector>
 
 typedef int PlayerID;
 
@@ -14,8 +13,8 @@ enum PlayerPassiveStates {
 struct Player {
 	std::string_view m_name;
 	
-	array<Body> body;
-	array<Joint> joint;
+	std::vector<Body> body;
+	std::vector<Joint> joint;
 
 	size_t b_count;
 	size_t j_count;
@@ -60,9 +59,7 @@ struct Player {
 	void update_freeze();
 	void refreeze();
 	void reset();
-	void draw();
-	void draw_freeze();
-	void draw_ghost();
+	void draw(bool freeze);
 	void toggle_ghost();
 	void TriggerPlayerPassiveStates(PlayerPassiveStates state);
 	void TriggerPlayerPassiveStatesAlt(PlayerPassiveStates state);

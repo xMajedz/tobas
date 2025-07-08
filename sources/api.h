@@ -15,8 +15,8 @@ namespace API
 	static size_t o_count;
 	static size_t p_count;
 
-	static Body* object;
-	static Player* player;
+	static Body*   o;
+	static Player* p;
 	
 	static std::map<std::string_view, BodyID> b_map;
 	static std::vector<Body>  b_vector;
@@ -25,8 +25,8 @@ namespace API
 	static size_t b_count;
 	static size_t j_count;
 	
-	static Body* body;
-	static Joint* joint;
+	static Body*  b;
+	static Joint* j;
 	
 	void Init();
 	void Reset();
@@ -34,8 +34,8 @@ namespace API
 
 	lua_State* GetL();
 	Gamerules GetRules();
-	array<Body> GetObjects();
-	array<Player> GetPlayers();
+	std::vector<Body> GetObjects();
+	std::vector<Player> GetPlayers();
 	
 	int TriggerCallback(const char* event);
 	int TriggerCallback(const char* event, const char* str);
@@ -65,22 +65,25 @@ namespace API
 }
 
 namespace Console {
+	static size_t message_count = 0;
 	static const char* messages[1024];
-	static const char* s_last_message;
-	static bool s_has_event;
+	static const char* last_message;
+	static bool has_message;
 
 	void log(const char* message);
 	void SetMessage(const char* message);
 	const char* GetMessage();
-	void ResetHasEvent();
-	void SetHasEvent();
-	bool GetHasEvent();
+	void ResetHasMessage();
+	void SetHasMessage();
+	bool GetHasMessage();
 };
 
 
 int luaopen_api_main(lua_State* L);
 
 int luaopen_api_game(lua_State* L);
+
+int luaopen_api_net(lua_State* L);
 
 int luaopen_api_raylib(lua_State* L);
 

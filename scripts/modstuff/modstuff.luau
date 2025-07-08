@@ -26,32 +26,21 @@ ms.connections["r_thigh"] = "r_hip"
 ms.connections["l_leg"] = "l_knee"
 ms.connections["r_leg"] = "r_knee"
 
-function ms.euler2quat(u, v, w)
+function ms.E2Q(u, v, w)
 	return Math.MatrixToQuaternion(Math.EulerToMatrix(u, v, w))
 end
 
-function ms.euler2quat2(u, v, w)
-	return RAYMATH.QuaternionFromMatrix(RAYMATH.MatrixRotateXYZ({u, v, w}))
+function ms.E2Q2(u, v, w)
+	local q = RAYMATH.QuaternionFromMatrix(RAYMATH.MatrixRotateXYZ({u, v, w}))
+	return {q["w"], q["x"], q["y"], q["z"]}
 end
---local q = RAYMATH.QuaternionIdentity() 
---local q = RAYMATH.QuaternionFromMatrix(RAYMATH.MatrixIdentity()) 
---local q = RAYMATH.QuaternionFromMatrix(RAYMATH.MatrixRotateX(90)) 
---print(RAYMATH.RAD2DEG)
---print(RAYMATH.DEG2RAD)
---print(q.w)
---print(q.x)
---print(q.y)
---print(q.z)
-
---RAYMATh.MatrixRotateXYZ(Vector3 angle)
---RAYMATH.QuaternionFromMatrix(Matrix mat)
 
 function ms.loadmodTBM(modname)
 	ms.loadTBM(ms.parseTBM(modname))
 end
 
 function ms.loadTBM(TBM)
-	local euler2quat = ms["euler2quat"]
+	local E2Q = ms["E2Q"]
 
 	API["mod"] (TBM["mod"])
 	API["gravity"] {TBM["gravity"][1] + 0, TBM["gravity"][2] + 0, TBM["gravity"][3] + 0}
@@ -75,7 +64,7 @@ function ms.loadTBM(TBM)
 		end
 		API.position {env_obj["pos"][1] + 0, env_obj["pos"][2] + 0, env_obj["pos"][3] + 0}
 		if  env_obj["rot"] then
-			local q = euler2quat(
+			local q = E2Q(
 				env_obj["rot"][1] * Math.DEG2RAD,
 				env_obj["rot"][2] * Math.DEG2RAD,
 				env_obj["rot"][3] * Math.DEG2RAD
@@ -119,7 +108,7 @@ function ms.loadTBM(TBM)
 			end
 			API.position {b["pos"][1] + 0, b["pos"][2] + 0, b["pos"][3] + 0}
 			if b["rot"] then
-				local q = euler2quat(
+				local q = E2Q(
 					b["rot"][1] * Math.DEG2RAD,
 					b["rot"][2] * Math.DEG2RAD,
 					b["rot"][3] * Math.DEG2RAD

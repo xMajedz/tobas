@@ -8,8 +8,7 @@ namespace Gamecam {
 	static Vector3 camera_offset;
 	
 	void Init();
-	Camera Get();
-
+	const Camera& Get();
 
 	void CameraRotateZ(float degrees);
 	void CameraRotateX(float degrees);
@@ -20,7 +19,7 @@ namespace Gamecam {
 	void CameraZoomIn();
 	void CameraZoomOut();
 
-	void UpdateSpectatorcam(bool freeze, array<Player> players);
+	void UpdateSpectatorcam(bool freeze, std::vector<Player> players);
 	void UpdatePlaycam(bool freeze, Player selected_player);
 	void UpdateDummycam();
 };

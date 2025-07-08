@@ -2,9 +2,7 @@
 #define ENET_IMPLEMENTATION
 #include "netcode_common.h"
 
-#include <cstdio>
 #include <thread>
-#include <iostream>
 
 #define MAX_CLIENTS 20
 
@@ -14,11 +12,7 @@ static ENetHost* host = { 0 };
 
 static std::thread game_thread;
 
-enum Status {
-	INACTIVE = 0,
-	ACTIVE,
-	STARTING,
-};
+enum Status { INACTIVE = 0, ACTIVE, STARTING };
 
 static Status status = INACTIVE;
 
@@ -26,30 +20,36 @@ static bool host_active = false;
 
 int host_init()
 {
-	std::puts("Server: Starting ...");
-
 	status = STARTING;
 
+	std::cout << "Server: Starting ..." << std::endl;
+
 	if (enet_initialize() != 0) {
-		std::fprintf(stderr, "Server: An error occurred while initializing ENet.\n");
+		std::cout <<
+			"Server: An error occurred while initializing ENet." <<
+		std::endl;
 		return 1;
 	}
 
-	address.host = ENET_HOST_ANY;
-	address.port = 4545;
+	Config cfg = parse_cfg();
 
-	host = enet_host_create(&address, MAX_CLIENTS, 1, 0, 0);
+	enet_address_set_host(&address, cfg.host.c_str());
+	address.port = cfg.port;
+
+	host = enet_host_create(&address, cfg.max_clients, 1, 0, 0);
 
 	if (host == NULL) {
-		std::printf("Server: An error occurred while trying to create an ENet server host.\n");
+		std::cout <<
+			"Server: An error occurred while trying to create an ENet server host." <<
+		std::endl;
 		return 1;
 	}
 	
-	std::puts("Server: Started a server at localhost:4545");
-
 	status = ACTIVE;
 
 	host_active = true;
+
+	std::cout << "Server: Started a server at " << cfg.host << ":" << cfg.port << std::endl;
 
 	return 0;
 }
@@ -64,7 +64,9 @@ int host_game()
 		while (enet_host_service(host, &event, 1000) > 0) {
 			switch (event.type) {
 			case ENET_EVENT_TYPE_CONNECT: {
-				std::printf("Server: A new client connected.\n");
+				std::cout <<
+					"Server: A new client connected." <<
+				std::endl;
 	
 				size_t buf_size = 1;
 				uint8_t buf[buf_size] = { 5 };
@@ -72,18 +74,26 @@ int host_game()
 				enet_peer_send(event.peer, 0, p);
 			} break;
 			case ENET_EVENT_TYPE_RECEIVE: {
-			std::printf("Server: A packet of length %lu containing %lu was received on channel %lu.\n",
-	                       	event.packet->dataLength,
-				*((uint8_t*)event.packet->data),
-	                        event.channelID
-				);
+				std::cout <<
+					"Server: A packet of length " << event.packet->dataLength << " " <<
+					"containing " << (int)*((uint8_t*)event.packet->data) << " " <<
+					"was received on channel " << (int)event.channelID <<
+				std::endl;
+
 	                	enet_packet_destroy(event.packet);
 			} break;
 			case ENET_EVENT_TYPE_DISCONNECT: {
-				std::printf("Server: A client disconnected.\n");
+				std::cout <<
+					"Server: A client disconnected." <<
+				std::endl;
+
 		        	event.peer->data = NULL;
 			} break;
 			case ENET_EVENT_TYPE_DISCONNECT_TIMEOUT: {
+				std::cout <<
+					"Server: A client disconnected. (timeout)" <<
+				std::endl;
+
 		        	event.peer->data = NULL;
 			} break;
 			case ENET_EVENT_TYPE_NONE: {}

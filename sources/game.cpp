@@ -3,15 +3,18 @@
 #include "luau.h"
 #include "api.h"
 
-static void Start () {
+static void Start ()
+{
 	Game::state.running = true;
 };
 
-static bool Running () {
+static bool Running ()
+{
 	return Game::state.running;
 };
 
-static void Loop () {
+static void Loop ()
+{
 	int i = 1;
 };
 
@@ -23,6 +26,119 @@ void Game::Init()
 
 	API::Init();
 
+	API::SetCallback("NewGame", "init", [](lua_State* L) {
+		Replay::RecordFrame();
+		return 1;
+	});
+
+	API::SetCallback("Update", "init", [](lua_State* L) {
+		/*state.selected_joint = SelectJoint(
+		 * camera,
+		 * &MouseRay,
+		 * &MouseCollision,
+		 * selected_player
+		 * );
+		 */
+			
+			
+		if (IsKeyPressed(KEY_F)) {
+			//SaveReplay();
+		}
+	
+		if (IsKeyPressed(KEY_R)) {
+			//StartReplay();
+		}
+		if (IsKeyPressed(KEY_P)) {
+			TogglePause();
+		}
+	
+		if (IsKeyPressed(KEY_G)) {
+			ToggleGhosts();
+		}
+	
+		if (IsKeyPressed(KEY_ESCAPE)) {
+			//ResetGame();
+		}
+
+		if (state.freeze) {
+			switch(state.gamemode) {
+			case FREEPLAY: {
+				if (IsKeyPressed(KEY_SPACE)) {
+					if (IsKeyDown(KEY_LEFT_SHIFT)) {
+						Step();
+					} else {
+						Step(rules.turnframes);
+					}
+				}
+				} break;
+				}
+		} else {
+			switch(state.gamemode) {
+			case FREEPLAY: {
+				if (IsKeyPressed(KEY_Z)) {
+					if (IsKeyDown(KEY_LEFT_CONTROL)) {
+					//Replay::PlayFrame(state.game_frame - 1);
+					} else {
+						if (state.selected_joint >= 0) {
+							Refreeze();
+							if (IsKeyDown(KEY_LEFT_SHIFT)) {
+								//selected_joint->ToggleActiveStateAlt();
+							} else {
+								//selected_joint->ToggleActiveState();
+							}
+						}
+					}
+				}
+
+				if (IsKeyPressed(KEY_X)) {
+					if (state.selected_joint >= 0) {
+						Refreeze();
+						if (IsKeyDown(KEY_LEFT_SHIFT)) {
+							//selected_joint->TogglePassiveStateAlt();
+						} else {
+							//selected_joint->TogglePassiveState();
+						}
+					}
+				}
+
+				if (IsKeyPressed(KEY_C)) {
+					//selected_player->TogglePlayerPassiveStatesAlt();
+					//selected_player->TogglePlayerPassiveStates();
+				}
+
+				if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+					//SelectPlayer(gamecam.camera, MouseRay, MouseCollision);
+					if (state.selected_joint >= 0) {
+						Refreeze();
+						if (IsKeyDown(KEY_LEFT_SHIFT)) {
+							//selected_joint->CycleStateAlt();
+						} else {
+							//selected_joint->CycleState();
+						}
+					}
+				}
+			} break;
+			case REPLAY: {
+				if (IsKeyPressed(KEY_SPACE)) {
+					//StartFreeplay();
+				}
+			
+				if (IsKeyPressed(KEY_E)) {
+					if (!state.freeze) {
+						//EditReplay();
+					}
+				}
+			} break;
+			}
+		}
+		return 1;
+	});
+
+	API::SetCallback("Console", "init", [](lua_State* L) {
+		const char* message = lua_tostring(L, -1);
+		return 1;
+	});
+
 	nearCallback = [](void* unsafe, dGeomID o1, dGeomID o2) {
 		Game::NearCallback(o1, o2);
 		//API::NearCallback(collision);
@@ -31,8 +147,6 @@ void Game::Init()
 
 void Game::NewGame()
 {
-	dMass mass;
-
 	rules = API::GetRules();
 	rules.max_contacts = 8;
 
@@ -58,8 +172,7 @@ void Game::NewGame()
 
   	dWorldSetGravity(world, rules.gravity.x, rules.gravity.y, rules.gravity.z);
 
-	for (int i = 0; i < objects.size(); i += 1) {
-		auto&& o = objects[i];
+	for (auto& o : objects) {
 		o.create(world, space);
 		o.make_static(world);
 		o.set_category_bits();
@@ -99,8 +212,8 @@ void Game::NewGame()
 		},
 	};
 
-	for (int i = 0; i < players.size(); i += 1) {
-		auto&& p = players[i];
+	int i = 0;
+	for (auto& p : players) {
 		p.joint_color = colors[i];
 
 		p.set_category_bits(0b0000, 0b0000);
@@ -120,28 +233,18 @@ void Game::NewGame()
 		if (0 > state.selected_player) {
 			state.selected_player = 0;
 		}
+		i += 1;
 	}
-
-	Replay::RecordFrame();
 
 	API::NewGameCallback();
 };
 
 void Game::Quit()
 {
-	for (int i = 0; i < players.size(); i += 1) {
-		delete[] players[i].body.data();
-		delete[] players[i].joint.data();
-	}
-
-	delete[] players.data();
-	delete[] objects.data();
-
 	API::Close();
 	dJointGroupDestroy(contactgroup);
 	dSpaceDestroy(space);
 	dCloseODE();
-
 }
 
 void Game::NearCallback(dGeomID o1, dGeomID o2)
@@ -152,23 +255,25 @@ void Game::NearCallback(dGeomID o1, dGeomID o2)
 	unsigned long cat2 = dGeomGetCategoryBits(o2);
 	unsigned long col2 = dGeomGetCollideBits(o2);
 
- 	if (!((cat1 & col2) || (cat2 & col1))) return;
+ 	if (!((cat1 & col2) || (cat2 & col1))) {
+		return;
+	}
 
 	dBodyID b1 = dGeomGetBody(o1);
 	dBodyID b2 = dGeomGetBody(o2);
 
-	dContact contact[rules.max_contacts];
+	dContact contacts[rules.max_contacts];
 
-	for (int i = 0; i < rules.max_contacts; i += 1) {
-		contact[i].surface = (dSurfaceParameters) {
+	for (auto& contact : contacts) {
+		contact.surface = (dSurfaceParameters) {
 			.mode = dContactApprox1,
 			.mu = rules.friction,
 		};
 	}
 
-	if (int numc = dCollide(o1, o2, rules.max_contacts, &contact[0].geom, sizeof(dContact))) {
+	if (int numc = dCollide(o1, o2, rules.max_contacts, &contacts[0].geom, sizeof(dContact))) {
 		for (int i = 0; i < numc; i += 1) {
-			dJointID c = dJointCreateContact(world, contactgroup, contact + i);
+			dJointID c = dJointCreateContact(world, contactgroup, contacts + i);
 			dJointAttach(c, b1, b2);
 		}
 	}
@@ -179,54 +284,46 @@ void Game::UpdateFreeze()
 	state.freeze = true;
 	state.freeze_time = GetTime();
 	state.step_count = 0;
-
-	for (int i = 0; i < objects.size(); i += 1) {
-		auto&& o = objects[i];
+	
+	for (auto& o : objects) {
 		o.update_freeze();
 	}
 
-	for (int i = 0; i < players.size(); i += 1) {
-		auto&& p = players[i];
+	for (auto& p : players) {
 		p.update_freeze();
 	}
 
 	API::FreezeCallback();
 }
 
-void Game::ReFreeze()
+void Game::Refreeze()
 {
 	state.freeze_count = 0;
 
-	for (int i = 0; i < objects.size(); i += 1) {
-		auto&& o = objects[i];
+	for (auto& o : objects) {
 		o.refreeze();
 	}
 
-	for (int i = 0; i < players.size(); i += 1) {
-		auto&& p = players[i];
+	for (auto& p : players) {
 		p.refreeze();
 	}
 }
 
 void Game::Restart()
 {
-	for (int i = 0; i < objects.size(); i += 1) {
-		auto&& o = objects[i];
+	for (auto& o : objects) {
 		o.reset();
 	}
 	
-	for (int i = 0; i < players.size(); i += 1) {
-		auto&& p = players[i];
+	for (auto& p : players) {
 		p.reset();
 	}
 }
 
 void Game::Reset()
 {
-	/*std::map<std::string, Body> new_object_map;
-	objects = new_object_map;
-	std::map<std::string, Player> new_player_map;
-	players = new_player_map;*/
+	objects.clear();
+	players.clear();
 
 	dJointGroupDestroy(contactgroup);
 	dSpaceDestroy(space);
@@ -234,15 +331,19 @@ void Game::Reset()
 	NewGame();
 }
 
-
-void Game::StepGame(int frame_count)
+void Game::Step(int frame_count)
 {
 	state.freeze = false;
 	state.step_frames = frame_count;
 
-	ReFreeze();
+	Refreeze();
 
 	API::StepCallback();
+}
+
+void Game::Step()
+{
+	Game::Step(1);
 }
 
 void Game::Update(dReal dt)
@@ -272,14 +373,13 @@ void Game::Update(dReal dt)
 			switch (state.gamemode) {
 				case FREEPLAY: {
 					if (++state.freeze_count >= state.freeze_frames) {
-		LOG(state.freeze_count)
-						ReFreeze();
+						Refreeze();
 					}
 	
 					if (rules.reaction_time != 0) {
 						state.reaction_count = GetTime() - state.freeze_time;
 						if (state.reaction_count >= rules.reaction_time) {
-							StepGame(rules.turnframes);
+							Step(rules.turnframes);
 						}
 					}
 				} break;
@@ -310,33 +410,17 @@ void Game::DrawFloor()
 void Game::Draw()
 {
 	DrawFloor();
-	if (state.freeze) {
-		for (int i = 0; i < objects.size(); i += 1) {
-			auto&& o = objects[i];
-			o.draw_freeze();
-			o.draw_ghost();
-		}
-				
-		for (int i = 0; i < players.size(); i += 1) {
-			auto&& p = players[i];
-			p.draw_freeze();
-			p.draw_ghost();
-		}
-	} else {
-		for (int i = 0; i < objects.size(); i += 1) {
-			auto&& o = objects[i];
-			o.draw();
-		}
 
-		for (int i = 0; i < players.size(); i += 1) {
-			auto&& p = players[i];
-			p.draw();
-		}
+	for (auto& o : objects) {
+		o.draw(state.freeze);
+	}
+
+	for (auto& p : players) {
+		p.draw(state.freeze);
 	}
 
 	API::DrawCallback();
 }
-
 
 bool Game::GetPause()
 {
@@ -393,7 +477,7 @@ size_t Game::GetPlayerJointCount(PlayerID player_id)
 	return players[player_id].joint.size();
 }
 
-array<Body> Game::GetObjects()
+std::vector<Body> Game::GetObjects()
 {
 	return objects;
 }
@@ -413,7 +497,7 @@ PlayerID Game::GetSelectedPlayerID()
 	return state.selected_player;
 }
 
-array<Player> Game::GetPlayers()
+std::vector<Player> Game::GetPlayers()
 {
 	return players;
 }

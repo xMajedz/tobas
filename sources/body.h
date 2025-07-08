@@ -66,7 +66,7 @@ struct Body {
 	void draw(Color draw_color);
 	void draw_freeze();
 	void draw_ghost();
-	void draw();
+	void draw(bool freeze);
 	void toggle_ghost();
 	std::string get_name();
 	RayCollision collide_mouse_ray(Ray ray, RayCollision collision);

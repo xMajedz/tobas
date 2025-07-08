@@ -58,9 +58,11 @@ namespace Game {
 	static Gamestate state;
 	static Gamerules rules;
 	
-	static array<Body> objects;
-	static array<Player> players;
+	static std::vector<Body> objects;
+	static std::vector<Player> players;
 	
+	static dMass mass;
+
 	static dReal step;
 
 	static CollisionData collision;
@@ -79,8 +81,8 @@ namespace Game {
 	PlayerID GetSelectedPlayerID();
 
 	Gamerules GetGamerules();
-	array<Player> GetPlayers();
-	array<Body> GetObjects();
+	std::vector<Player> GetPlayers();
+	std::vector<Body> GetObjects();
 
 	void NearCallback(dGeomID, dGeomID);
 
@@ -113,8 +115,9 @@ namespace Game {
 	void StartReplay();
 	void Restart();
 	void UpdateFreeze();
-	void StepGame(int);
-	void ReFreeze();
+	void Step(int);
+	void Step();
+	void Refreeze();
 	void Loop();
 
 	bool Running();

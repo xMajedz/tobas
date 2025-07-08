@@ -6,6 +6,8 @@ Window window;
 
 int main()
 {
+	SetTraceLogLevel(LOG_ERROR);
+
 	Game::Init();
 	//Game::NewGame();
 	host_game();

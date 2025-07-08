@@ -19,20 +19,27 @@ local window = API.GetWindowSize()
 
 local init = {}
 
+local log = API["log"]
+log "log"
+
+if _G["Net"] then
+	print("internets")
+end
+
 function init.Mod()
-	local PlayerCount = Game.GetPlayerCount()
-	local P = "";
-	for i = 1, PlayerCount do
-		P = P .. " " .. (i - 1) .. ":"
-		P = P .. " B: " .. Game.GetPlayerBodyCount(i - 1)
-		P = P .. " J: " .. Game.GetPlayerJointCount(i - 1)
+	local p_count = Game.GetPlayerCount()
+	local p = "";
+	for i = 1, p_count do
+		p = p .. " P" .. (i - 1) .. ":"
+		p = p .. " B: " .. Game.GetPlayerBodyCount(i - 1)
+		p = p .. " J: " .. Game.GetPlayerJointCount(i - 1)
 	end
 	local title = string.format(
 		"%s O:%d P:%d%s",
 		Game.GetMod(),
 		Game.GetObjectCount(),
-		PlayerCount,
-		P
+		p_count,
+		p
 	)
 	RAYGUI.GuiLabel(20, 20, window.width-20, 20, title)
 end

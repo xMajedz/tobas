@@ -6,18 +6,22 @@
 
 Window window;
 
+bool running = true;
+bool host_running = false;
+
 int main()
 {
-	window = { .width = 1600, .height = 900};
+	window = {.width = 800, .height = 450};
 	SetTraceLogLevel(LOG_ERROR);
 	InitWindow(window.width, window.height, "TOBAS");
 
 	Game::Init();
-	//Game::NewGame();
+	Game::NewGame();
 	
 	if (client_connect() > 0) {
 		host_game_thread();
 		host_wait_thread();
+		host_running = true;
 		client_connect();
 	}
 
@@ -25,24 +29,37 @@ int main()
 	const auto& camera = Gamecam::Get();
 
 	SetExitKey(0);
-	while (!WindowShouldClose()) {
+	while (running) {
 		SetWindowTitle(TextFormat("TOBAS %dFPS", GetFPS()));
 
+		if (WindowShouldClose()) {
+			client_disconnect();
+			running = false;
+		}
+
 		client_update();
-		
-		//Game::Update(GetFrameTime());
+
+		if (0 > Game::GetSelectedPlayerID()) {
+			Gamecam::UpdateSpectatorcam(Game::GetFreeze(), Game::GetPlayers());
+		} else {
+			Gamecam::UpdatePlaycam(Game::GetFreeze(), Game::GetSelectedPlayer());
+		}
+
+		Game::Update(GetFrameTime());
 		BeginDrawing();
 			ClearBackground(RAYWHITE);
 			BeginMode3D(camera);
-				//Game::Draw();
-				//API::Draw3DCallback();
+				Game::Draw();
+				API::Draw3DCallback();
 			EndMode3D();
-			//API::Draw2DCallback();
+			API::Draw2DCallback();
 		EndDrawing();
 	}
 
-	client_disconnect();
-	host_close_thread();
+	if (host_running) {
+		host_close_thread();
+	}
+
 	Game::Quit();
 
 	CloseWindow();

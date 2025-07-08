@@ -16,43 +16,4 @@
 #define LOG_A LOG("A")
 #define LOG_B LOG("B")
 #define LOG_C LOG("C")
-
-template <typename T> struct array {
-private:
-	T* m_data;
-	size_t m_size;
-public:
-	array(){}
-	array(int size)
-	{
-		m_data = new T[size];
-		m_size = size;
-	};
-
-	array(int size, std::vector<T> v)
-	{
-		m_data = new T[size];
-		m_size = size;
-		for (int i = 0; i < m_size; i += 1) {
-			*(m_data + i) = v[i];
-		}
-	};
-
-	~array()
-	{
-//LOG("array_destruct")
-	};
-
-	T* data() {
-		return m_data;
-	};
-
-	size_t size() {
-		return m_size;
-	};
-
-	T operator[](int index)
-	{
-		return *(m_data + index);
-	};
-};
+#define LOG_D LOG("D")

@@ -8,7 +8,7 @@ void Gamecam::Init()
 	camera_offset = { 0.00, 5.00, 0.00 };
 }
 
-Camera Gamecam::Get()
+const Camera& Gamecam::Get()
 {
 	return camera;
 }
@@ -59,7 +59,7 @@ void Gamecam::CameraZoomOut()
 	camera_offset.z *= 1.10;
 }
 
-void Gamecam::UpdateSpectatorcam(bool freeze, array<Player> players)
+void Gamecam::UpdateSpectatorcam(bool freeze, std::vector<Player> players)
 {
 	float x = 0.00;
 	float y = 0.00;
@@ -75,8 +75,7 @@ void Gamecam::UpdatePlaycam(bool freeze, Player selected_player)
 	size_t b_count = selected_player.body.size();
 
 	if (b_count > 0) {
-		for (int i = 0; i < b_count ; i += 1) {
-			auto&& b = selected_player.body[i];
+		for (auto& b : selected_player.body) {
 			if (freeze) {
 				x += b.freeze.position.x;
 				y += b.freeze.position.y;

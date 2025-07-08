@@ -85,6 +85,7 @@ workspace "tobas"
 		"sources/luau.h", "sources/luau.cpp",
 
 		"sources/api.h", "sources/api.cpp",
+		"sources/api_net.cpp",
 		"sources/api_game.cpp",
 		"sources/api_raylib.cpp",
 		"sources/api_raygui.cpp",
@@ -98,7 +99,7 @@ workspace "tobas"
 		"sources/body.h", "sources/body.cpp",
 	}
 
-	filter { "platforms:Win*" }
+	filter { "system:windows" }
 		links {"winmm", "gdi32", "opengl32"}
 
 	filter { "configurations:Debug" }
@@ -115,6 +116,7 @@ project "tobas_sp"
 	basedir "build"
 	targetdir "build"
 	files { "sources/tobas_sp.cpp" }
+	defines { "OFFLINE" }
 
 project "tobas"
 	kind "WindowedApp"
@@ -122,6 +124,7 @@ project "tobas"
 	basedir "build"
 	targetdir "build"
 	files {
+		"sources/netcode_common.h", "sources/netcode_common.cpp",
 		"sources/netcode_server.h", "sources/netcode_server.cpp",
 		"sources/netcode_client.h", "sources/netcode_client.cpp",
 		"sources/tobas.cpp",
@@ -133,6 +136,7 @@ project "tobas_server"
 	basedir "build"
 	targetdir "build"
 	files {
+		"sources/netcode_common.h", "sources/netcode_common.cpp",
 		"sources/netcode_server.h", "sources/netcode_server.cpp",
 		"sources/tobas_server.cpp",
 	}
