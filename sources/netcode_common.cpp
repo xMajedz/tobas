@@ -2,17 +2,19 @@
 
 #include <fstream>
 
-int write_cfg()
+void NetCommon::log (const char* message)
 {
-	std::ofstream server_conf("server.conf");
-	server_conf << "host=127.0.0.1\n";
-	server_conf << "port=1337\n";
-	server_conf << "max_clients=24\n";
-	server_conf.close();
-	return 0;
+	std::cout << message << std::endl;
 }
 
-Config parse_cfg()
+void NetCommon::WriteConfig()
+{
+	std::ofstream server_conf("server.conf");
+	server_conf << "host=127.0.0.1\nport=1337\nmax_clients=24\n";
+	server_conf.close();
+}
+
+Config NetCommon::LoadConfig()
 {
 	Config cfg;
 	std::ifstream server_conf("server.conf");
@@ -30,9 +32,22 @@ Config parse_cfg()
 		line = line.substr(12, line.size());
 		cfg.max_clients = std::stoi(line);
 	} else {
-		std::cout << "Server: Config file created." << std::endl;
-		write_cfg();
+		log("Server: Config file created.");
+		WriteConfig();
 	}
 	server_conf.close();
 	return cfg;
 }
+
+const char* NetCommon::Server::Message::Get(NetCommon::Server::Message::Type type)
+{
+	using namespace NetCommon::Server;
+	return Messages[(Message::Type)type];
+};
+
+const char* NetCommon::Client::Message::Get(NetCommon::Client::Message::Type type)
+{
+	using namespace NetCommon::Client;
+	return Messages[(Message::Type)type];
+};
+

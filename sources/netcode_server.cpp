@@ -1,13 +1,10 @@
 #include "netcode_server.h"
-#define ENET_IMPLEMENTATION
 #include "netcode_common.h"
+#include "game.h"
 
 #include <thread>
 
-#define MAX_CLIENTS 20
-
 static ENetAddress address = { 0 };
-
 static ENetHost* host = { 0 };
 
 static std::thread game_thread;
@@ -18,20 +15,31 @@ static Status status = INACTIVE;
 
 static bool host_active = false;
 
-int host_init()
+static Config cfg = NetCommon::LoadConfig();
+
+struct NetPlayer {
+	uint8_t id;
+	uint8_t j_state;
+	uint8_t j_state_alt;
+	bool active = false;
+	bool ready = false;
+	ENetPeer* peer;
+};
+
+NetPlayer* players;
+
+int p_count = 0;
+
+int Init()
 {
 	status = STARTING;
-
-	std::cout << "Server: Starting ..." << std::endl;
+	using namespace NetCommon::Server;
+	NetCommon::log(Message::Get(Message::Type::Starting));
 
 	if (enet_initialize() != 0) {
-		std::cout <<
-			"Server: An error occurred while initializing ENet." <<
-		std::endl;
+		NetCommon::log(Message::Get(Message::Type::InitError));
 		return 1;
 	}
-
-	Config cfg = parse_cfg();
 
 	enet_address_set_host(&address, cfg.host.c_str());
 	address.port = cfg.port;
@@ -39,9 +47,7 @@ int host_init()
 	host = enet_host_create(&address, cfg.max_clients, 1, 0, 0);
 
 	if (host == NULL) {
-		std::cout <<
-			"Server: An error occurred while trying to create an ENet server host." <<
-		std::endl;
+		NetCommon::log(Message::Get(Message::Type::ServerError));
 		return 1;
 	}
 	
@@ -54,31 +60,138 @@ int host_init()
 	return 0;
 }
 
-int host_game()
+static void Send(NetCommon::Server::Command::Type CMD, NetPlayer player)
 {
-	host_init();
+	using namespace NetCommon::Server::Command;
+	switch(CMD) {
+		case Type::Accept: {
+			size_t b_size = 2;
+			uint8_t b[b_size];
+			b[0] = (uint8_t)Type::Accept;
+			b[1] = (uint8_t)player.id;
+			ENetPacket* p = enet_packet_create(b, b_size, ENET_PACKET_FLAG_RELIABLE);
+
+			enet_peer_send(player.peer, 0, p);
+		} break;
+		case Type::Step: {
+			size_t b_size = 2;
+			uint8_t b[b_size];
+			b[0] = (uint8_t)Type::Step;
+			b[1] = (uint8_t)1;
+			ENetPacket* p = enet_packet_create(b, b_size, ENET_PACKET_FLAG_RELIABLE);
+			enet_peer_send(player.peer, 0, p);
+		} break;
+	}
+};
+
+static void SendToAllExcept(NetCommon::Server::Command::Type CMD, NetPlayer player)
+{
+	for (int i = 0; i <= p_count; i += 1) {
+		if (player.id != players[i]) {
+			Send(CMD, players[i]);
+		}
+
+		if (CMD == NetCommon::Server::Command::Type::Step) {
+			players[i].ready = false;
+		}
+	}
+};
+
+static void SendToAll(NetCommon::Server::Command::Type CMD)
+{
+	for (int i = 0; i <= p_count; i += 1) {
+		Send(CMD, players[i]);
+		if (CMD == NetCommon::Server::Command::Type::Step) {
+			players[i].ready = false;
+		}
+	}
+};
+
+static void Receive(NetCommon::Client::Command::Type CMD, ENetPacket* packet)
+{
+	auto rules = Game::GetGamerules();
+	uint8_t* data = (uint8_t*)packet->data;
+	using namespace NetCommon::Client::Command;
+	switch(CMD) {
+		case Type::Join: {
+			std::cout <<
+				"Server: received join command from a client." <<
+			std::endl;
+		} break;
+		case Type::Ready: {
+			int p_id = (int)data[1];
+	
+			std::cout <<
+				"Server: player with id " << p_id << " is ready." <<
+			std::endl;
+
+			std::cout << packet->dataLength << std::endl;
+			
+			players[p_id].ready = true;
+	
+			bool step = true;
+	
+			int i = 0;
+	
+			while (step && i < p_count) {
+				step = step && players[i].ready;
+				i += 1;
+			}
+	
+			if (p_count < rules.numplayers) {
+				std::cout <<
+					"Server: not enough players." <<
+				std::endl;
+			} else if (step) {
+				std::cout <<
+					"Server: players are ready, taking a step ..." <<
+				std::endl;
+
+				SendToAll(NetCommon::Server::Command::Type::Step);
+				Game::Step(rules.turnframes);
+			}
+		} break;
+	}
+};
+
+void Server::HostGame()
+{
+	if (Init() > 0) {
+		return;
+	}
+
+	Game::Init();
+	Game::NewGame();
 
 	ENetEvent event;
+	NetPlayer _players[cfg.max_clients];
+	players = _players;
 
 	while (host_active) {
 		while (enet_host_service(host, &event, 1000) > 0) {
 			switch (event.type) {
 			case ENET_EVENT_TYPE_CONNECT: {
+				uint8_t p_id = p_count;
+
 				std::cout <<
-					"Server: A new client connected." <<
+					"Server: A new client connected. ID: " << (int)p_id <<
 				std::endl;
-	
-				size_t buf_size = 1;
-				uint8_t buf[buf_size] = { 5 };
-				ENetPacket* p = enet_packet_create(buf, buf_size, ENET_PACKET_FLAG_RELIABLE);
-				enet_peer_send(event.peer, 0, p);
+
+				p_count += 1;
+
+				players[p_id].id = p_id;
+				players[p_id].peer = event.peer;
+				players[p_id].ready = false;
+				players[p_id].j_state = 0;
+				players[p_id].j_state_alt = 0;
+
+				Send(NetCommon::Server::Command::Type::Accept, players[p_id]);
 			} break;
 			case ENET_EVENT_TYPE_RECEIVE: {
-				std::cout <<
-					"Server: A packet of length " << event.packet->dataLength << " " <<
-					"containing " << (int)*((uint8_t*)event.packet->data) << " " <<
-					"was received on channel " << (int)event.channelID <<
-				std::endl;
+				uint8_t* data = (uint8_t*)event.packet->data;
+				
+				using namespace NetCommon::Client;
+				Receive((Command::Type)data[0], event.packet);
 
 	                	enet_packet_destroy(event.packet);
 			} break;
@@ -88,6 +201,7 @@ int host_game()
 				std::endl;
 
 		        	event.peer->data = NULL;
+				p_count -= 1;
 			} break;
 			case ENET_EVENT_TYPE_DISCONNECT_TIMEOUT: {
 				std::cout <<
@@ -95,6 +209,7 @@ int host_game()
 				std::endl;
 
 		        	event.peer->data = NULL;
+				p_count -= 1;
 			} break;
 			case ENET_EVENT_TYPE_NONE: {}
 			}
@@ -102,32 +217,28 @@ int host_game()
 			if (status == INACTIVE) break;
 		}
 	}
-	return 0;
 }
 
-int host_game_thread()
-{
-	game_thread = std::thread(host_game);
-	return 0;
-}
-
-int host_wait_thread()
-{
-	while(status == STARTING || status == INACTIVE) {}
-	return 0;
-}
-
-int host_close()
+void Server::Close()
 {
 	status = INACTIVE;
 	enet_host_destroy(host);
 	enet_deinitialize();
-	return 0;
+	Game::Quit();
 }
 
-int host_close_thread()
+void Server::HostGameThread()
+{
+	game_thread = std::thread(HostGame);
+}
+
+void Server::WaitGameThread()
+{
+	while(status == STARTING || status == INACTIVE) {}
+}
+
+void Server::CloseThread()
 {
 	game_thread.join();
-	host_close();
-	return 0;
+	Close();
 }

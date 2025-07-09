@@ -3,14 +3,14 @@
 #include "luau.h"
 #include "api.h"
 
+bool Game::Running ()
+{
+	return state.running;
+};
+
 static void Start ()
 {
 	Game::state.running = true;
-};
-
-static bool Running ()
-{
-	return Game::state.running;
 };
 
 static void Loop ()
@@ -25,117 +25,14 @@ void Game::Init()
 	step = 1.0E-2;
 
 	API::Init();
-
+	
 	API::SetCallback("NewGame", "init", [](lua_State* L) {
 		Replay::RecordFrame();
 		return 1;
 	});
 
-	API::SetCallback("Update", "init", [](lua_State* L) {
-		/*state.selected_joint = SelectJoint(
-		 * camera,
-		 * &MouseRay,
-		 * &MouseCollision,
-		 * selected_player
-		 * );
-		 */
-			
-			
-		if (IsKeyPressed(KEY_F)) {
-			//SaveReplay();
-		}
-	
-		if (IsKeyPressed(KEY_R)) {
-			//StartReplay();
-		}
-		if (IsKeyPressed(KEY_P)) {
-			TogglePause();
-		}
-	
-		if (IsKeyPressed(KEY_G)) {
-			ToggleGhosts();
-		}
-	
-		if (IsKeyPressed(KEY_ESCAPE)) {
-			//ResetGame();
-		}
-
-		if (state.freeze) {
-			switch(state.gamemode) {
-			case FREEPLAY: {
-				if (IsKeyPressed(KEY_SPACE)) {
-					if (IsKeyDown(KEY_LEFT_SHIFT)) {
-						Step();
-					} else {
-						Step(rules.turnframes);
-					}
-				}
-				} break;
-				}
-		} else {
-			switch(state.gamemode) {
-			case FREEPLAY: {
-				if (IsKeyPressed(KEY_Z)) {
-					if (IsKeyDown(KEY_LEFT_CONTROL)) {
-					//Replay::PlayFrame(state.game_frame - 1);
-					} else {
-						if (state.selected_joint >= 0) {
-							Refreeze();
-							if (IsKeyDown(KEY_LEFT_SHIFT)) {
-								//selected_joint->ToggleActiveStateAlt();
-							} else {
-								//selected_joint->ToggleActiveState();
-							}
-						}
-					}
-				}
-
-				if (IsKeyPressed(KEY_X)) {
-					if (state.selected_joint >= 0) {
-						Refreeze();
-						if (IsKeyDown(KEY_LEFT_SHIFT)) {
-							//selected_joint->TogglePassiveStateAlt();
-						} else {
-							//selected_joint->TogglePassiveState();
-						}
-					}
-				}
-
-				if (IsKeyPressed(KEY_C)) {
-					//selected_player->TogglePlayerPassiveStatesAlt();
-					//selected_player->TogglePlayerPassiveStates();
-				}
-
-				if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-					//SelectPlayer(gamecam.camera, MouseRay, MouseCollision);
-					if (state.selected_joint >= 0) {
-						Refreeze();
-						if (IsKeyDown(KEY_LEFT_SHIFT)) {
-							//selected_joint->CycleStateAlt();
-						} else {
-							//selected_joint->CycleState();
-						}
-					}
-				}
-			} break;
-			case REPLAY: {
-				if (IsKeyPressed(KEY_SPACE)) {
-					//StartFreeplay();
-				}
-			
-				if (IsKeyPressed(KEY_E)) {
-					if (!state.freeze) {
-						//EditReplay();
-					}
-				}
-			} break;
-			}
-		}
-		return 1;
-	});
-
 	API::SetCallback("Console", "init", [](lua_State* L) {
-		const char* message = lua_tostring(L, -1);
+		//const char* message = lua_tostring(L, -1);
 		return 1;
 	});
 
@@ -143,6 +40,8 @@ void Game::Init()
 		Game::NearCallback(o1, o2);
 		//API::NearCallback(collision);
 	};
+
+	state.running = false;
 }
 
 void Game::NewGame()
@@ -235,6 +134,9 @@ void Game::NewGame()
 		}
 		i += 1;
 	}
+
+
+	state.running = true;
 
 	API::NewGameCallback();
 };
@@ -351,7 +253,7 @@ void Game::Update(dReal dt)
 	if (!state.pause) {
 		if (!state.freeze) {
 			++state.game_frame;
-			switch (state.gamemode) {
+			switch (state.mode) {
 				case FREEPLAY: {
 					if (++state.step_count >= state.step_frames) {
 						UpdateFreeze();
@@ -370,7 +272,7 @@ void Game::Update(dReal dt)
 				} break;
 			}
 		} else {
-			switch (state.gamemode) {
+			switch (state.mode) {
 				case FREEPLAY: {
 					if (++state.freeze_count >= state.freeze_frames) {
 						Refreeze();
@@ -432,6 +334,11 @@ bool Game::GetFreeze()
 	return state.freeze;
 }
 
+Gamemode Game::GetGamemode()
+{
+	return state.mode;
+}
+
 Gamerules Game::GetGamerules()
 {
 	return rules;
@@ -482,7 +389,7 @@ std::vector<Body> Game::GetObjects()
 	return objects;
 }
 
-Player Game::GetPlayer(PlayerID player_id)
+const Player& Game::GetPlayer(PlayerID player_id)
 {
 	return players[player_id];
 }
@@ -495,6 +402,16 @@ Player Game::GetSelectedPlayer()
 PlayerID Game::GetSelectedPlayerID()
 {
 	return state.selected_player;
+}
+
+Joint Game::GetSelectedJoint()
+{
+	return players[state.selected_player].joint[state.selected_joint];
+}
+
+JointID Game::GetSelectedJointID()
+{
+	return state.selected_joint;
 }
 
 std::vector<Player> Game::GetPlayers()

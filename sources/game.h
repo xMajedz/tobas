@@ -22,7 +22,7 @@ struct Gamerules {
 };
 
 struct Gamestate {
-	Gamemode gamemode = FREEPLAY;
+	Gamemode mode = FREEPLAY;
 
 	int game_frame;
 
@@ -76,10 +76,13 @@ namespace Game {
 	bool GetFreeze();
 	bool GetPause();
 
-	Player GetPlayer(PlayerID player_id);
+	const Player& GetPlayer(PlayerID player_id);
 	Player GetSelectedPlayer();
 	PlayerID GetSelectedPlayerID();
+	Joint GetSelectedJoint();
+	JointID GetSelectedJointID();
 
+	Gamemode GetGamemode();
 	Gamerules GetGamerules();
 	std::vector<Player> GetPlayers();
 	std::vector<Body> GetObjects();

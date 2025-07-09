@@ -28,9 +28,19 @@ Player::Player()
 	ghost = true;
 };
 
-std::string_view Player::get_name()
+std::string_view Player::GetName()
 {
 	return m_name;
+};
+
+JointState Player::GetJointState(JointID joint_id)
+{
+	return joint[joint_id].state;
+};
+
+JointState Player::GetJointStateAlt(JointID joint_id)
+{
+	return joint[joint_id].state_alt;
 };
 
 void Player::create(dWorldID world, dSpaceID space)

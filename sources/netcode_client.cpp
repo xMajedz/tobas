@@ -1,37 +1,99 @@
 #include "netcode_client.h"
 #include "netcode_common.h"
+#include "game.h"
 
 static ENetAddress address = { 0 };
-
-static ENetPeer* host = { 0 };
-
 static ENetHost* client = { 0 };
+static ENetPeer* host = { 0 };
 	
-static bool disconnected = true;
-
 static bool connected = false;
+static bool disconnected = true;
+static bool disconnecting = false;
+
+static bool skip_local_sim = false;
+static bool ready = false;
+
+static int p_id = -1;
 
 enum Status { DISCONNECTED = 0, CONNECTED, CONNECTING };
 
 static Status status = DISCONNECTED;
 
-int client_connect()
+static f64_t update_interval = 1.00 / 20.00;
+static f64_t last_update_t = 0;
+static f64_t last_t = 0;
+
+static Config cfg = NetCommon::LoadConfig();
+
+static void Send(NetCommon::Client::Command::Type CMD)
 {
-	std::puts("Client: Connecting ...");	
+	using namespace NetCommon::Client::Command;
+	switch (CMD) {
+		case Type::Join: {
+			size_t b_size = 2;
+			uint8_t b[b_size];
+			b[0] = (uint8_t)Type::Join;
+			b[1] = (uint8_t)0;
+			ENetPacket* p = enet_packet_create(b, b_size, ENET_PACKET_FLAG_RELIABLE);
+			enet_peer_send(host, 0, p);
+		} break;
+		case Type::Ready: {
+			auto game_player = Game::GetPlayer((int)p_id);
+			size_t j_count = game_player.joint.size();
+			size_t b_size = 2 + j_count;
+			uint8_t b[b_size];
+			b[0] = (uint8_t)Type::Ready;
+			b[1] = (uint8_t)p_id;
+			for (int i = 0; i < j_count; i += 1) {
+				uint8_t j_state = (uint8_t)game_player.GetJointState(i);
+				uint8_t j_state_alt = (uint8_t)game_player.GetJointStateAlt(i);
+				b[2 + i] = j_state + j_state_alt << 2; 
+			}
+			ENetPacket* p = enet_packet_create(b, b_size, ENET_PACKET_FLAG_RELIABLE);
+			enet_peer_send(host, 0, p);
+		} break;
+	}
+};
+
+static void Receive(NetCommon::Server::Command::Type CMD, uint8_t* data)
+{
+	auto rules = Game::GetGamerules();
+	using namespace NetCommon::Server::Command;
+	switch(CMD) {
+		case Type::Accept: {
+			p_id = (int)data[1];
+			std::cout <<
+				"Client: received player id from server. ID: " << p_id <<
+			std::endl;
+		} break;
+		case Type::Step: {
+			std::cout <<
+				"Client: received step command from server." <<
+			std::endl;
+			if (!skip_local_sim) {
+				Game::Step(rules.turnframes);
+			}
+		} break;
+	}
+
+};
+
+int Client::Connect()
+{
+	using namespace NetCommon::Client;
+	NetCommon::log(Message::Get(Message::Type::Connecting));
 
 	status = CONNECTING;
 
 	if (enet_initialize() != 0) {
-		std::fprintf(stderr, "Client: An error occurred while initializing ENet.\n");
+		NetCommon::log(Message::Get(Message::Type::InitError));
     		return 1;
   	}
-
-	Config cfg = parse_cfg();
 
 	client = enet_host_create(NULL, 1, 1, 0, 0);
 
 	if (client == NULL) {
-		std::fprintf(stderr, "Client: An error occurred while trying to create an ENet client host.\n");
+		NetCommon::log(Message::Get(Message::Type::ClientError));
 		return 1;
 	}
 
@@ -41,21 +103,20 @@ int client_connect()
 	host = enet_host_connect(client, &address, 1, 0);
 
 	if (host == NULL) {
-    		std::fprintf(stderr, "Client: No available peers for initiating an ENet connection.\n");
+		NetCommon::log(Message::Get(Message::Type::HostError));
 		return 1;
 	}
 
 	ENetEvent event;
 
-	if (enet_host_service(client, &event, 1000) > 0 && event.type == ENET_EVENT_TYPE_CONNECT) {
+	if (enet_host_service(client, &event, 2000) > 0 && event.type == ENET_EVENT_TYPE_CONNECT) {
 		std::cout <<
 			"Client: Connection to " << cfg.host << ":" << cfg.port << " succeeded." <<
 		std::endl;	
 
-		size_t buf_size = 1;
-		uint8_t buf[buf_size] = { 2 };
-		ENetPacket* p = enet_packet_create(buf, buf_size, ENET_PACKET_FLAG_RELIABLE);
-		enet_peer_send(host, 0, p);
+		using namespace NetCommon::Client::Command;
+		Send(Type::Join);
+
 		connected = true;
 		status = CONNECTED;
 	} else {
@@ -69,11 +130,33 @@ int client_connect()
 	return 0;
 }
 
-int client_update()
+void Client::SkipLocalSim()
 {
-	if (!disconnected) {
-		client_close();
-		return 1;
+	skip_local_sim = true;
+}
+
+void Client::Ready()
+{
+	ready = true;
+}
+
+void Client::Update(f64_t t, f32_t dt)
+{
+	last_t = t;
+
+	if (host == NULL) {
+		return;
+	}
+
+	if (t - last_update_t > update_interval) {
+
+		last_update_t = t;
+	}
+
+	if (ready) {
+		using namespace NetCommon::Client::Command;
+		Send(Type::Ready);
+		ready = false;
 	}
 
 	ENetEvent event;
@@ -81,35 +164,38 @@ int client_update()
   	while (enet_host_service(client, &event, 0) > 0) {
       		switch (event.type) {
 		case ENET_EVENT_TYPE_RECEIVE: {
-			std::printf(
-				"Client: A packet of length %lu "
-				"containing %lu was received on channel %lu .\n",
-				event.packet->dataLength,
-				*((uint8_t*)event.packet->data),
-				event.channelID
-			);
+			uint8_t* data = (uint8_t*)event.packet->data;
+			Receive((NetCommon::Server::Command::Type)data[0], data);
         		enet_packet_destroy(event.packet);
 		} break;
 		case ENET_EVENT_TYPE_DISCONNECT: {
-			std::puts("Client: Disconnection succeeded.\n");
-        		disconnected = true;
+			using namespace NetCommon::Client;
+			NetCommon::log(Message::Get(Message::Type::DisconnectionPass));
+			Close();
+
 		} break;
 		}
 	}
-
-	return 0;
 }
 
-int client_disconnect()
+void Client::Disconnect()
 {
-	disconnected = true;
-	return 0;
+	if (host != NULL) {
+		enet_peer_disconnect(host, 0);
+		disconnecting = true;
+	}
 }
 
-int client_close()
+void Client::Close()
 {
-	enet_peer_disconnect(host, 0);
-	enet_host_destroy(client);
+	if (client != NULL) {
+		enet_host_destroy(client);
+        	disconnected = true;
+		disconnecting = false;
+	}
+
+	client = NULL;
+	host = NULL;
+
 	enet_deinitialize();
-	return 0;
 }

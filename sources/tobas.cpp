@@ -1,5 +1,4 @@
 #include "api.h"
-#include "game.h"
 #include "camera.h"
 #include "netcode_client.h"
 #include "netcode_server.h"
@@ -15,15 +14,28 @@ int main()
 	SetTraceLogLevel(LOG_ERROR);
 	InitWindow(window.width, window.height, "TOBAS");
 
-	Game::Init();
-	Game::NewGame();
-	
-	if (client_connect() > 0) {
-		host_game_thread();
-		host_wait_thread();
-		host_running = true;
-		client_connect();
+	if (Client::Connect() > 0) {
+		Server::HostGameThread();
+		Server::WaitGameThread();
+
+		if (Client::Connect() > 0) {
+			Client::Connect();
+		}
+
+		Client::SkipLocalSim();
+	} else {
+		Game::Init();
+		Game::NewGame();
 	}
+
+	API::SetCallback("Update" , "Net", [](lua_State* L) {
+		if (IsKeyPressed(KEY_SPACE)) {
+			Client::Ready();
+		}
+
+		Client::Update(GetTime(), GetFrameTime());
+		return 1;
+	});
 
 	Gamecam::Init();
 	const auto& camera = Gamecam::Get();
@@ -33,11 +45,9 @@ int main()
 		SetWindowTitle(TextFormat("TOBAS %dFPS", GetFPS()));
 
 		if (WindowShouldClose()) {
-			client_disconnect();
+			Client::Disconnect();
 			running = false;
 		}
-
-		client_update();
 
 		if (0 > Game::GetSelectedPlayerID()) {
 			Gamecam::UpdateSpectatorcam(Game::GetFreeze(), Game::GetPlayers());
@@ -57,10 +67,10 @@ int main()
 	}
 
 	if (host_running) {
-		host_close_thread();
+		Server::CloseThread();
+	} else {
+		Game::Quit();
 	}
-
-	Game::Quit();
 
 	CloseWindow();
 }

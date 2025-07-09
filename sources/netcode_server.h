@@ -1,5 +1,12 @@
-int host_game();
-int host_close();
-int host_game_thread();
-int host_wait_thread();
-int host_close_thread();
+#pragma once
+#include "netcode_main.h"
+
+namespace Server
+{
+	void HostGame();
+	void HostGameThread();
+	void WaitGameThread();
+
+	void Close();
+	void CloseThread();
+}

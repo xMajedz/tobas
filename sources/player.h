@@ -46,7 +46,9 @@ struct Player {
 	Player(std::string_view name);
 	Player();
 
-	std::string_view get_name();
+	std::string_view GetName();
+	JointState GetJointState(JointID joint_id);
+	JointState GetJointStateAlt(JointID joint_id);
 
 	void create(dWorldID world, dSpaceID space);
 

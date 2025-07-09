@@ -48,12 +48,106 @@ int main()
 	Game::Init();
 	Game::NewGame();
 
+	API::SetCallback("Update" , "sp", [](lua_State* L) {
+		auto rules = Game::GetGamerules();
+
+		if (IsKeyPressed(KEY_F)) {
+			//SaveReplay();
+		}
+	
+		if (IsKeyPressed(KEY_R)) {
+			//StartReplay();
+		}
+		if (IsKeyPressed(KEY_P)) {
+			//TogglePause();
+		}
+	
+		if (IsKeyPressed(KEY_G)) {
+			//ToggleGhosts();
+		}
+	
+		if (IsKeyPressed(KEY_ESCAPE)) {
+			//ResetGame();
+		}
+
+		if (Game::GetFreeze()) {
+			switch(Game::GetGamemode()) {
+			case FREEPLAY: {
+				if (IsKeyPressed(KEY_SPACE)) {
+					if (IsKeyDown(KEY_LEFT_SHIFT)) {
+						Game::Step();
+					} else {
+						Game::Step(rules.turnframes);
+					}
+				}
+				} break;
+				}
+		} else {
+			switch(Game::GetGamemode()) {
+			case FREEPLAY: {
+				if (IsKeyPressed(KEY_Z)) {
+					if (IsKeyDown(KEY_LEFT_CONTROL)) {
+					//Replay::PlayFrame(state.game_frame - 1);
+					} else {
+						if (Game::GetSelectedJointID() >= 0) {
+							Game::Refreeze();
+							if (IsKeyDown(KEY_LEFT_SHIFT)) {
+								//selected_joint->ToggleActiveStateAlt();
+							} else {
+								//selected_joint->ToggleActiveState();
+							}
+						}
+					}
+				}
+
+				if (IsKeyPressed(KEY_X)) {
+					if (Game::GetSelectedJointID() >= 0) {
+						Game::Refreeze();
+						if (IsKeyDown(KEY_LEFT_SHIFT)) {
+							//selected_joint->TogglePassiveStateAlt();
+						} else {
+							//selected_joint->TogglePassiveState();
+						}
+					}
+				}
+
+				if (IsKeyPressed(KEY_C)) {
+					//selected_player->TogglePlayerPassiveStatesAlt();
+					//selected_player->TogglePlayerPassiveStates();
+				}
+
+				if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+					//SelectPlayer(gamecam.camera, MouseRay, MouseCollision);
+					if (Game::GetSelectedJointID() >= 0) {
+						Game::Refreeze();
+						if (IsKeyDown(KEY_LEFT_SHIFT)) {
+							//selected_joint->CycleStateAlt();
+						} else {
+							//selected_joint->CycleState();
+						}
+					}
+				}
+			} break;
+			case REPLAY: {
+				if (IsKeyPressed(KEY_SPACE)) {
+					//StartFreeplay();
+				}
+			
+				if (!Game::GetFreeze() && IsKeyPressed(KEY_E)) {
+					//EditReplay();
+				}
+			} break;
+			}
+		}
+		return 1;
+	});
+
 	Gamecam::Init();
 	const auto& camera = Gamecam::Get();
 
 	Ray MouseRay = { 0 };
 	RayCollision MouseCollision = { 0 };
-
+	
 	SetExitKey(0);
 	while (!WindowShouldClose()) {
 		SetWindowTitle(TextFormat("TOBAS %dFPS", GetFPS()));
