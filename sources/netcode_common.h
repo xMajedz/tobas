@@ -8,7 +8,7 @@
 struct Config {
 	std::string host = "127.0.0.1";
 	int port = 1337;
-	int max_clients = 28;
+	int max_clients = 8;
 };
 
 namespace NetCommon

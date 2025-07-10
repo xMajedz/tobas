@@ -1,7 +1,4 @@
-#include <joint.h>
-
-#include <iostream>
-#define PRINT(X) std::cout << X << std::endl;
+#include "joint.h"
 
 Joint::Joint() {}
 
@@ -10,49 +7,27 @@ Joint::Joint(const char* name)
 	m_name = name;
 }
 
-void Joint::refreeze_joint() {
-	dGeomSetPosition(
-		dGeom,
-		freeze.position.x,
-		freeze.position.y,
-		freeze.position.z
-	);
-	dGeomSetQuaternion(
-		dGeom,
-		(dQuaternion) {
-		freeze.orientation.w,
-		freeze.orientation.x,
-		freeze.orientation.y,
-		freeze.orientation.z,
-	});
-
-	dBodySetLinearVel(
-		dBody,
-		freeze.linear_vel.x,
-		freeze.linear_vel.y,
-		freeze.linear_vel.z
-	);
-	dBodySetAngularVel(
-		dBody,
-		freeze.angular_vel.x,
-		freeze.angular_vel.y,
-		freeze.angular_vel.z
-	);
-};
+void Joint::refreeze_joint() { };
 
 void Joint::update_joint_freeze() {
-	const dReal *linear_vel = dBodyGetLinearVel(dBody);
-	const dReal *angular_vel = dBodyGetAngularVel(dBody);
-	const dReal *position = dGeomGetPosition(dGeom);
+	const dReal* pos = dGeomGetPosition(dGeom);
+	const dReal* b_pos = dBodyGetPosition(dBody);
+	const dReal* offset = dGeomGetOffsetPosition(dGeom);
 	//const dReal *orientation = dBodyGetQuaternion(dBody);
-
-	freeze.linear_vel = (Vector3) {linear_vel[0], linear_vel[1], linear_vel[2]};
-	freeze.angular_vel = (Vector3) {angular_vel[0], angular_vel[1], angular_vel[2]};
-	freeze.position = (Vector3) {position[0], position[1], position[2]};
-
+	
 	dQuaternion orientation;
 	dGeomGetQuaternion(dGeom, orientation);
 	freeze.orientation = (Vector4){orientation[1], orientation[2], orientation[3], orientation[0]};
+
+	Vector3 v_offset = {
+		b_pos[0] + offset[0],
+		b_pos[1] + offset[1],
+		b_pos[2] + offset[2],
+	};
+
+	//v_offset = Vector3RotateByQuaternion(v_offset, freeze.orientation);
+
+	freeze.position = { pos[0], pos[1], pos[2]};
 };
 
 void Joint::create_joint(dWorldID world, dSpaceID space, dMass mass, Body b1, Body b2) {
@@ -78,22 +53,28 @@ void Joint::create_joint(dWorldID world, dSpaceID space, dMass mass, Body b1, Bo
 	}
 
 	dGeomSetBody(dGeom, dBody);
-	
-	dGeomSetOffsetPosition(
-		dGeom,
+
+	Vector3 v_offset = {
 		position.x - b1.position.x,
 		position.y - b1.position.y,
-		position.z - b1.position.z
+		position.z - b1.position.z,
+	};
+
+	dGeomSetOffsetPosition(
+		dGeom,
+		v_offset.x,
+		v_offset.y,
+		v_offset.z
 	);
 
-	/*dGeomSetOffsetQuaternion(
+	dGeomSetOffsetQuaternion(
 		dGeom,
 		(dQuaternion) {
 		orientation.w,
 		orientation.x,
 		orientation.y,
 		orientation.z,
-	});*/
+	});
 
 	switch(connectionType) {
 		case Hinge: {

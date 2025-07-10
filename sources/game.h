@@ -76,6 +76,8 @@ namespace Game {
 	bool GetFreeze();
 	bool GetPause();
 
+	void SetSelectedPlayer(PlayerID);
+
 	const Player& GetPlayer(PlayerID player_id);
 	Player GetSelectedPlayer();
 	PlayerID GetSelectedPlayerID();
@@ -114,8 +116,10 @@ namespace Game {
 	void PlayFrame(int);
 	void EditReplay();
 	void SaveReplay();
-	void StartFreeplay();
-	void StartReplay();
+
+	void ModeFreeplay();
+	void ModeReplay();
+
 	void Restart();
 	void UpdateFreeze();
 	void Step(int);
@@ -126,7 +130,10 @@ namespace Game {
 	bool Running();
 };
 
-struct Window {
-	int width;
-	int height;
+namespace Window
+{
+	static float  width = 800;
+	static float height = 450;
+	float GetWidth ();
+	float GetHeight();
 };

@@ -1,7 +1,5 @@
 #include "api.h"
 
-extern Window window;
-
 enum GameContext {
 	NoContext,
 	ObjectContext,
@@ -1014,9 +1012,9 @@ static int API_connection_type(lua_State* L)
 static int API_GetWindowSize(lua_State* L)
 {
 	lua_newtable(L);
-	lua_pushnumber(L, window.width);
+	lua_pushnumber(L, Window::GetWidth());
 	lua_setfield(L, -2, "width");
-	lua_pushnumber(L, window.height);
+	lua_pushnumber(L, Window::GetHeight());
 	lua_setfield(L, -2, "height");
 	return 1;
 }

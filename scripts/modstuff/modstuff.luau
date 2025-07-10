@@ -226,6 +226,7 @@ function ms.parseTBM(filename)
 		elseif line:match("env_obj_joint") then
 			context = "env_obj_joint"
 			data = line:gsub(".*env_obj_joint ", "")
+			-- 1 2 3
 			TBM[context][data] = {}
 		elseif line:match("body ") then
 			context = "body"

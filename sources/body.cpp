@@ -119,9 +119,9 @@ void Body::make_static(dWorldID world) {
 		dJointID fixed = dJointCreateFixed(world ,0);
 		dJointAttach(fixed, dBody, 0);
 		dJointSetFixed(fixed);
-
-		collide_bits = 0b0000;
 		color = BLACK;
+	} else {
+		collide_bits = 0b0001;
 	}
 };
 

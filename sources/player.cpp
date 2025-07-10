@@ -51,6 +51,11 @@ void Player::create(dWorldID world, dSpaceID space)
 
 		b.ghost = true;
 		b.static_state = false;
+
+		b.position.x -= m_offset.x;
+		b.position.y -= m_offset.y;
+		b.position.z -= m_offset.z;
+
 		if (use_engagepos) {
 			b.position.x += engagepos.x;
 			b.position.y += engagepos.y;
@@ -73,6 +78,10 @@ void Player::create(dWorldID world, dSpaceID space)
 
 		j.ghost = true;
 		j.static_state = false;
+
+		j.position.x -= m_offset.x;
+		j.position.y -= m_offset.y;
+		j.position.z -= m_offset.z;
 
 		if (use_engagepos) {
 			j.position.x += engagepos.x;
@@ -102,11 +111,15 @@ void Player::set_offset()
 		sum.z += b.position.z;
 	}
 
+	b_count = body.size();
+
 	for (auto& j : joint) {
 		sum.x += j.position.x;
 		sum.y += j.position.y;
 		sum.z += j.position.z;
 	}
+
+	j_count = joint.size();
 
 	set_offset((Vector3) {
 		sum.x/(b_count + j_count),
@@ -220,10 +233,10 @@ void Player::toggle_ghost() {
 	}
 };
 
-/*
+
 void Player::TriggerPlayerPassiveStates(PlayerPassiveStates state) {
 	dReal strength = 0.00;
-	for (auto& [joint_name, j] : joint) {
+	for (auto& j : joint) {
 		j.state = RELAX;
 		if (state == HOLD_ALL) {
 			strength = j.strength;
@@ -252,7 +265,7 @@ void Player::TriggerPlayerPassiveStates(PlayerPassiveStates state) {
 
 void Player::TriggerPlayerPassiveStatesAlt(PlayerPassiveStates state) {
 	dReal strength = 0.00;
-	for (auto& [joint_name, j] : joint) {
+	for (auto& j : joint) {
 		j.state_alt = RELAX;
 		if (state == HOLD_ALL) {
 			strength = j.strength_alt;
@@ -307,4 +320,4 @@ void Player::RelaxAllAlt() {
 	refreeze();
 	TriggerPlayerPassiveStatesAlt(RELAX_ALL);
 	passive_states_alt = RELAX_ALL;
-};*/
+};

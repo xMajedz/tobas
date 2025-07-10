@@ -3,16 +3,17 @@
 #include "netcode_client.h"
 #include "netcode_server.h"
 
-Window window;
+#include "raygui.h"
 
 bool running = true;
 bool host_running = false;
 
 int main()
 {
-	window = {.width = 800, .height = 450};
 	SetTraceLogLevel(LOG_ERROR);
-	InitWindow(window.width, window.height, "TOBAS");
+	auto screenWidth  = Window::GetWidth  ();
+	auto screenHeight = Window::GetHeight ();
+	InitWindow(screenWidth, screenHeight, "TOBAS");
 
 	if (Client::Connect() > 0) {
 		Server::HostGameThread();
@@ -40,6 +41,9 @@ int main()
 	Gamecam::Init();
 	const auto& camera = Gamecam::Get();
 
+	auto bg = LoadRenderTexture(screenWidth, screenHeight);
+	auto fg = LoadRenderTexture(screenWidth, screenHeight);
+
 	SetExitKey(0);
 	while (running) {
 		SetWindowTitle(TextFormat("TOBAS %dFPS", GetFPS()));
@@ -56,13 +60,22 @@ int main()
 		}
 
 		Game::Update(GetFrameTime());
-		BeginDrawing();
+		
+		BeginTextureMode(bg);
 			ClearBackground(RAYWHITE);
 			BeginMode3D(camera);
-				Game::Draw();
-				API::Draw3DCallback();
+			Game::Draw();
 			EndMode3D();
-			API::Draw2DCallback();
+		EndTextureMode();
+		BeginTextureMode(fg);
+			BeginMode3D(camera);
+			ClearBackground(Fade(WHITE, 0.0f));
+			EndMode3D();
+		EndTextureMode();
+		BeginDrawing();
+			DrawTextureRec(bg.texture, {0, 0, screenWidth, -screenHeight}, {0, 0}, WHITE);
+			DrawTextureRec(fg.texture, {0, 0, screenWidth, -screenHeight}, {0, 0}, WHITE);
+			GuiLabel((Rectangle){20, 140, 90, 20}, "69");
 		EndDrawing();
 	}
 
@@ -71,6 +84,9 @@ int main()
 	} else {
 		Game::Quit();
 	}
+
+	UnloadRenderTexture(bg);
+	UnloadRenderTexture(fg);
 
 	CloseWindow();
 }

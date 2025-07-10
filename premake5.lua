@@ -52,6 +52,7 @@ newaction {
 
 workspace "tobas"
 	language "C++"
+	cppdialect "C++20"
 	configurations { "Debug", "Release" }
 	basedir "build"
 
@@ -70,7 +71,8 @@ workspace "tobas"
 		"luau/build/release",
 
 		"raylib/src",
-		"ode/ode/src/.libs",
+		--"ode/ode/src/.libs",
+		"ode/lib/Release",
 	}
 
 	links {

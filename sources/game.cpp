@@ -22,6 +22,7 @@ void Game::Init()
 {
 	dInitODE();
 	world = dWorldCreate();
+
 	step = 1.0E-2;
 
 	API::Init();
@@ -42,7 +43,7 @@ void Game::Init()
 	};
 
 	state.running = false;
-}
+};
 
 void Game::NewGame()
 {
@@ -73,9 +74,9 @@ void Game::NewGame()
 
 	for (auto& o : objects) {
 		o.create(world, space);
-		o.make_static(world);
 		o.set_category_bits();
 		o.set_collide_bits();
+		o.make_static(world);
 	}
 
 	Color colors[] = {
@@ -114,6 +115,8 @@ void Game::NewGame()
 	int i = 0;
 	for (auto& p : players) {
 		p.joint_color = colors[i];
+		p.ghost_color = colors[i];
+		p.ghost_color.a = 55;
 
 		p.set_category_bits(0b0000, 0b0000);
 		p.set_collide_bits(0b0001, 0b0001);
@@ -147,15 +150,15 @@ void Game::Quit()
 	dJointGroupDestroy(contactgroup);
 	dSpaceDestroy(space);
 	dCloseODE();
-}
+};
 
 void Game::NearCallback(dGeomID o1, dGeomID o2)
 {
-	unsigned long cat1 = dGeomGetCategoryBits(o1);
-	unsigned long col1 = dGeomGetCollideBits(o1);
+	uint32_t cat1 = dGeomGetCategoryBits(o1);
+	uint32_t col1 = dGeomGetCollideBits(o1);
 
-	unsigned long cat2 = dGeomGetCategoryBits(o2);
-	unsigned long col2 = dGeomGetCollideBits(o2);
+	uint32_t cat2 = dGeomGetCategoryBits(o2);
+	uint32_t col2 = dGeomGetCollideBits(o2);
 
  	if (!((cat1 & col2) || (cat2 & col1))) {
 		return;
@@ -168,18 +171,21 @@ void Game::NearCallback(dGeomID o1, dGeomID o2)
 
 	for (auto& contact : contacts) {
 		contact.surface = (dSurfaceParameters) {
+			//.mode = dContactApprox1|dContactSoftERP|dContactSoftCFM,
+			//.soft_erp = 0.420,
+			//.soft_cfm = 0.420,
 			.mode = dContactApprox1,
 			.mu = rules.friction,
 		};
 	}
 
-	if (int numc = dCollide(o1, o2, rules.max_contacts, &contacts[0].geom, sizeof(dContact))) {
+	if (int numc = dCollide(o1, o2, rules.max_contacts, &contacts->geom, sizeof(dContact))) {
 		for (int i = 0; i < numc; i += 1) {
 			dJointID c = dJointCreateContact(world, contactgroup, contacts + i);
 			dJointAttach(c, b1, b2);
 		}
 	}
-}
+};
 
 void Game::UpdateFreeze()
 {
@@ -196,7 +202,7 @@ void Game::UpdateFreeze()
 	}
 
 	API::FreezeCallback();
-}
+};
 
 void Game::Refreeze()
 {
@@ -209,7 +215,7 @@ void Game::Refreeze()
 	for (auto& p : players) {
 		p.refreeze();
 	}
-}
+};
 
 void Game::Restart()
 {
@@ -220,7 +226,7 @@ void Game::Restart()
 	for (auto& p : players) {
 		p.reset();
 	}
-}
+};
 
 void Game::Reset()
 {
@@ -231,7 +237,7 @@ void Game::Reset()
 	dSpaceDestroy(space);
 
 	NewGame();
-}
+};
 
 void Game::Step(int frame_count)
 {
@@ -241,12 +247,12 @@ void Game::Step(int frame_count)
 	Refreeze();
 
 	API::StepCallback();
-}
+};
 
 void Game::Step()
 {
 	Game::Step(1);
-}
+};
 
 void Game::Update(dReal dt)
 {
@@ -295,7 +301,7 @@ void Game::Update(dReal dt)
 	}
 
 	API::UpdateCallback(dt);
-}
+};
 
 void Game::DrawFloor()
 {
@@ -307,7 +313,7 @@ void Game::DrawFloor()
 	rlRotatef(RAD2DEG * angle, axis.x, axis.y, axis.z);
 	DrawGrid(20, 1.0f);
 	rlPopMatrix();
-}
+};
 
 void Game::Draw()
 {
@@ -322,108 +328,112 @@ void Game::Draw()
 	}
 
 	API::DrawCallback();
-}
+};
 
 bool Game::GetPause()
 {
 	return state.pause;
-}
+};
 
 bool Game::GetFreeze()
 {
 	return state.freeze;
-}
+};
 
 Gamemode Game::GetGamemode()
 {
 	return state.mode;
-}
+};
 
 Gamerules Game::GetGamerules()
 {
 	return rules;
-}
+};
 
 std::string_view Game::GetMod()
 {
 	return rules.mod;
-}
+};
 
 int Game::GetGameFrame()
 {
 	return state.game_frame;
-}
+};
 
 dReal Game::GetReactionTime()
 {
 	return rules.reaction_time;
-}
+};
 
 dReal Game::GetReactionCount()
 {
 	return state.reaction_count;
-}
+};
 
 size_t Game::GetObjectCount()
 {
 	return objects.size();
-}
+};
 
 size_t Game::GetPlayerCount()
 {
 	return players.size();
-}
+};
 
 size_t Game::GetPlayerBodyCount(PlayerID player_id)
 {
 	return players[player_id].body.size();
-}
+};
 
 size_t Game::GetPlayerJointCount(PlayerID player_id)
 {
 	return players[player_id].joint.size();
-}
+};
 
 std::vector<Body> Game::GetObjects()
 {
 	return objects;
-}
+};
 
 const Player& Game::GetPlayer(PlayerID player_id)
 {
 	return players[player_id];
-}
+};
 
 Player Game::GetSelectedPlayer()
 {
 	return players[state.selected_player];
-}
+};
 
 PlayerID Game::GetSelectedPlayerID()
 {
 	return state.selected_player;
-}
+};
 
 Joint Game::GetSelectedJoint()
 {
 	return players[state.selected_player].joint[state.selected_joint];
-}
+};
 
 JointID Game::GetSelectedJointID()
 {
 	return state.selected_joint;
-}
+};
 
 std::vector<Player> Game::GetPlayers()
 {
 	return players;
-}
+};
+
+void Game::SetSelectedPlayer(PlayerID player_id)
+{
+	state.selected_player = player_id;
+};
 
 void Game::TogglePause()
 {
 	state.pause = state.pause == false;
-}
-
+};
 
 void Game::ToggleGhosts()
 {
@@ -436,6 +446,16 @@ void Game::ToggleGhosts()
 		}
 	}
 }
+
+float Window::GetWidth()
+{
+	return width;
+};
+
+float Window::GetHeight()
+{
+	return height;
+};
 /*
 void Game::SelectPlayer(Camera3D Camera, Ray MouseRay, RayCollision MouseCollision)
 {
@@ -514,12 +534,12 @@ void Game::EditReplay()
 	tempreplayfile.close();
 }
 */
-/*
-void Game::StartFreeplay()
-{
-	state.gamemode = FREEPLAY;
 
-	for (auto& [player_name, p] : GetPlayers()) {
+void Game::ModeFreeplay()
+{
+	state.mode = FREEPLAY;
+
+	for (auto& p : players) {
 		p.RelaxAll();
 		p.RelaxAllAlt();
 	}
@@ -533,15 +553,14 @@ void Game::StartFreeplay()
 
 	UpdateFreeze();
 
-	Replay::Record();
-}
-*/
-/*
-void Game::StartReplay()
-{
-	state.gamemode = REPLAY;
+	Replay::RecordFrame();
+};
 
-	for (auto& [player_name, p] : GetPlayers()) {
+void Game::ModeReplay()
+{
+	state.mode = REPLAY;
+
+	for (auto& p : players) {
 		p.RelaxAll();
 		p.RelaxAllAlt();
 	}
@@ -553,5 +572,5 @@ void Game::StartReplay()
 	state.step_count = 0;
 	
 	Restart();
-}
-*/
+};
+

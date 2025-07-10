@@ -1,5 +1,5 @@
 #pragma once
-#include <common.h>
+#include "common.h"
 
 typedef int BodyID;
 
@@ -30,6 +30,7 @@ struct Body {
 	BodyShape shape;
 
 	Vector3 position;
+	Vector3 offset;
 	Vector4 orientation;
 	Vector3 sides;
 
@@ -42,6 +43,8 @@ struct Body {
 	Color color;
 	Color ghost_color;
 	Color select_color;
+	//for grips
+	bool active;
 
 	bool select;
 	bool ghost;
@@ -70,4 +73,16 @@ struct Body {
 	void toggle_ghost();
 	std::string get_name();
 	RayCollision collide_mouse_ray(Ray ray, RayCollision collision);
+};
+
+struct env_joint
+{
+	std::string_view name;
+	BodyID connections[2];
+	//JointType type;
+	Vector3 position;
+	Vector3 axis;
+	dReal range[2];
+	dReal strength;
+	dReal velocity;
 };

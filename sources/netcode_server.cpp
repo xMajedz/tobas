@@ -46,7 +46,7 @@ int Init()
 
 	host = enet_host_create(&address, cfg.max_clients, 1, 0, 0);
 
-	if (host == NULL) {
+	if (host == nullptr) {
 		NetCommon::log(Message::Get(Message::Type::ServerError));
 		return 1;
 	}
@@ -87,7 +87,7 @@ static void Send(NetCommon::Server::Command::Type CMD, NetPlayer player)
 static void SendToAllExcept(NetCommon::Server::Command::Type CMD, NetPlayer player)
 {
 	for (int i = 0; i <= p_count; i += 1) {
-		if (player.id != players[i]) {
+		if (player.id != players[i].id) {
 			Send(CMD, players[i]);
 		}
 
@@ -125,8 +125,6 @@ static void Receive(NetCommon::Client::Command::Type CMD, ENetPacket* packet)
 				"Server: player with id " << p_id << " is ready." <<
 			std::endl;
 
-			std::cout << packet->dataLength << std::endl;
-			
 			players[p_id].ready = true;
 	
 			bool step = true;
@@ -200,7 +198,7 @@ void Server::HostGame()
 					"Server: A client disconnected." <<
 				std::endl;
 
-		        	event.peer->data = NULL;
+		        	event.peer->data = nullptr;
 				p_count -= 1;
 			} break;
 			case ENET_EVENT_TYPE_DISCONNECT_TIMEOUT: {
@@ -208,7 +206,7 @@ void Server::HostGame()
 					"Server: A client disconnected. (timeout)" <<
 				std::endl;
 
-		        	event.peer->data = NULL;
+		        	event.peer->data = nullptr;
 				p_count -= 1;
 			} break;
 			case ENET_EVENT_TYPE_NONE: {}

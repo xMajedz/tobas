@@ -65,6 +65,7 @@ static void Receive(NetCommon::Server::Command::Type CMD, uint8_t* data)
 			std::cout <<
 				"Client: received player id from server. ID: " << p_id <<
 			std::endl;
+			Game::SetSelectedPlayer(p_id);
 		} break;
 		case Type::Step: {
 			std::cout <<
@@ -90,9 +91,9 @@ int Client::Connect()
     		return 1;
   	}
 
-	client = enet_host_create(NULL, 1, 1, 0, 0);
+	client = enet_host_create(nullptr, 1, 1, 0, 0);
 
-	if (client == NULL) {
+	if (client == nullptr) {
 		NetCommon::log(Message::Get(Message::Type::ClientError));
 		return 1;
 	}
@@ -102,7 +103,7 @@ int Client::Connect()
 
 	host = enet_host_connect(client, &address, 1, 0);
 
-	if (host == NULL) {
+	if (host == nullptr) {
 		NetCommon::log(Message::Get(Message::Type::HostError));
 		return 1;
 	}
@@ -144,7 +145,7 @@ void Client::Update(f64_t t, f32_t dt)
 {
 	last_t = t;
 
-	if (host == NULL) {
+	if (host == nullptr) {
 		return;
 	}
 
@@ -180,7 +181,7 @@ void Client::Update(f64_t t, f32_t dt)
 
 void Client::Disconnect()
 {
-	if (host != NULL) {
+	if (host != nullptr) {
 		enet_peer_disconnect(host, 0);
 		disconnecting = true;
 	}
@@ -188,14 +189,14 @@ void Client::Disconnect()
 
 void Client::Close()
 {
-	if (client != NULL) {
+	if (client != nullptr) {
 		enet_host_destroy(client);
         	disconnected = true;
 		disconnecting = false;
 	}
 
-	client = NULL;
-	host = NULL;
+	client = nullptr;
+	host = nullptr;
 
 	enet_deinitialize();
 }
