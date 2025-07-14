@@ -13,3 +13,9 @@
 [submodule "vendor/ode"]
 	path = vendor/ode
 	url = https://bitbucket.org/odedevs/ode.git
+[submodule "vendor/raygui"]
+	path = vendor/raygui
+	url = https://github.com/raysan5/raygui.git
+[submodule "vendor/premake-ninja"]
+	path = vendor/premake-ninja
+	url = https://github.com/jimon/premake-ninja.git
