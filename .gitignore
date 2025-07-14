@@ -1,8 +1,2 @@
-raylib
-raygui
-luajit
-luau
-enet
-ode
 dist
 build
