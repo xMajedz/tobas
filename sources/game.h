@@ -24,17 +24,19 @@ struct Gamerules {
 struct Gamestate {
 	Gamemode mode = FREEPLAY;
 
-	int game_frame;
+	double time = 0;
 
-	dReal reaction_count;
+	int game_frame = 0;
 
-	dReal freeze_time;
-	int freeze_frames;
-	int freeze_count;
+	dReal reaction_count = 0;
 
-	dReal step_time;
-	int step_frames;
-	int step_count;
+	dReal freeze_time = 0;
+	int freeze_frames = 0;
+	int freeze_count = 0;
+
+	dReal step_time = 0;
+	int step_frames = 0;
+	int step_count = 0;
 
 	PlayerID selected_player = -1;
 	JointID  selected_joint  = -1;
@@ -75,6 +77,7 @@ namespace Game {
 	void TogglePause();
 	bool GetFreeze();
 	bool GetPause();
+	double GetTime();
 
 	void SetSelectedPlayer(PlayerID);
 

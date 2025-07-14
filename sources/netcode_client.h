@@ -7,6 +7,7 @@ typedef double f64_t;
 namespace Client
 {
 	int Connect();
+	int Connect(const char* host, int port);
 	void Disconnect();
 	void Close();
 

@@ -13,22 +13,24 @@ enum Status { INACTIVE = 0, ACTIVE, STARTING };
 
 static Status status = INACTIVE;
 
-static bool host_active = false;
+static bool running = false;
 
 static Config cfg = NetCommon::LoadConfig();
 
 struct NetPlayer {
-	uint8_t id;
-	uint8_t j_state;
-	uint8_t j_state_alt;
-	bool active = false;
+	uint8_t id = -1;
+	uint8_t j_state = 0;
+	uint8_t j_state_alt = 0;
+	bool occupied = false;
 	bool ready = false;
-	ENetPeer* peer;
+	ENetPeer* peer = nullptr;
 };
 
 NetPlayer* players;
 
 int p_count = 0;
+
+double last_t = 0;
 
 int Init()
 {
@@ -53,78 +55,53 @@ int Init()
 	
 	status = ACTIVE;
 
-	host_active = true;
+	running = true;
 
 	std::cout << "Server: Started a server at " << cfg.host << ":" << cfg.port << std::endl;
 
 	return 0;
 }
 
-static void Send(NetCommon::Server::Command::Type CMD, NetPlayer player)
+static void SendTo(NetPlayer player, ENetPacket* p)
 {
-	using namespace NetCommon::Server::Command;
-	switch(CMD) {
-		case Type::Accept: {
-			size_t b_size = 2;
-			uint8_t b[b_size];
-			b[0] = (uint8_t)Type::Accept;
-			b[1] = (uint8_t)player.id;
-			ENetPacket* p = enet_packet_create(b, b_size, ENET_PACKET_FLAG_RELIABLE);
-
-			enet_peer_send(player.peer, 0, p);
-		} break;
-		case Type::Step: {
-			size_t b_size = 2;
-			uint8_t b[b_size];
-			b[0] = (uint8_t)Type::Step;
-			b[1] = (uint8_t)1;
-			ENetPacket* p = enet_packet_create(b, b_size, ENET_PACKET_FLAG_RELIABLE);
-			enet_peer_send(player.peer, 0, p);
-		} break;
+	if (player.occupied) {
+		enet_peer_send(player.peer, 0, p);
 	}
 };
 
-static void SendToAllExcept(NetCommon::Server::Command::Type CMD, NetPlayer player)
+static void SendToAllExcept(NetPlayer player, ENetPacket* p)
 {
-	for (int i = 0; i <= p_count; i += 1) {
-		if (player.id != players[i].id) {
-			Send(CMD, players[i]);
-		}
-
-		if (CMD == NetCommon::Server::Command::Type::Step) {
-			players[i].ready = false;
+	for (int i = 0; i < cfg.max_clients; i += 1) {
+		if (players[i].id != player.id) {
+			SendTo(players[i], p);
 		}
 	}
 };
 
-static void SendToAll(NetCommon::Server::Command::Type CMD)
+static void SendToAll(ENetPacket* p)
 {
-	for (int i = 0; i <= p_count; i += 1) {
-		Send(CMD, players[i]);
-		if (CMD == NetCommon::Server::Command::Type::Step) {
-			players[i].ready = false;
-		}
+	for (int i = 0; i < cfg.max_clients; i += 1) {
+		SendTo(players[i], p);
 	}
 };
 
-static void Receive(NetCommon::Client::Command::Type CMD, ENetPacket* packet)
+static void Receive(ENetPacket* packet)
 {
 	auto rules = Game::GetGamerules();
 	uint8_t* data = (uint8_t*)packet->data;
-	using namespace NetCommon::Client::Command;
-	switch(CMD) {
-		case Type::Join: {
+	using namespace NetCommon;
+	switch((Client::Command::Type)data[0]) {
+		case Client::Command::Type::Join: {
 			std::cout <<
 				"Server: received join command from a client." <<
 			std::endl;
 		} break;
-		case Type::Ready: {
-			int p_id = (int)data[1];
+		case Client::Command::Type::Ready: {
+			uint8_t p_id = data[1];
 	
 			std::cout <<
-				"Server: player with id " << p_id << " is ready." <<
+				"Server: player with ID: " << (int)p_id << " is ready." <<
 			std::endl;
-
 			players[p_id].ready = true;
 	
 			bool step = true;
@@ -145,11 +122,33 @@ static void Receive(NetCommon::Client::Command::Type CMD, ENetPacket* packet)
 					"Server: players are ready, taking a step ..." <<
 				std::endl;
 
-				SendToAll(NetCommon::Server::Command::Type::Step);
+				using namespace NetCommon::Server::Command;
+				size_t b_size = 2;
+				uint8_t b[b_size];
+				b[0] = (uint8_t)Type::Step;
+				b[1] = (uint8_t)rules.turnframes;
+				ENetPacket* p = enet_packet_create(b, b_size, ENET_PACKET_FLAG_RELIABLE);
+
+				SendToAll(p);
+
+				for (int i = 0; i < cfg.max_clients; i += 1) {
+					players[i].ready = false;
+				}
+
 				Game::Step(rules.turnframes);
 			}
 		} break;
 	}
+};
+
+static uint8_t PeerWho(ENetPeer* peer)
+{
+	for (int i = 0; i < cfg.max_clients; i += 1) {
+		if (players[i].peer == peer) {
+			return players[i].id;
+		}
+	}
+	return (uint8_t)-1;
 };
 
 void Server::HostGame()
@@ -161,53 +160,138 @@ void Server::HostGame()
 	Game::Init();
 	Game::NewGame();
 
-	ENetEvent event;
 	NetPlayer _players[cfg.max_clients];
 	players = _players;
 
-	while (host_active) {
+	auto rules = Game::GetGamerules();
+
+	ENetEvent event;
+	while (running) {
+		if (p_count >= rules.numplayers && 0 < rules.reaction_time) {
+			double t = Game::GetTime();
+			if (t - last_t >= rules.reaction_time) {
+				std::cout <<
+					"Server: time is up, taking a step ..." <<
+				std::endl;
+
+				using namespace NetCommon::Server::Command;
+				size_t b_size = 2;
+				uint8_t b[b_size];
+				b[0] = (uint8_t)Type::Step;
+				b[1] = (uint8_t)rules.turnframes;
+				ENetPacket* p = enet_packet_create(b, b_size, ENET_PACKET_FLAG_RELIABLE);
+
+				SendToAll(p);
+
+				for (int i = 0; i < cfg.max_clients; i += 1) {
+					players[i].ready = false;
+				}
+
+				Game::Step(rules.turnframes);
+
+				last_t = t;
+			}
+		}
+
 		while (enet_host_service(host, &event, 1000) > 0) {
 			switch (event.type) {
 			case ENET_EVENT_TYPE_CONNECT: {
-				uint8_t p_id = p_count;
+				uint8_t p_id = (uint8_t)-1;
+				for (int i = 0; i < cfg.max_clients; i += 1) {
+					if (players[i].occupied == false) {
+						p_id = (uint8_t)i;
+						players[i].id = p_id;
+						p_count += 1;
+						break;
+					}
+				}
+
+				if (p_id == (uint8_t)-1) {
+					enet_peer_disconnect(event.peer, 0);
+					break;
+				}
+
+				/*if (p_count >= rules.numplayers) {
+					last_t = Game::GetTime();
+				}*/
 
 				std::cout <<
 					"Server: A new client connected. ID: " << (int)p_id <<
 				std::endl;
 
-				p_count += 1;
-
 				players[p_id].id = p_id;
 				players[p_id].peer = event.peer;
+				players[p_id].occupied = true;
 				players[p_id].ready = false;
 				players[p_id].j_state = 0;
 				players[p_id].j_state_alt = 0;
 
-				Send(NetCommon::Server::Command::Type::Accept, players[p_id]);
+				using namespace NetCommon::Server::Command;
+				size_t b_size = 2;
+				uint8_t b[b_size];
+				b[0] = (uint8_t)Type::Accept;
+				b[1] = (uint8_t)p_id;
+				ENetPacket* p = enet_packet_create(b, b_size, ENET_PACKET_FLAG_RELIABLE);
+				SendTo(players[p_id], p);
+
+				b_size = 2;
+				b[b_size];
+				b[0] = (uint8_t)Type::P_Connect;
+				b[1] = (uint8_t)p_id;
+				p = enet_packet_create(b, b_size, ENET_PACKET_FLAG_RELIABLE);
+				SendToAllExcept(players[p_id], p);
 			} break;
 			case ENET_EVENT_TYPE_RECEIVE: {
-				uint8_t* data = (uint8_t*)event.packet->data;
-				
-				using namespace NetCommon::Client;
-				Receive((Command::Type)data[0], event.packet);
-
+				Receive(event.packet);
 	                	enet_packet_destroy(event.packet);
 			} break;
 			case ENET_EVENT_TYPE_DISCONNECT: {
+				uint8_t id = PeerWho(event.peer);
+				if (id == (uint8_t)-1) {
+					break;
+				}
+				NetPlayer& player = players[id];
 				std::cout <<
-					"Server: A client disconnected." <<
+					"Server: A client disconnected. ID:" << (int)player.id <<
 				std::endl;
 
-		        	event.peer->data = nullptr;
+				using namespace NetCommon::Server::Command;
+				size_t b_size = 2;
+				uint8_t b[b_size];
+				b[0] = (uint8_t)Type::P_Disconnect;
+				b[1] = (uint8_t)player.id;
+				ENetPacket* p = enet_packet_create(b, b_size, ENET_PACKET_FLAG_RELIABLE);
+
+				player.id = -1;
+				player.occupied = false;
+				player.peer = nullptr;
+		        	event.peer = nullptr;
 				p_count -= 1;
+				SendToAll(p);
 			} break;
 			case ENET_EVENT_TYPE_DISCONNECT_TIMEOUT: {
+				uint8_t id = PeerWho(event.peer);
+				if (id == (uint8_t)-1) {
+					break;
+				}
+				NetPlayer& player = players[id];
 				std::cout <<
-					"Server: A client disconnected. (timeout)" <<
+					"Server: A client disconnected. ID:" << (int)player.id << "(timeout)" <<
 				std::endl;
+				
+				using namespace NetCommon::Server::Command;
+				size_t b_size = 2;
+				uint8_t b[b_size];
+				b[0] = (uint8_t)Type::P_Timeout;
+				b[1] = (uint8_t)player.id;
+				ENetPacket* p = enet_packet_create(b, b_size, ENET_PACKET_FLAG_RELIABLE);
 
-		        	event.peer->data = nullptr;
+				player.id = -1;
+				player.occupied = false;
+				player.peer = nullptr;
+		        	event.peer = nullptr;
 				p_count -= 1;
+				SendToAll(p);
 			} break;
 			case ENET_EVENT_TYPE_NONE: {}
 			}
@@ -232,11 +316,12 @@ void Server::HostGameThread()
 
 void Server::WaitGameThread()
 {
-	while(status == STARTING || status == INACTIVE) {}
+	while(status != ACTIVE) {}
 }
 
 void Server::CloseThread()
 {
+	running = false;
 	game_thread.join();
 	Close();
 }

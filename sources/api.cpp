@@ -267,6 +267,30 @@ static int API_GetCallback(lua_State* L)
 	return 1;
 }
 
+static int API_reactiontime(lua_State* L)
+{
+	lua_rawgeti(L, -1, 1);
+	lua_Number reactiontime = lua_tonumber(L, -1);
+	switch(DataContext) {
+		case NoContext: {
+			API::rules.reaction_time = reactiontime;
+		} break;
+		case ObjectContext: {
+			// Error Handling
+		} break;
+		case BodyContext: {
+			// Error Handling
+		} break;
+		case JointContext: {
+			// Error Handling
+		} break;
+	}
+
+	lua_Number result = 1;
+	lua_pushnumber(L, result);
+	return 1;
+}
+
 static int API_turnframes(lua_State* L)
 {
 	lua_rawgeti(L, -1, 1);
@@ -1102,6 +1126,8 @@ static const luaL_Reg api_main[] {
 
 	{"loadscript", API_loadscript},
 	{"loadmod", API_loadmod},
+
+	{"reactiontime", API_reactiontime},
 
 	{"turnframes", API_turnframes},
 	{"numplayers", API_numplayers},

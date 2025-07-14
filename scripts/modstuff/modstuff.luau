@@ -39,12 +39,17 @@ function ms.loadmodTBM(modname)
 	ms.loadTBM(ms.parseTBM(modname))
 end
 
+function ms.loadModifiedTBM(fn)
+	ms.loadTBM(fn())
+end
+
 function ms.loadTBM(TBM)
 	local E2Q = ms["E2Q"]
 
 	API["mod"] (TBM["mod"])
 	API["gravity"] {TBM["gravity"][1] + 0, TBM["gravity"][2] + 0, TBM["gravity"][3] + 0}
 	API["turnframes"] {TBM["turnframes"] + 0}
+	API["reactiontime"] {TBM["reactiontime"] + 0}
 	if TBM["engageheight"] then
 		API.engageheight {TBM["engageheight"] + 0}
 	end

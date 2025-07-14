@@ -282,9 +282,7 @@ int main()
 			EndMode3D();
 		EndTextureMode();
 		BeginDrawing();
-
 			ui(bg, fg, screenWidth, screenHeight);
-
 		EndDrawing();
 	
 		if (IsFileDropped()) {

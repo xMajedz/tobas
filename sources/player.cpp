@@ -4,24 +4,14 @@ Player::Player(std::string_view name)
 {
 	m_name = name;
 
-	body_color = WHITE;
-	joint_select_color = WHITE;
-	joint_color = BLACK;
-	ghost_color = joint_color;
-	ghost_color.a = 55;
+	m_b_color = WHITE;
+	m_j_color = BLACK;
+	m_g_color = m_j_color;
+	m_g_color.a = 55;
 
-	m_offset = {0.00, 0.00, 0.00};
+	m_j_select_color = WHITE;
 
-	ghost = true;
-};
-
-Player::Player()
-{
-	body_color = WHITE;
-	joint_select_color = WHITE;
-	joint_color = BLACK;
-	ghost_color = joint_color;
-	ghost_color.a = 55;
+	use_engagepos = false;
 
 	m_offset = {0.00, 0.00, 0.00};
 
@@ -46,8 +36,8 @@ JointState Player::GetJointStateAlt(JointID joint_id)
 void Player::create(dWorldID world, dSpaceID space)
 {
 	for (auto& b : body) {
-		b.color = body_color;
-		b.ghost_color = ghost_color;
+		b.color = m_b_color;
+		b.ghost_color = m_g_color;
 
 		b.ghost = true;
 		b.static_state = false;
@@ -63,16 +53,16 @@ void Player::create(dWorldID world, dSpaceID space)
 			b.freeze.position = b.position;
 		}
 
-		b.create(world, space);
-		b.set_category_bits(body_category_bits);
-		b.set_collide_bits(body_collide_bits);
+		b.create_dynamic(world, space);
+		b.set_cat_bits(b_cat_bits);
+		b.set_col_bits(b_col_bits);
 	}
 
 	for (auto& j : joint) {
-		j.color = joint_color;
-		j.ghost_color = ghost_color;
+		j.color = m_j_color;
+		j.ghost_color = m_g_color;
 
-		j.select_color = joint_select_color;
+		j.select_color = m_j_select_color;
 		j.state = RELAX;
 		j.state_alt = RELAX;
 
@@ -92,9 +82,17 @@ void Player::create(dWorldID world, dSpaceID space)
 
 		j.create_joint(world, space, mass, body[j.connections[0]], body[j.connections[1]]);
 
-		j.set_category_bits(joint_category_bits);
-		j.set_collide_bits(joint_collide_bits);
+		j.set_cat_bits(j_cat_bits);
+		j.set_col_bits(j_col_bits);
 	}
+};
+
+void Player::set_colors(Color b_color, Color j_color, Color g_color)
+{
+	m_b_color = b_color;
+	m_j_color = j_color;
+	m_g_color = g_color;
+	m_g_color.a = 55;
 };
 
 void Player::set_offset(Vector3 offset)
@@ -177,14 +175,14 @@ void Player::set_engagedistance(float offset, float angle)
 	}
 }
 
-void Player::set_collide_bits(unsigned long b_bits, unsigned long j_bits) {
-	body_collide_bits = b_bits;
-	joint_collide_bits = j_bits;
+void Player::set_col_bits(uint32_t b_bits, uint32_t j_bits) {
+	b_col_bits = b_bits;
+	j_col_bits = j_bits;
 };
 
-void Player::set_category_bits(unsigned long b_bits, unsigned long j_bits) {
-	body_category_bits = b_bits;
-	joint_category_bits = j_bits;
+void Player::set_cat_bits(uint32_t b_bits, uint32_t j_bits) {
+	b_cat_bits = b_bits;
+	j_cat_bits = j_bits;
 };
 
 void Player::update_freeze() {

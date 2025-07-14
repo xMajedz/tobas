@@ -217,8 +217,8 @@ void Joint::create_joint(dWorldID world, dSpaceID space, dMass mass, Body b1, Bo
 			dJointSetFixed(dJoint);
 	}
 
-	dGeomSetCategoryBits(dGeom, category_bits);
-	dGeomSetCollideBits(dGeom, collide_bits);
+	dGeomSetCategoryBits(dGeom, cat_bits);
+	dGeomSetCollideBits(dGeom, col_bits);
 };
 
 void Joint::draw_joint(Color draw_color) {

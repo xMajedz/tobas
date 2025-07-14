@@ -46,6 +46,9 @@ namespace NetCommon
 				NONE = 0,
 				Accept,
 				Step,
+				P_Connect,
+				P_Disconnect,
+				P_Timeout,
 			};
 		};
 	};

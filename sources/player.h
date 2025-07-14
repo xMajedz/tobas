@@ -23,23 +23,24 @@ struct Player {
 	PlayerPassiveStates passive_states_alt;
 	
 	Vector3 m_offset;
+
 	Vector3 engagepos;
 	Vector3 engagerot;
 
 	bool use_engagepos;
 	bool use_engagerot;
 
-	unsigned long body_category_bits;
-	unsigned long body_collide_bits;
-	unsigned long joint_category_bits;
-	unsigned long joint_collide_bits;
+	uint32_t b_cat_bits;
+	uint32_t b_col_bits;
+	uint32_t j_cat_bits;
+	uint32_t j_col_bits;
 
 	bool ghost;
 
-	Color ghost_color;
-	Color body_color;
-	Color joint_color;
-	Color joint_select_color;
+	Color m_g_color;
+	Color m_b_color;
+	Color m_j_color;
+	Color m_j_select_color;
 	
 	dMass mass;
 
@@ -52,17 +53,21 @@ struct Player {
 
 	void create(dWorldID world, dSpaceID space);
 
+	void set_colors(Color b_color, Color j_color, Color g_color);
+
 	void set_offset();
 	void set_offset(Vector3 offset);
 	void set_engageheight(float offset);
 	void set_engagedistance(float offset, float angle);
-	void set_category_bits(unsigned long b_bits, unsigned long j_bits);
-	void set_collide_bits(unsigned long b_bits, unsigned long j_bits);
+
+	void set_cat_bits(uint32_t b_bits, uint32_t j_bits);
+	void set_col_bits(uint32_t b_bits, uint32_t j_bits);
 	void update_freeze();
 	void refreeze();
 	void reset();
 	void draw(bool freeze);
 	void toggle_ghost();
+
 	void TriggerPlayerPassiveStates(PlayerPassiveStates state);
 	void TriggerPlayerPassiveStatesAlt(PlayerPassiveStates state);
 	void TogglePlayerPassiveStates();

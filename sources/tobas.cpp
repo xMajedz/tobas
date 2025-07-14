@@ -5,28 +5,35 @@
 
 #include "raygui.h"
 
-bool running = true;
-bool host_running = false;
-
 int main()
 {
+
 	SetTraceLogLevel(LOG_ERROR);
 	auto screenWidth  = Window::GetWidth  ();
 	auto screenHeight = Window::GetHeight ();
 	InitWindow(screenWidth, screenHeight, "TOBAS");
 
-	if (Client::Connect() > 0) {
+	bool running = true;
+	bool host_running = false;
+	
+	int status = Client::Connect();
+
+	if (status != 0) {
 		Server::HostGameThread();
 		Server::WaitGameThread();
+		host_running = true;
 
-		if (Client::Connect() > 0) {
-			Client::Connect();
+		int max_attempts = 2;
+		for (int attempts = 0 ; status != 0 && attempts < max_attempts; attempts += 1) {
+			status = Client::Connect();
 		}
 
-		Client::SkipLocalSim();
-	} else {
-		Game::Init();
-		Game::NewGame();
+		if (status == 0) {
+			Client::SkipLocalSim();
+		} else {
+			Game::Init();
+			Game::NewGame();
+		}
 	}
 
 	API::SetCallback("Update" , "Net", [](lua_State* L) {

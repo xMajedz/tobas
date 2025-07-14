@@ -13,7 +13,7 @@ static bool disconnecting = false;
 static bool skip_local_sim = false;
 static bool ready = false;
 
-static int p_id = -1;
+static uint8_t p_id = (uint8_t)-1;
 
 enum Status { DISCONNECTED = 0, CONNECTED, CONNECTING };
 
@@ -60,10 +60,25 @@ static void Receive(NetCommon::Server::Command::Type CMD, uint8_t* data)
 	auto rules = Game::GetGamerules();
 	using namespace NetCommon::Server::Command;
 	switch(CMD) {
-		case Type::Accept: {
-			p_id = (int)data[1];
+		case Type::P_Connect: {
 			std::cout <<
-				"Client: received player id from server. ID: " << p_id <<
+				"Client: a player connected ID: " << (int)data[1] <<
+			std::endl;
+		} break;
+		case Type::P_Disconnect: {
+			std::cout <<
+				"Client: a player disconnected ID: " << (int)data[1] <<
+			std::endl;
+		} break;
+		case Type::P_Timeout: {
+			std::cout <<
+				"Client: a player disconnected. ID:" << (int)data[1] << " (timeout)." <<
+			std::endl;
+		} break;
+		case Type::Accept: {
+			p_id = data[1];
+			std::cout <<
+				"Client: received player id from server. ID: " << (int)p_id <<
 			std::endl;
 			Game::SetSelectedPlayer(p_id);
 		} break;
@@ -72,14 +87,14 @@ static void Receive(NetCommon::Server::Command::Type CMD, uint8_t* data)
 				"Client: received step command from server." <<
 			std::endl;
 			if (!skip_local_sim) {
-				Game::Step(rules.turnframes);
+				Game::Step((int)data[1]);
 			}
 		} break;
 	}
 
 };
 
-int Client::Connect()
+int Client::Connect(const char* host_address, int port)
 {
 	using namespace NetCommon::Client;
 	NetCommon::log(Message::Get(Message::Type::Connecting));
@@ -98,8 +113,8 @@ int Client::Connect()
 		return 1;
 	}
 
-	enet_address_set_host(&address, cfg.host.c_str());
-	address.port = cfg.port;
+	enet_address_set_host(&address, host_address);
+	address.port = port;
 
 	host = enet_host_connect(client, &address, 1, 0);
 
@@ -112,7 +127,7 @@ int Client::Connect()
 
 	if (enet_host_service(client, &event, 2000) > 0 && event.type == ENET_EVENT_TYPE_CONNECT) {
 		std::cout <<
-			"Client: Connection to " << cfg.host << ":" << cfg.port << " succeeded." <<
+			"Client: Connection to " << host_address << ":" << port << " succeeded." <<
 		std::endl;	
 
 		using namespace NetCommon::Client::Command;
@@ -122,14 +137,19 @@ int Client::Connect()
 		status = CONNECTED;
 	} else {
 		std::cout <<
-			"Client: Connection to " << cfg.host << ":" << cfg.port << " failed." <<
+			"Client: Connection to " << host_address << ":" << port << " failed." <<
 		std::endl;	
 		enet_peer_reset(host);
 		return 1;
 	}
 
 	return 0;
-}
+};
+
+int Client::Connect()
+{
+	return Connect(cfg.host.c_str(), cfg.port);
+};
 
 void Client::SkipLocalSim()
 {
@@ -173,7 +193,6 @@ void Client::Update(f64_t t, f32_t dt)
 			using namespace NetCommon::Client;
 			NetCommon::log(Message::Get(Message::Type::DisconnectionPass));
 			Close();
-
 		} break;
 		}
 	}

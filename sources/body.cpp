@@ -5,52 +5,32 @@
 #include "raymath.h"
 #include "rlgl.h"
 
-Body::Body()
-{
-	color = GREEN;
-	ghost_color = (Color){51, 51, 51, 51};
-
-	position = (Vector3){0.00, 0.00, 0.00};
-
-	orientation = (Vector4){0.00, 0.00, 0.00, 1.00};
-
-	freeze.position = (Vector3){0.00, 0.00, 0.00};
-
-	freeze.orientation = orientation;
-	freeze.linear_vel = (Vector3){0.00, 0.00, 0.00};
-	freeze.angular_vel = (Vector3){0.00, 0.00, 0.00};
-
-	category_bits = 0b0001;
-	collide_bits = 0b0000;
-
-	select = false;
-	static_state = false;
-};
-
 Body::Body(std::string_view name)
 {
 	m_name = name;
 	color = GREEN;
-	ghost_color = (Color){51, 51, 51, 51};
+	ghost_color = {51, 51, 51, 51};
 
-	position = (Vector3){0.00, 0.00, 0.00};
+	position = {0.00, 0.00, 0.00};
 
-	orientation = (Vector4){0.00, 0.00, 0.00, 1.00};
+	orientation = {0.00, 0.00, 0.00, 1.00};
 
-	freeze.position = (Vector3){0.00, 0.00, 0.00};
+	freeze.position = {0.00, 0.00, 0.00};
 
 	freeze.orientation = orientation;
-	freeze.linear_vel = (Vector3){0.00, 0.00, 0.00};
-	freeze.angular_vel = (Vector3){0.00, 0.00, 0.00};
+	freeze.linear_vel = {0.00, 0.00, 0.00};
+	freeze.angular_vel = {0.00, 0.00, 0.00};
 
-	category_bits = 0b0001;
-	collide_bits = 0b0000;
-
+	cat_bits = 0b0001;
+	col_bits = 0b0000;
+	
+	active = false;
 	select = false;
 	static_state = false;
 };
 
-void Body::create(dWorldID world, dSpaceID space) {
+void Body::create_body(dWorldID world, dSpaceID space)
+{
 	dBody = dBodyCreate(world);
 
 	dBodySetPosition(
@@ -68,7 +48,13 @@ void Body::create(dWorldID world, dSpaceID space) {
 		orientation.y,
 		orientation.z,
 	});
-	
+
+	dMassAdjust(&mass, 0.50);
+	dBodySetMass(dBody, &mass);
+};
+
+void Body::create_geom(dWorldID world, dSpaceID space)
+{
 	switch(shape) {
 		case Box: {
 			dGeom = dCreateBox(space, sides.x, sides.y, sides.z);
@@ -88,69 +74,109 @@ void Body::create(dWorldID world, dSpaceID space) {
 		} break;
 	}
 
-	dMassAdjust(&mass, 0.50);
-	dBodySetMass(dBody, &mass);
+};
+
+/*
+void Body::create_joint(dWorldID world, dSpaceID space)
+{
+};
+
+void Body::create_composite(dWorldID world, dSpaceID space)
+{
+};
+*/
+
+void Body::create_dynamic(dWorldID world, dSpaceID space)
+{
+	create_geom(world, space);
+	create_body(world, space);
 	dGeomSetBody(dGeom, dBody);
 };
 
-void Body::set_category_bits(unsigned long bits)
+void Body::create_static(dWorldID world, dSpaceID space)
+{
+	color = BLACK;
+	create_geom(world, space);
+	dGeomSetBody(dGeom, 0);
+};
+
+void Body::set_cat_bits(uint32_t bits)
 {
 	dGeomSetCategoryBits(dGeom, bits);
 };
 
-void Body::set_category_bits()
+void Body::set_cat_bits()
 {
-	set_category_bits(category_bits);
+	set_cat_bits(cat_bits);
 };
 
-void Body::set_collide_bits(unsigned long bits)
+void Body::set_col_bits(uint32_t bits)
 {
 	dGeomSetCollideBits(dGeom, bits);
 };
 
-void Body::set_collide_bits()
+void Body::set_col_bits()
 {
-	set_collide_bits(collide_bits);
+	set_col_bits(col_bits);
 };
 
-void Body::make_static(dWorldID world) {
-	if (static_state) {
-		//dGeomSetBody(dGeom, 0);
-		dJointID fixed = dJointCreateFixed(world ,0);
-		dJointAttach(fixed, dBody, 0);
-		dJointSetFixed(fixed);
-		color = BLACK;
-	} else {
-		collide_bits = 0b0001;
-	}
-};
+void Body::make_static(dWorldID world) { };
 
 void Body::update_freeze() {
-	const dReal* linear_vel = dBodyGetLinearVel(dBody);
-	const dReal* angular_vel = dBodyGetAngularVel(dBody);
+	if (!static_state) {
+		const dReal* linear_vel = dBodyGetLinearVel(dBody);
+		const dReal* angular_vel = dBodyGetAngularVel(dBody);
+
+		freeze.linear_vel = {linear_vel[0], linear_vel[1], linear_vel[2]};
+		freeze.angular_vel = {angular_vel[0], angular_vel[1], angular_vel[2]};
+	}
+
+	/*
 	const dReal* position = dBodyGetPosition(dBody);
 	const dReal* orientation = dBodyGetQuaternion(dBody);
+	*/
 
-	freeze.linear_vel = {linear_vel[0], linear_vel[1], linear_vel[2]};
-	freeze.angular_vel = {angular_vel[0], angular_vel[1], angular_vel[2]};
+	const dReal* position = dGeomGetPosition(dGeom);
+	dQuaternion orientation = { 0 };
+	dGeomGetQuaternion(dGeom, orientation);
+
+
 	freeze.position = {position[0], position[1], position[2]};
 	freeze.orientation = (Vector4){orientation[1], orientation[2], orientation[3], orientation[0]};
 };
 
 void Body::refreeze() {
-	dBodySetLinearVel(
-		dBody, 
-		freeze.linear_vel.x,
-		freeze.linear_vel.y,
-		freeze.linear_vel.z
-	);
-	dBodySetAngularVel(
-		dBody,
-		freeze.angular_vel.x,
-		freeze.angular_vel.y,
-		freeze.angular_vel.z
-	);
+	if (!static_state) {
+		dBodySetLinearVel(
+			dBody, 
+			freeze.linear_vel.x,
+			freeze.linear_vel.y,
+			freeze.linear_vel.z
+		);
+		dBodySetAngularVel(
+			dBody,
+			freeze.angular_vel.x,
+			freeze.angular_vel.y,
+			freeze.angular_vel.z
+		);
+	}
 
+	dGeomSetPosition(
+		dGeom,
+		freeze.position.x,
+		freeze.position.y,
+		freeze.position.z
+	);
+	dGeomSetQuaternion(
+		dGeom,
+		(dQuaternion){
+		freeze.orientation.w,
+		freeze.orientation.x,
+		freeze.orientation.y,
+		freeze.orientation.z,
+	});
+
+/*
 	dBodySetPosition(
 		dBody,
 		freeze.position.x,
@@ -165,6 +191,7 @@ void Body::refreeze() {
 		freeze.orientation.y,
 		freeze.orientation.z,
 	});
+*/
 };
 
 void Body::reset()
@@ -221,14 +248,18 @@ void Body::draw_object(Color draw_color) {
 void Body::draw(Color draw_color) {
 	float angle;
 	Vector3 axis;
-	const dReal* dQ = dBodyGetQuaternion(dBody);
+	dQuaternion dQ = { 0 };
+	dGeomGetQuaternion(dGeom, dQ);
+
+	/*const dReal* dQ = dBodyGetQuaternion(dBody);
 	QuaternionToAxisAngle(
 		(Quaternion) { dQ[1], dQ[2], dQ[3], dQ[0] },
 		&axis,
 		&angle
 	);
 
-	const dReal *pos = dBodyGetPosition(dBody);
+	const dReal *pos = dBodyGetPosition(dBody);*/
+	const dReal *pos = dGeomGetPosition(dGeom);
 	rlPushMatrix();
 	rlTranslatef(pos[0], pos[1], pos[2]);
 	rlRotatef(RAD2DEG * angle, axis.x, axis.y, axis.z);

@@ -4,6 +4,7 @@
 #include "raymath.h"
 #include "rlgl.h"
 
+#include <cstdint>
 #include <map>
 #include <vector>
 #include <string>

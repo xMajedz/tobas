@@ -42,6 +42,7 @@ void Game::Init()
 		//API::NearCallback(collision);
 	};
 
+	state.time = GetTime();
 	state.running = false;
 };
 
@@ -73,10 +74,15 @@ void Game::NewGame()
   	dWorldSetGravity(world, rules.gravity.x, rules.gravity.y, rules.gravity.z);
 
 	for (auto& o : objects) {
-		o.create(world, space);
-		o.set_category_bits();
-		o.set_collide_bits();
-		o.make_static(world);
+		if (!o.static_state) {
+			o.create_dynamic(world, space);
+			o.set_cat_bits(0b0001);
+			o.set_col_bits(0b0001);
+		} else {
+			o.create_static(world, space);
+			o.set_cat_bits(0b0001);
+			o.set_col_bits(0b0000);
+		}
 	}
 
 	Color colors[] = {
@@ -86,14 +92,14 @@ void Game::NewGame()
 		DARKPURPLE,
 	};
 
-	unsigned long cat_bits[][2] = {
+	uint32_t cat_bits[][2] = {
 		{0b000000000010, 0b000000000100},
 		{0b000000001000, 0b000000010000},
 		{0b000000100000, 0b000001000000},
 		{0b000010000000, 0b000100000000},
 	};
 
-	unsigned long col_bits[][2] = {
+	uint32_t col_bits[][2] = {
 		{
 			cat_bits[1][0]|cat_bits[2][0]|cat_bits[3][0],
 			cat_bits[1][1]|cat_bits[2][1]|cat_bits[3][1],
@@ -114,12 +120,6 @@ void Game::NewGame()
 
 	int i = 0;
 	for (auto& p : players) {
-		p.joint_color = colors[i];
-		p.ghost_color = colors[i];
-		p.ghost_color.a = 55;
-
-		p.set_category_bits(0b0000, 0b0000);
-		p.set_collide_bits(0b0001, 0b0001);
 		p.set_offset();
 
 		if (rules.engageheight) {
@@ -130,6 +130,9 @@ void Game::NewGame()
 			p.set_engagedistance(rules.engagedistance,  i * (360/rules.numplayers));
 		}
 
+		p.set_colors(WHITE, colors[i], colors[i]);
+		p.set_cat_bits(0b0000, 0b0000);
+		p.set_col_bits(0b0001, 0b0001);
 		p.create(world, space);
 
 		if (0 > state.selected_player) {
@@ -287,7 +290,7 @@ void Game::Update(dReal dt)
 					if (rules.reaction_time != 0) {
 						state.reaction_count = GetTime() - state.freeze_time;
 						if (state.reaction_count >= rules.reaction_time) {
-							Step(rules.turnframes);
+							//Step(rules.turnframes);
 						}
 					}
 				} break;
@@ -318,7 +321,6 @@ void Game::DrawFloor()
 void Game::Draw()
 {
 	DrawFloor();
-
 	for (auto& o : objects) {
 		o.draw(state.freeze);
 	}
@@ -423,6 +425,16 @@ JointID Game::GetSelectedJointID()
 std::vector<Player> Game::GetPlayers()
 {
 	return players;
+};
+
+static double rlGetTime()
+{
+	return GetTime();
+};
+
+double Game::GetTime()
+{
+	return rlGetTime() - state.time;
 };
 
 void Game::SetSelectedPlayer(PlayerID player_id)
