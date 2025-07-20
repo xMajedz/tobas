@@ -2,13 +2,14 @@
 #include "common.h"
 #include "game.h"
 
-struct FrameData : public FreezeData {
-	std::map<std::string, Player> player;
+struct FrameData
+{
+	std::vector<Player> players;
 };
 
 namespace Replay 
 {
-	static std::map<int, FrameData> s_frames;
+	static std::map<int, FrameData> frames;
 	
 	void RecordFrame(int game_frame);
 	void RecordFrame();
@@ -17,6 +18,6 @@ namespace Replay
 	void Save(std::string replay_name);
 	void Save();
 
-	FrameData Get(int game_frame);
-	std::map<int, FrameData> Get();
+	FrameData Get(int frame);
+	std::map<int, FrameData> &Get();
 }

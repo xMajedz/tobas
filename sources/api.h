@@ -7,6 +7,9 @@ namespace API
 {
 	static lua_State* L;
 
+	static lua_State* DrawT;
+	static lua_State* UpdateT;
+
 	static Gamerules rules;
 
 	static std::vector<Body>   o_vector;
@@ -37,25 +40,15 @@ namespace API
 	std::vector<Body> GetObjects();
 	std::vector<Player> GetPlayers();
 	
-	int TriggerCallback(const char* event);
-	int TriggerCallback(const char* event, const char* str);
-	int TriggerCallback(const char* event, dReal dt);
-
-	int MouseButtonPressedCallback();
-	int MouseButtonDownCallback();
-	int MouseButtonUpCallback();
+	int TriggerCallback(const char* event, void* arg);
 	int UpdateCallback(dReal dt);
 	int DrawCallback();
-	int Draw2DCallback();
-	int Draw3DCallback();
 	int NewGameCallback();
 	int FreezeCallback();
 	int StepCallback();
 
-	int NearCallback(CollisionData s_collision);
-
 	int FileDroppedCallback(std::string_view dropped_file);
-	int ConsoleCallback(std::string_view message);
+	int ConsoleCallback(const char* message);
 
 	void SetCallback(const char* event, const char* handle, lua_CFunction function);
 	lua_CFunction GetCallback(const char* event, const char* handle);
@@ -64,18 +57,22 @@ namespace API
 	int loadscript(std::string_view scriptpath);
 }
 
-namespace Console {
+namespace Console
+{
 	static size_t message_count = 0;
+	static size_t message_length = 1024;
 	static const char* messages[1024];
-	static const char* last_message;
+	//static const char* last_message;
+	static char last_message[1024];
 	static bool has_message;
 
+	static void (*m_callback)(const char*) = nullptr;
+
+	void Update();
+
 	void log(const char* message);
+	void SetCallback(void (*callback)(const char*));
 	void SetMessage(const char* message);
-	const char* GetMessage();
-	void ResetHasMessage();
-	void SetHasMessage();
-	bool GetHasMessage();
 };
 
 

@@ -1,19 +1,20 @@
-#include "api.h"
 #include "netcode_server.h"
+#include "api.h"
 
 #include <iostream>
 
 int main()
 {
-	SetTraceLogLevel(LOG_ERROR);
+	raylib::SetTraceLogLevel(raylib::LOG_ERROR);
 	Server::HostGameThread();
 	char input;
 	bool running = true;
 	while (running) {
 		std::cin >> input;
-		std::cout << input << std::endl;
-		if (input == 'q')
-			running = false;
+		char message[2] = { input, '\0' };
+		Console::log(message);
+		Console::Update();
+		running = input != 'q';
 	}
 	Server::CloseThread();
 }

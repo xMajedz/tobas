@@ -1,9 +1,8 @@
 #pragma once
+#include "netcode.h"
+
 #include <iostream>
 #include <string>
-
-#define ENET_IMPLEMENTATION
-#include "netcode_main.h"
 
 struct Config {
 	std::string host = "127.0.0.1";
@@ -49,6 +48,9 @@ namespace NetCommon
 				P_Connect,
 				P_Disconnect,
 				P_Timeout,
+
+				P_Whisper = 254,
+				P_Echo = 255,
 			};
 		};
 	};
@@ -90,6 +92,8 @@ namespace NetCommon
 				NONE = 0,
 				Join,
 				Ready,
+				Whisper = 254,
+				Echo = 255,
 			};
 		};
 	};

@@ -1,8 +1,8 @@
 #include "api.h"
 #include "luau.h"
 #ifndef OFFLINE
-#include "netcode_client.h"
-#include "netcode_server.h"
+/*#include "netcode_client.h"*/
+/*#include "netcode_server.h"*/
 #endif
 
 static const luaL_Reg api_net[] {

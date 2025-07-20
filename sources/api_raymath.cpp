@@ -1,4 +1,6 @@
 #include "api.h"
+
+using namespace raylib;
 #include "raymath.h"
 
 static int RAYMATH_MatrixIdentity(lua_State* L)

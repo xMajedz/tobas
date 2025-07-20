@@ -2,7 +2,8 @@
 #include "lua.h"
 #include "lualib.h"
 #include "luacode.h"
-#include "common.h"
+
+#include <string_view>
 
 namespace Luau
 {

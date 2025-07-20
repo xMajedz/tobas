@@ -1,6 +1,7 @@
-#include "netcode_server.h"
-#include "netcode_common.h"
 #include "game.h"
+
+#include "netcode_common.h"
+#include "netcode_server.h"
 
 #include <thread>
 

@@ -1,5 +1,7 @@
 #include "api.h"
 
+using namespace raylib;
+
 enum GameContext {
 	NoContext,
 	ObjectContext,
@@ -19,8 +21,6 @@ void API::Init()
 	luaopen_api_raymath(L);
 	luaL_openlibs(L);
 	luaL_sandbox(L);
-
-	loadscript("init");
 }
 
 void API::Reset()
@@ -71,163 +71,56 @@ std::vector<Player> API::GetPlayers()
 {
 	return API::p_vector;
 };
-
-int API::TriggerCallback(const char* event)
-{
-	//lua_State* T = lua_newthread(L);
-	//luaL_sandboxthread(T);
-
-	lua_getglobal(L, "API");
+	/*lua_getglobal(L, "API");
 	lua_getfield(L, -1, event);
-
 	if (lua_istable(L, -3)) {
 		lua_pushnil(L);
 		while (lua_next(L, -4) != 0) {
-			if (lua_isfunction(L, -1)) {
-				if (lua_pcall(L, 0, 0, 0) != LUA_OK) {
+			if (!lua_isfunction(L, -1) || lua_pcall(L, 0, 0, 0) != 0) {
 LOG(lua_tostring(L, -1))
-				}
 			}
 		}
-	}
+	}*/
 
-	//lua_resume(T, 0, 0);
+int API::TriggerCallback(const char* event, void* arg)
+{
 	return 1;
-}
-
-int API::TriggerCallback(const char* event, dReal dt)
-{
-	return TriggerCallback(event);
-}
-
-int API::MouseButtonPressedCallback()
-{
-	return TriggerCallback("MouseButtonPressed");
-}
-
-int API::MouseButtonDownCallback()
-{
-	return TriggerCallback("MouseButtonDown");
-}
-
-int API::MouseButtonUpCallback()
-{
-	return TriggerCallback("MouseButtonUp");
 }
 
 int API::UpdateCallback(dReal dt)
 {
-	return TriggerCallback("Update", dt);
+	Luau::dostring(L, TextFormat("_G[\"API\"][\"%s\"][\"init\"](%lf)", "Update", dt));
+	return 1;
 }
 
 int API::DrawCallback()
 {
-	return TriggerCallback("Draw");
-}
-
-int API::Draw2DCallback()
-{
-	return TriggerCallback("Draw2D");
-}
-
-int API::Draw3DCallback()
-{
-	return TriggerCallback("Draw3D");
+	Luau::dostring(L, TextFormat("_G[\"API\"][\"%s\"][\"init\"](%s)", "Draw", ""));
+	return 1;
 }
 
 int API::NewGameCallback()
 {
-	return TriggerCallback("NewGame");
+	Luau::dostring(L, TextFormat("_G[\"API\"][\"%s\"][\"init\"](%s)", "NewGame", ""));
+	return 1;
 }
 
 int API::FreezeCallback()
 {
-	return TriggerCallback("Freeze");
+	Luau::dostring(L, TextFormat("_G[\"API\"][\"%s\"][\"init\"](%s)", "Freeze", ""));
+	return 1;
 }
 
 int API::StepCallback()
 {
-	return TriggerCallback("Step");
+	Luau::dostring(L, TextFormat("_G[\"API\"][\"%s\"][\"init\"](%s)", "Step", ""));
+	return 1;
 }
 
-int API::NearCallback(CollisionData collision)
+int API::ConsoleCallback(const char* message)
 {
-	int status = 1;
-	lua_getglobal(L, "API");
-	lua_getfield(L, -1, "NearCallback");
-	if (lua_istable(L, -3)) {
-		lua_pushnil(L);
-		while (lua_next(L, -4) != 0) {
-			if (lua_isfunction(L, -1)) {
-				lua_newtable(L);
-				status = lua_pcall(L, 1, 0, 0);
-				if (status != LUA_OK) {
-LOG(lua_tostring(L, -1))
-				}
-			}
-		}
-	}
-	return status;
-}
-
-int API::FileDroppedCallback(std::string_view dropped_file)
-{
-	int status = 1;
-	lua_getglobal(L, "API");
-	lua_getfield(L, -1, "FileDropped");
-	if (lua_istable(L, -3)) {
-		lua_pushnil(L);
-		while (lua_next(L, -4) != 0) {
-			if (lua_isfunction(L, -1)) {
-				lua_pushlstring(L, dropped_file.data(), dropped_file.size());
-				status = lua_pcall(L, 1, 0, 0);
-				if (status != LUA_OK) {
-LOG(lua_tostring(L, -1))
-				}
-			}
-		}
-	}
-	return status;
-}
-
-int API::ConsoleCallback(std::string_view message)
-{
-	int status = 1;
-	lua_getglobal(L, "API");
-	lua_getfield(L, -1, "Console");
-	if (lua_istable(L, -3)) {
-		lua_pushnil(L);
-		while (lua_next(L, -4) != 0) {
-			if (lua_isfunction(L, -1)) {
-				lua_pushlstring(L, message.data(), message.size());
-				status = lua_pcall(L, 1, 0, 0);
-				if (status != LUA_OK) {
-LOG(lua_tostring(L, -1))
-				}
-			}
-		}
-	}
-	return status;
-}
-
-void API::SetCallback(const char* event, const char* handle, lua_CFunction callback)
-{
-	lua_getglobal(L, "API");
-	lua_pushstring(L, event);
-	lua_gettable(L, -2);
-	lua_pushcfunction(L, callback, handle);
-	lua_setfield(L, -2, handle);
-}
-
-lua_CFunction API::GetCallback(const char* event, const char* handle)
-{
-	lua_getglobal(L, "API");
-	lua_pushstring(L, event);
-	lua_gettable(L, -2);
-	lua_getfield(L, -2, handle);
-//LOG(event)
-//LOG(handle)
-	return lua_tocfunction(L, -2);
+	Luau::dostring(L, TextFormat("_G[\"API\"][\"%s\"][\"init\"](\"%s\")", "Console", message));
+	return 1;
 }
 
 int API::loadmod (std::string_view modpath)
@@ -246,25 +139,6 @@ int API::loadscript (std::string_view scriptpath)
 		TextFormat("scripts/%s", scriptpath.data()),
 		TextFormat("%s:%s", "loadscript", scriptpath.data())
 	);
-}
-
-static int API_SetCallback(lua_State* L)
-{
-	lua_CFunction callback = lua_tocfunction(L, -1);
-	const char* handle = lua_tostring(L, -2);
-	const char* event = lua_tostring(L, -3);
-	API::SetCallback(event, handle, callback);
-	lua_pushinteger(L, 1);
-	return 1;
-}
-
-static int API_GetCallback(lua_State* L)
-{
-	const char* handle = lua_tostring(L, -1);
-	const char* event = lua_tostring(L, -2);
-	//lua_CFunction fn = [](lua_State* L) { return 1; };
-	lua_pushcfunction(L, API::GetCallback(event, handle), handle);
-	return 1;
 }
 
 static int API_reactiontime(lua_State* L)
@@ -527,7 +401,7 @@ static int API_mod(lua_State* L)
 static int API_object(lua_State* L)
 {
 	DataContext = ObjectContext;
-	Body o(lua_tostring(L, -1));
+	Body o(API::o_count, lua_tostring(L, -1));
 	API::o_vector.push_back(o);
 	API::o = &API::o_vector[API::o_count];
 	API::o_count += 1;
@@ -547,7 +421,7 @@ static int API_player(lua_State* L)
 		API::b_count = 0;
 		API::j_count = 0;
 
-		Player p(name);
+		Player p(API::p_count, name);
 		API::p_vector.push_back(p);
 		API::p = &API::p_vector[API::p_count];
 		API::p_count += 1;
@@ -562,7 +436,7 @@ static int API_body(lua_State* L)
 {
 	DataContext = BodyContext;
 	std::string_view name = lua_tostring(L, -1);
-	Body b(name);
+	Body b(API::b_count, name.data());
 	API::b_map[name] = API::b_count;
 	API::p->body.push_back(b);
 	API::b = &API::p->body[API::b_count];
@@ -576,7 +450,7 @@ static int API_body(lua_State* L)
 static int API_joint(lua_State* L)
 {
 	DataContext = JointContext;
-	Joint j(lua_tostring(L, -1));
+	Joint j(API::j_count, lua_tostring(L, -1));
 	API::p->joint.push_back(j);
 	API::j = &API::p->joint[API::j_count];
 	API::j_count += 1;
@@ -655,16 +529,13 @@ static int API_position(lua_State* L)
 			// Error Handling
 		} break;
 		case ObjectContext: {
-			API::o->position = position;
-			API::o->freeze.position = position;
+			API::o->m_position = position;
 		} break;
 		case BodyContext: {
-			API::b->position = position;
-			API::b->freeze.position = position;
+			API::b->m_position = position;
 		} break;
 		case JointContext: {
-			API::j->position = position;
-			API::j->freeze.position = position;
+			API::j->m_position = position;
 		} break;
 	}
 
@@ -690,17 +561,14 @@ static int API_orientation(lua_State* L)
 			// Error Handling
 		} break;
 		case ObjectContext: {
-			API::o->orientation = orientation;
-			API::o->freeze.orientation = orientation;
+			API::o->m_orientation = orientation;
 
 		} break;
 		case BodyContext: {
-			API::b->orientation = orientation;
-			API::b->freeze.orientation = orientation;
+			API::b->m_orientation = orientation;
 		} break;
 		case JointContext: {
-			API::j->orientation = orientation;
-			API::j->freeze.orientation = orientation;
+			API::j->m_orientation = orientation;
 		} break;
 	}
 
@@ -724,13 +592,13 @@ static int API_sides(lua_State* L)
 			// Error Handling
 		} break;
 		case ObjectContext: {
-			API::o->sides = sides;
+			API::o->m_sides = sides;
 		} break;
 		case BodyContext: {
-			API::b->sides = sides;
+			API::b->m_sides = sides;
 		} break;
 		case JointContext: {
-			API::j->sides = sides;
+			API::j->m_sides = sides;
 		} break;
 	}
 
@@ -771,13 +639,13 @@ static int API_static(lua_State* L)
 			// Error Handling
 		} break;
 		case ObjectContext: {
-			API::o->static_state = true;
+			API::o->m_static = true;
 		} break;
 		case BodyContext: {
-			API::b->static_state = true;
+			API::b->m_static = true;
 		} break;
 		case JointContext: {
-			API::j->static_state = true;
+			API::j->m_static = true;
 		} break;
 	}
 
@@ -1010,18 +878,18 @@ static int API_connections(lua_State* L)
 
 static int API_connection_type(lua_State* L)
 {
-	std::string connectionType = lua_tostring(L, -1); 	
+	std::string type = lua_tostring(L, -1); 	
 
 	switch(DataContext) {
 		case JointContext: {
-			if ("hinge" == connectionType) {
-				API::j->connectionType = Hinge;
-			} else if ("slider" == connectionType) {
-				API::j->connectionType = Slider;
-			} else if ("universal" == connectionType) {
-				API::j->connectionType = Universal;
-			} else if ("hinge2" == connectionType) {
-				API::j->connectionType = Hinge2;
+			if ("hinge" == type) {
+				API::j->type = Hinge;
+			} else if ("slider" == type) {
+				API::j->type = Slider;
+			} else if ("universal" == type) {
+				API::j->type = Universal;
+			} else if ("hinge2" == type) {
+				API::j->type = Hinge2;
 			} else {
 			// Error Handling
 			}
@@ -1035,12 +903,9 @@ static int API_connection_type(lua_State* L)
 
 static int API_GetWindowSize(lua_State* L)
 {
-	lua_newtable(L);
 	lua_pushnumber(L, Window::GetWidth());
-	lua_setfield(L, -2, "width");
 	lua_pushnumber(L, Window::GetHeight());
-	lua_setfield(L, -2, "height");
-	return 1;
+	return 2;
 }
 
 static int API_dofile(lua_State* L)
@@ -1074,36 +939,49 @@ static int API_loadscript(lua_State* L)
 	return 1;
 }
 
+void Console::SetCallback(void(*callback)(const char*))
+{
+	if (callback != nullptr) {
+		m_callback = callback;
+	}
+}
+
 void Console::log(const char* message)
 {
 	SetMessage(message);
 }
 
-const char* Console::GetMessage()
+void Console::Update()
 {
-	return last_message;
+	if (0 < message_count) {
+		for (int i = 0; message_count != 0; i += 1) {
+			if (m_callback != nullptr) {
+				m_callback(messages[i]);
+			} else {
+				LOG(messages[i] << " - Default Logging")
+			}
+			message_count -= 1;
+		}
+	}
 }
 
 void Console::SetMessage(const char* message)
 {
-	last_message = message;
-	messages[message_count] = last_message;
-	SetHasMessage();
-}
+	for (int i = 0; i < message_length; i += 1) {
+		if (message[i] != '\0') {
+			last_message[i] = message[i];
+		} else {
+			last_message[i] = '\0';
+		}
+	}
 
-void Console::SetHasMessage()
-{
+	if (message_count < 1024) {
+		messages[message_count] = last_message;
+		message_count += 1;
+	} else {
+		messages[message_count - 1] = last_message;
+	}
 	has_message = true;
-}
-
-void Console::ResetHasMessage()
-{
-	has_message = false;
-}
-
-bool Console::GetHasMessage()
-{
-	return has_message;
 }
 
 static int API_log(lua_State* L)
@@ -1111,13 +989,29 @@ static int API_log(lua_State* L)
 	Console::log(lua_tostring(L, -1));
 	lua_pushinteger(L, 1);
 	return 1;
-};
+}
+
+static int API_parse_t (lua_State* L)
+{
+	if (lua_istable(L, -1)) {
+		lua_getfield(L, -1, "mod");
+		lua_getfield(L, -2, "rules");
+		if (lua_istable(L, -1)) {
+			lua_getfield(L, -3, "gravity");
+			if (lua_istable(L, -4)) {
+				lua_rawgeti(L, -4, 1);
+				lua_rawgeti(L, -5, 2);
+				lua_rawgeti(L, -6, 3);
+			}
+		}
+	}
+
+	return 1;
+}
 
 static const luaL_Reg api_main[] {
 	{"log", API_log},
-
-	{"SetCallback", API_SetCallback},
-	{"GetCallback", API_GetCallback},
+	{"parse_t", API_parse_t},
 
 	{"GetWindowSize", API_GetWindowSize},
 
@@ -1170,12 +1064,6 @@ static const char* events[] = {
 	"Step",
 	"Update",
 	"Draw",
-	"Draw2D",
-	"Draw3D",
-	"MouseButtonPressed",
-	"MouseButtonDown",
-	"MouseButtonUp",
-
 	"NearCallback",
 	"FileDropped",
 	"Console",

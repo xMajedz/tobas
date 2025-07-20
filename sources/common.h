@@ -1,11 +1,12 @@
 #pragma once
 #include "ode/ode.h"
-#include "raylib.h"
-#include "raymath.h"
-#include "rlgl.h"
+
+#include "raylib/raylib.hpp"
 
 #include <cstdint>
+
 #include <map>
+#include <unordered_map>
 #include <vector>
 #include <string>
 #include <string_view>

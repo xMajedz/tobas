@@ -1,238 +1,357 @@
 #include "player.h"
 
-Player::Player(std::string_view name)
+using namespace raylib;
+#include "raymath.h"
+
+Player::Player(PlayerID id, std::string_view name)
 {
+	m_id = id;
 	m_name = name;
 
 	m_b_color = WHITE;
 	m_j_color = BLACK;
-	m_g_color = m_j_color;
-	m_g_color.a = 55;
+	m_g_color = Fade(BLACK, 0.10);
 
+	m_b_active_color = Fade(BLACK, 0.10);
 	m_j_select_color = WHITE;
 
-	use_engagepos = false;
+	m_offset = { 0 };
 
-	m_offset = {0.00, 0.00, 0.00};
+	passive_states = RELAX_ALL;
+	passive_states_alt = RELAX_ALL;
+
+	use_engagepos = false;
+	use_engagerot = false;
 
 	ghost = true;
-};
+}
 
-std::string_view Player::GetName()
-{
-	return m_name;
-};
-
-JointState Player::GetJointState(JointID joint_id)
-{
-	return joint[joint_id].state;
-};
-
-JointState Player::GetJointStateAlt(JointID joint_id)
-{
-	return joint[joint_id].state_alt;
-};
-
-void Player::create(dWorldID world, dSpaceID space)
+void Player::Create(dWorldID world, dSpaceID space)
 {
 	for (auto& b : body) {
-		b.color = m_b_color;
-		b.ghost_color = m_g_color;
-
-		b.ghost = true;
-		b.static_state = false;
-
-		b.position.x -= m_offset.x;
-		b.position.y -= m_offset.y;
-		b.position.z -= m_offset.z;
-
 		if (use_engagepos) {
-			b.position.x += engagepos.x;
-			b.position.y += engagepos.y;
-			b.position.z += engagepos.z;
-			b.freeze.position = b.position;
+			b.m_position.x += engagepos.x;
+			b.m_position.y += engagepos.y;
+			b.m_position.z += engagepos.z;
 		}
 
-		b.create_dynamic(world, space);
-		b.set_cat_bits(b_cat_bits);
-		b.set_col_bits(b_col_bits);
+		b.m_position.x -= m_offset.x;
+		b.m_position.y -= m_offset.y;
+		b.m_position.z -= m_offset.z;
+
+		b.frame_position = b.m_position;
+		b.freeze_position = b.m_position;
+
+		b.Create(world, space);
+
+		b.SetCatBits(b_cat_bits);
+		b.SetColBits(b_col_bits);
+
+		b.m_color = m_b_color;
+		b.m_g_color = m_g_color;
+
+		b.ghost = true;
+		b.m_static = false;
+
+		b.interactive = true;
+		b.m_active_color = m_g_color;
+
 	}
 
 	for (auto& j : joint) {
-		j.color = m_j_color;
-		j.ghost_color = m_g_color;
+		if (use_engagepos) {
+			j.m_position.x += engagepos.x;
+			j.m_position.y += engagepos.y;
+			j.m_position.z += engagepos.z;
+		}
 
-		j.select_color = m_j_select_color;
+		j.m_position.x -= m_offset.x;
+		j.m_position.y -= m_offset.y;
+		j.m_position.z -= m_offset.z;
+
+		j.frame_position = j.m_position;
+		j.freeze_position = j.m_position;
+
+		j.Create(world, space, body[j.connections[0]], body[j.connections[1]]);
+
+		j.SetCatBits(j_cat_bits);
+		j.SetColBits(j_col_bits);
+
+		j.m_color = m_j_color;
+		j.m_g_color = m_g_color;
+
+		j.select = false;
+		j.m_select_color = m_j_select_color;
+
 		j.state = RELAX;
 		j.state_alt = RELAX;
 
 		j.ghost = true;
-		j.static_state = false;
-
-		j.position.x -= m_offset.x;
-		j.position.y -= m_offset.y;
-		j.position.z -= m_offset.z;
-
-		if (use_engagepos) {
-			j.position.x += engagepos.x;
-			j.position.y += engagepos.y;
-			j.position.z += engagepos.z;
-			j.freeze.position = j.position;
-		}
-
-		j.create_joint(world, space, mass, body[j.connections[0]], body[j.connections[1]]);
-
-		j.set_cat_bits(j_cat_bits);
-		j.set_col_bits(j_col_bits);
+		j.m_static = false;
 	}
-};
+}
 
-void Player::set_colors(Color b_color, Color j_color, Color g_color)
+PlayerID Player::GetID()
+{
+	return m_id;
+}
+
+std::string_view Player::GetName()
+{
+	return m_name;
+}
+
+JointState Player::GetJointState(JointID joint_id)
+{
+	return joint[joint_id].state;
+}
+
+JointState Player::GetJointStateAlt(JointID joint_id)
+{
+	return joint[joint_id].state_alt;
+}
+
+Vector3 Player::CalculateFreezeOffset()
+{
+	Vector3 res = { 0 };
+	for (auto& b : body) {
+		res.x += b.freeze_position.x;
+		res.y += b.freeze_position.y;
+		res.z += b.freeze_position.z;
+	}
+
+	for (auto& j : joint) {
+		res.x += j.freeze_position.x;
+		res.y += j.freeze_position.y;
+		res.z += j.freeze_position.z;
+	}
+
+	return (Vector3) {
+		res.x/(b_count + j_count),
+		res.y/(b_count + j_count),
+		res.z/(b_count + j_count)
+	};
+}
+
+Vector3 Player::CalculateFrameOffset()
+{
+	Vector3 res = { 0 };
+	for (auto& b : body) {
+		res.x += b.frame_position.x;
+		res.y += b.frame_position.y;
+		res.z += b.frame_position.z;
+	}
+
+	for (auto& j : joint) {
+		res.x += j.frame_position.x;
+		res.y += j.frame_position.y;
+		res.z += j.frame_position.z;
+	}
+
+	return (Vector3) {
+		res.x/(b_count + j_count),
+		res.y/(b_count + j_count),
+		res.z/(b_count + j_count)
+	};
+}
+
+Vector3 Player::CalculateOffset()
+{
+	Vector3 res = { 0 };
+	for (auto& b : body) {
+		res.x += b.m_position.x;
+		res.y += b.m_position.y;
+		res.z += b.m_position.z;
+	}
+
+	for (auto& j : joint) {
+		res.x += j.m_position.x;
+		res.y += j.m_position.y;
+		res.z += j.m_position.z;
+	}
+
+	return (Vector3) {
+		res.x/(b_count + j_count),
+		res.y/(b_count + j_count),
+		res.z/(b_count + j_count)
+	};
+}
+
+void Player::UpdateOffset(bool freeze)
+{
+}
+
+void Player::SetColors(Color b_color, Color j_color, Color g_color)
 {
 	m_b_color = b_color;
 	m_j_color = j_color;
 	m_g_color = g_color;
-	m_g_color.a = 55;
-};
+}
 
-void Player::set_offset(Vector3 offset)
+void Player::SetOffset(Vector3 offset)
 {
 	m_offset = offset;
-};
+	frame_offset = offset;
+	freeze_offset = offset;
+}
 
-void Player::set_offset()
+void Player::SetOffset()
 {
-	Vector3 sum = {0.00, 0.00, 0.00};
-	for (auto& b : body) {
-		sum.x += b.position.x;
-		sum.y += b.position.y;
-		sum.z += b.position.z;
+	SetOffset(CalculateOffset());
+}
+
+Vector3 Player::GetOffset()
+{
+	return m_offset;
+}
+
+Vector3 Player::GetOffset(bool freeze)
+{
+	if (freeze) {
+		return freeze_offset;
+	} else {
+		return frame_offset;
 	}
+}
 
-	b_count = body.size();
-
-	for (auto& j : joint) {
-		sum.x += j.position.x;
-		sum.y += j.position.y;
-		sum.z += j.position.z;
-	}
-
-	j_count = joint.size();
-
-	set_offset((Vector3) {
-		sum.x/(b_count + j_count),
-		sum.y/(b_count + j_count),
-		sum.z/(b_count + j_count)
-	});
-};
-
-void Player::set_engageheight(float offset)
+void Player::SetEngageheight(float offset)
 {
 	for (auto& b : body) {
-		b.position.z += offset;
-		b.freeze.position.z += offset;
+		b.m_position.z += offset;
 	}
 
 	for (auto& j : joint) {
-		j.position.z += offset;
-		j.freeze.position.z += offset;
+		j.m_position.z += offset;
 	}
-};
+}
 
-void Player::set_engagedistance(float offset, float angle)
+void Player::SetEngagedistance(float offset, float angle)
 {
 	Quaternion q = QuaternionFromMatrix(MatrixRotateZ(DEG2RAD * angle));
 	for (auto& b : body) {
 		Vector3 offsetv = {
-			b.position.x - m_offset.x,
-			b.position.y - m_offset.y + offset,
-			b.position.z - m_offset.z,
+			b.m_position.x - m_offset.x,
+			b.m_position.y - m_offset.y + offset,
+			b.m_position.z - m_offset.z,
 		};
+
 		offsetv = Vector3RotateByQuaternion(offsetv, q);
-		b.position = offsetv;
-		b.position.x += m_offset.x;
-		b.position.y += m_offset.y;
-		b.position.z += m_offset.z;
-		b.freeze.position = offsetv;
-		b.orientation = QuaternionMultiply(q, b.orientation);
-		b.freeze.orientation = b.orientation;
+
+		b.m_position = offsetv;
+
+		b.m_position.x += m_offset.x;
+		b.m_position.y += m_offset.y;
+		b.m_position.z += m_offset.z;
+
+		b.frame_position = b.m_position;
+		b.freeze_position = b.m_position;
+
+		b.m_orientation = QuaternionMultiply(q, b.m_orientation);
+		b.frame_orientation = b.m_orientation;
+		b.freeze_orientation = b.m_orientation;
 	}
 
 	for (auto& j : joint) {
 		Vector3 offsetv = {
-			j.position.x - m_offset.x,
-			j.position.y - m_offset.y + offset,
-			j.position.z - m_offset.z,
+			j.m_position.x - m_offset.x,
+			j.m_position.y - m_offset.y + offset,
+			j.m_position.z - m_offset.z,
 		};
+
 		offsetv = Vector3RotateByQuaternion(offsetv, q);
-		j.position = offsetv;
-		j.position.x += m_offset.x;
-		j.position.y += m_offset.y;
-		j.position.z += m_offset.z;
-		j.freeze.position = offsetv;
-		j.orientation = QuaternionMultiply(q, j.orientation);
-		j.freeze.orientation = j.orientation;
+
+		j.m_position = offsetv;
+
+		j.m_position.x += m_offset.x;
+		j.m_position.y += m_offset.y;
+		j.m_position.z += m_offset.z;
+
+		j.frame_position = j.m_position;
+		j.freeze_position = j.m_position;
+
+		j.m_orientation = QuaternionMultiply(q, j.m_orientation);
+		j.frame_orientation = j.m_orientation;
+		j.freeze_orientation = j.m_orientation;
 	}
 }
 
-void Player::set_col_bits(uint32_t b_bits, uint32_t j_bits) {
+void Player::SetColBits(uint32_t b_bits, uint32_t j_bits)
+{
 	b_col_bits = b_bits;
 	j_col_bits = j_bits;
-};
+}
 
-void Player::set_cat_bits(uint32_t b_bits, uint32_t j_bits) {
+void Player::SetCatBits(uint32_t b_bits, uint32_t j_bits)
+{
 	b_cat_bits = b_bits;
 	j_cat_bits = j_bits;
-};
+}
 
-void Player::update_freeze() {
+void Player::Step()
+{
 	for (auto& b : body) {
-		b.update_freeze();
+		b.Step();
 	}
 
 	for (auto& j : joint) {
-		j.update_joint_freeze();
+		j.Step();
 	}
-};
 
-void Player::refreeze() {
+	frame_offset = CalculateFrameOffset();
+}
+
+void Player::Freeze()
+{
 	for (auto& b : body) {
-		b.refreeze();
+		b.Freeze();
 	}
 
 	for (auto& j : joint) {
-		j.refreeze_joint();
+		j.Freeze();
 	}
-};
 
-void Player::reset() {
+	freeze_offset = CalculateFreezeOffset();
+}
+
+void Player::Refreeze()
+{
 	for (auto& b : body) {
-		b.reset();
+		b.Refreeze();
 	}
-};
+}
 
-void Player::draw(bool freeze) {
+void Player::Reset()
+{
 	for (auto& b : body) {
-		b.draw(freeze);
+		b.Reset();
+	}
+}
+
+void Player::Draw(bool freeze)
+{
+	for (auto& b : body) {
+		b.Draw(freeze);
 	}
 
 	for (auto& j : joint) {
-		j.draw_joint(freeze);
+		j.Draw(freeze);
 	}
-};
+}
 
-void Player::toggle_ghost() {
+void Player::ToggleGhost()
+{
 	for (auto& b : body) {
-		b.toggle_ghost();
+		b.ToggleGhost();
 	}
 
 	for (auto& j : joint) {
-		j.toggle_ghost();
+		j.ToggleGhost();
 	}
-};
+}
 
 
-void Player::TriggerPlayerPassiveStates(PlayerPassiveStates state) {
+void Player::TriggerPlayerPassiveStates(PlayerPassiveStates state)
+{
 	dReal strength = 0.00;
 	for (auto& j : joint) {
 		j.state = RELAX;
@@ -240,7 +359,7 @@ void Player::TriggerPlayerPassiveStates(PlayerPassiveStates state) {
 			strength = j.strength;
 			j.state = HOLD;
 		}
-		switch(j.connectionType) {
+		switch(j.type) {
 			case Hinge: {
 				dJointSetHingeParam(j.dJoint, dParamFMax, strength);
 				dJointSetHingeParam(j.dJoint, dParamVel, 0.0f);
@@ -259,9 +378,10 @@ void Player::TriggerPlayerPassiveStates(PlayerPassiveStates state) {
 			} break;
 		}
 	}
-};
+}
 
-void Player::TriggerPlayerPassiveStatesAlt(PlayerPassiveStates state) {
+void Player::TriggerPlayerPassiveStatesAlt(PlayerPassiveStates state)
+{
 	dReal strength = 0.00;
 	for (auto& j : joint) {
 		j.state_alt = RELAX;
@@ -269,7 +389,7 @@ void Player::TriggerPlayerPassiveStatesAlt(PlayerPassiveStates state) {
 			strength = j.strength_alt;
 			j.state_alt = HOLD;
 		}
-		switch(j.connectionType) {
+		switch(j.type) {
 			case Hinge: {
 			} break;
 			case Slider: {
@@ -286,8 +406,10 @@ void Player::TriggerPlayerPassiveStatesAlt(PlayerPassiveStates state) {
 	}
 }
 
-void Player::TogglePlayerPassiveStates() {
-	refreeze();
+void Player::TogglePlayerPassiveStates()
+{
+	Refreeze();
+
 	if (passive_states == RELAX_ALL) {
 		TriggerPlayerPassiveStates(HOLD_ALL);
 		passive_states = HOLD_ALL;
@@ -297,8 +419,10 @@ void Player::TogglePlayerPassiveStates() {
 	}
 }
 
-void Player::TogglePlayerPassiveStatesAlt() {
-	refreeze();
+void Player::TogglePlayerPassiveStatesAlt()
+{
+	Refreeze();
+
 	if (passive_states_alt == RELAX_ALL) {
 		TriggerPlayerPassiveStatesAlt(HOLD_ALL);
 		passive_states_alt = HOLD_ALL;
@@ -308,14 +432,18 @@ void Player::TogglePlayerPassiveStatesAlt() {
 	}
 }
 
-void Player::RelaxAll() {
-	refreeze();
+void Player::RelaxAll()
+{
+	Refreeze();
+
 	TriggerPlayerPassiveStates(RELAX_ALL);
 	passive_states = RELAX_ALL;
-};
+}
 
-void Player::RelaxAllAlt() {
-	refreeze();
+void Player::RelaxAllAlt()
+{
+	Refreeze();
+
 	TriggerPlayerPassiveStatesAlt(RELAX_ALL);
 	passive_states_alt = RELAX_ALL;
-};
+}

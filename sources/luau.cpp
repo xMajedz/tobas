@@ -1,4 +1,7 @@
+#include "common.h"
 #include "luau.h"
+
+using namespace raylib;
 
 struct Bytecode {
 private:

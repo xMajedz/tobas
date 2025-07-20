@@ -1,3 +1,4 @@
+#define ENET_IMPLEMENTATION
 #include "netcode_common.h"
 
 #include <fstream>

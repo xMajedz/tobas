@@ -1,6 +1,7 @@
-#include "netcode_client.h"
-#include "netcode_common.h"
 #include "game.h"
+
+#include "netcode_common.h"
+#include "netcode_client.h"
 
 static ENetAddress address = { 0 };
 static ENetHost* client = { 0 };

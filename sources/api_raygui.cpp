@@ -1,4 +1,6 @@
 #include "api.h"
+
+using namespace raylib;
 #define RAYGUI_IMPLEMENTATION
 #include "raygui.h"
 
@@ -30,6 +32,19 @@ static int RAYGUI_GuiWindowBox(lua_State* L)
 	float x = lua_tonumber(L, -5);
 
 	int status = GuiWindowBox((Rectangle){x, y, w, h}, title);
+	lua_pushboolean(L, (bool)status);
+	return 1;
+}
+
+static int RAYGUI_GuiGroupBox(lua_State* L)
+{
+	const char* text = lua_tostring(L, -1);
+	float h = lua_tonumber(L, -2);
+	float w = lua_tonumber(L, -3);
+	float y = lua_tonumber(L, -4);
+	float x = lua_tonumber(L, -5);
+
+	int status = GuiGroupBox((Rectangle){x, y, w, h}, text);
 	lua_pushboolean(L, (bool)status);
 	return 1;
 }
@@ -87,6 +102,46 @@ static int RAYGUI_GuiMessageBox(lua_State* L)
 	return 1;
 }
 
+static char RAYGUI_GuiTextBoxContent[1024];
+static int RAYGUI_GuiTextBoxTextSize = 1024;
+
+static int RAYGUI_GuiTextBox(lua_State* L)
+{
+	lua_getglobal(L, "RAYGUI");
+	lua_getfield(L, -1, "_VAR");
+	lua_getfield(L, -1, "GuiTextBox");
+	
+	size_t _VAR_length;
+	const char* _VAR = lua_tolstring(L, -1, &_VAR_length);
+	for (int i = 0; i < RAYGUI_GuiTextBoxTextSize; i += 1) {
+		if (i < _VAR_length) {
+			RAYGUI_GuiTextBoxContent[i] = _VAR[i];
+		} else {
+			RAYGUI_GuiTextBoxContent[i] = '\0';
+		}
+	}
+
+	bool editMode = lua_toboolean(L, -4);
+	float h = lua_tonumber(L, -5);
+	float w = lua_tonumber(L, -6);
+	float y = lua_tonumber(L, -7);
+	float x = lua_tonumber(L, -8);
+
+	int status = GuiTextBox((Rectangle){x, y, w, h},
+			RAYGUI_GuiTextBoxContent,
+			RAYGUI_GuiTextBoxTextSize,
+			editMode
+	);
+
+	lua_pushboolean(L, (bool)status);
+
+	Luau::dostring(L, TextFormat(
+			"_G[\"RAYGUI\"][\"_VAR\"][\"GuiTextBox\"]=\"%s\"", RAYGUI_GuiTextBoxContent)
+	);
+
+	return 1;
+}
+
 static int RAYGUI_GuiTextInputBox(lua_State* L)
 {
 	bool secretViewActive = lua_toboolean(L, -1);
@@ -115,17 +170,18 @@ static int RAYGUI_GuiTextInputBox(lua_State* L)
 	return 1;
 }
 
-//to_cfunction
-
 static const luaL_Reg api_raygui[] {
 	{"GuiSetStyle", RAYGUI_GuiSetStyle},
 	{"GuiGetStyle", RAYGUI_GuiGetStyle},
 
 	{"GuiWindowBox", RAYGUI_GuiWindowBox},
+	{"GuiGroupBox", RAYGUI_GuiGroupBox},
 	{"GuiMessageBox", RAYGUI_GuiMessageBox},
 
 	{"GuiLabel", RAYGUI_GuiLabel},
 	{"GuiButton", RAYGUI_GuiButton},
+
+	{"GuiTextBox", RAYGUI_GuiTextBox},
 	{"GuiTextInputBox", RAYGUI_GuiTextInputBox},
 
 	{NULL, NULL},
@@ -144,6 +200,12 @@ int luaopen_api_raygui(lua_State* L)
 	lua_setfield(L, -2, "VERSION_PATCH");
 	lua_pushstring(L, RAYGUI_VERSION);
 	lua_setfield(L, -2, "VERSION");
+	lua_newtable(L);
+
+	lua_pushstring(L, "");
+	lua_setfield(L, -2, "GuiTextBox");
+
+	lua_setfield(L, -2, "_VAR");
 	lua_pop(L, 1);
 	return 1;
 }

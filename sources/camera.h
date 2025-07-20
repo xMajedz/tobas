@@ -1,14 +1,21 @@
 #pragma once
-#include "raylib.h"
-#include "raymath.h"
+#include "common.h"
 #include "game.h"
 
-namespace Gamecam {
-	static Camera camera;
-	static Vector3 camera_offset;
+enum Gamecammode
+{
+	PLAYER,
+	SPECTATOR,
+};
+
+namespace Gamecam
+{
+	static raylib::Camera camera;
+	static raylib::Vector3 camera_offset;
+	static Gamecammode mode;
 	
 	void Init();
-	const Camera& Get();
+	const raylib::Camera& Get();
 
 	void CameraRotateZ(float degrees);
 	void CameraRotateX(float degrees);
@@ -19,8 +26,8 @@ namespace Gamecam {
 	void CameraZoomIn();
 	void CameraZoomOut();
 
+	void Update();
 	void UpdateSpectatorcam(bool freeze, std::vector<Player> players);
 	void UpdatePlaycam(bool freeze, Player selected_player);
-	void UpdateDummycam();
 };
 

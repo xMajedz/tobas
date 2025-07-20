@@ -1,15 +1,14 @@
-require "vendor/premake-ninja/ninja"
+newoption {
+	trigger = "location",
+	description = "sets build directory.",
+	default = "build",
+}
 
 workspace "tobas"
 	language "C++"
 	cppdialect "C++20"
 	configurations { "Debug", "Release" }
-	location "build"
-	links {
-		"luaucompiler", "luauast", "luauvm",
-		"raylib",
-		"ode",
-	}
+	location (_OPTIONS["location"]) 
 
 	includedirs {
 		"vendor/luau/Compiler/include",
@@ -19,7 +18,6 @@ workspace "tobas"
 		"vendor/raygui/src",
 
 		"vendor/ode/include",
-		"vendor/enet/include",
 
 		"sources",
 	}
@@ -51,30 +49,85 @@ workspace "tobas"
 	optimize "On"
 
 	filter { "system:Windows" }
-	links {"winmm", "gdi32", "opengl32"}
 	libdirs { "lib/windows" }
 
 	filter { "not system:Windows" }
 	libdirs { "lib/linux" }
 
+project "netcode_common"
+	kind "Staticlib"
+	includedirs { "sources", "vendor/enet/include" }
+	files { "sources/netcode_common.h", "sources/netcode_common.cpp" }
+
+project "netcode_client"
+	kind "Staticlib"
+	includedirs { "sources", "vendor/enet/include" }
+	files {
+		"sources/netcode_common.h", "sources/netcode_common.cpp",
+		"sources/netcode_client.h", "sources/netcode_client.cpp",
+	}
+	links { "netcode_common" }
+
+project "netcode_server"
+	kind "Staticlib"
+	includedirs { "sources", "vendor/enet/include" }
+	files {
+		"sources/netcode_common.h", "sources/netcode_common.cpp",
+		"sources/netcode_server.h", "sources/netcode_server.cpp",
+	}
+	links { "netcode_common" }
+
+project "tobas_common"
+	kind "Staticlib"
+	links {
+		"luaucompiler", "luauast", "luauvm",
+		"raylib",
+		"ode",
+	}
+
 project "tobas_sp"
 	kind "WindowedApp"
 	files { "sources/tobas_sp.cpp" }
+	links { "tobas_common" }
+	links {
+		"luaucompiler", "luauast", "luauvm",
+		"raylib",
+		"ode",
+	}
 	defines { "OFFLINE" }
+
+	filter { "system:Windows" }
+	links {"winmm", "gdi32", "opengl32"}
+	defines{"_WIN32"}
 
 project "tobas"
 	kind "WindowedApp"
-	files {
-		"sources/netcode_common.h", "sources/netcode_common.cpp",
-		"sources/netcode_server.h", "sources/netcode_server.cpp",
-		"sources/netcode_client.h", "sources/netcode_client.cpp",
-		"sources/tobas.cpp",
+	includedirs { "sources", "vendor/enet/include" }
+	files { "sources/tobas.cpp" }
+	links { "tobas_common", "netcode_server", "netcode_client" }
+	links {
+		"luaucompiler", "luauast", "luauvm",
+		"raylib",
+		"ode",
 	}
+
+	filter { "system:Windows" }
+	links {"winmm", "gdi32", "opengl32"}
+        links { "kernel32", "ws2_32" }
+	defines{"_WIN32"}
 
 project "tobas_server"
 	kind "ConsoleApp"
-	files {
-		"sources/netcode_common.h", "sources/netcode_common.cpp",
-		"sources/netcode_server.h", "sources/netcode_server.cpp",
-		"sources/tobas_server.cpp",
+	includedirs { "sources", "vendor/enet/include" }
+	files { "sources/tobas_server.cpp" }
+	links { "tobas_common", "netcode_server" }
+	links {
+		"luaucompiler", "luauast", "luauvm",
+		"raylib",
+		"ode",
 	}
+
+	filter { "system:Windows" }
+	links {"winmm", "gdi32", "opengl32"}
+        links { "kernel32", "ws2_32" }
+	defines{"_WIN32"}

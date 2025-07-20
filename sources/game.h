@@ -2,10 +2,28 @@
 #include "common.h"
 #include "player.h"
 
-enum Gamemode {
-	FREEPLAY,
-	REPLAY,
+enum Gamemode
+{
+	FREE_PLAY,
+	SELF_PLAY,
+	NET_PLAY,
+	REPLAY_PLAY,
+	REPLAY_EDIT,
 };
+
+enum EventType
+{
+	STEP,
+	FREEZE,
+};
+
+enum CallbackType
+{
+	NEWGAME,
+	UPDATE,
+};
+
+typedef void (*Callback)(void*);
 
 struct Gamerules {
 	std::string_view mod;
@@ -18,11 +36,12 @@ struct Gamerules {
 	dReal engageheight;
 	dReal friction;
 
-	Vector3 gravity;
+	raylib::Vector3 gravity;
 };
 
 struct Gamestate {
-	Gamemode mode = FREEPLAY;
+	Gamemode mode = FREE_PLAY;
+	EventType event = FREEZE;
 
 	double time = 0;
 
@@ -46,9 +65,6 @@ struct Gamestate {
 	bool pause = false;
 };
 
-struct CollisionData {
-	dContact contacts;
-};
 
 namespace Game {
 	static dWorldID world;
@@ -61,15 +77,23 @@ namespace Game {
 	static Gamerules rules;
 	
 	static std::vector<Body> objects;
+
+	static std::vector<Body> dynamic_objects;
+	static std::vector<Body> static_objects;
+	static std::vector<Joint> joint_objects;
+
 	static std::vector<Player> players;
+
+	static size_t o_count;
+	static size_t p_count;
 	
 	static dMass mass;
 
 	static dReal step;
 
-	static CollisionData collision;
-
-	static dNearCallback* nearCallback;
+	static dContact m_frame_contacts[1024];
+	static dContact m_freeze_contacts[1024];
+	static bool has_contact = false;
 
 	void Init();
 	void Quit();
@@ -78,21 +102,33 @@ namespace Game {
 	bool GetFreeze();
 	bool GetPause();
 	double GetTime();
+	double GetFrameTime();
 
+	void SetSelectedPlayer();
 	void SetSelectedPlayer(PlayerID);
 
-	const Player& GetPlayer(PlayerID player_id);
-	Player GetSelectedPlayer();
 	PlayerID GetSelectedPlayerID();
-	Joint GetSelectedJoint();
+	Player& GetSelectedPlayer();
+	Player& GetPlayer(PlayerID player_id);
+
+	void SetSelectedJoint();
+	void SetSelectedJoint(JointID joint_id);
 	JointID GetSelectedJointID();
+	Joint& GetSelectedJoint();
+	Joint& GetJoint(PlayerID player_id, JointID joint_id);
 
 	Gamemode GetGamemode();
-	Gamerules GetGamerules();
+	Gamerules& GetGamerules();
+
 	std::vector<Player> GetPlayers();
 	std::vector<Body> GetObjects();
+	
+	static std::map<int, Callback> callbacks;
 
-	void NearCallback(dGeomID, dGeomID);
+	void SetCallback(CallbackType type ,Callback callback);
+	void TriggerCallback(CallbackType type, void* arg);
+
+	void NearCallback(dGeomID o1, dGeomID o2);
 
 	std::string_view GetMod();
 
@@ -110,24 +146,22 @@ namespace Game {
 	void Reset();
 	void ToggleGhosts();
 
+	void UpdateState(dReal dt);
 	void Update(dReal dt);
+
+	void DrawContacts(bool freeze);
 	void DrawFloor();
 	void Draw();
 
-	void SelectPlayer(Camera3D, Ray, RayCollision);
-	void SelectJoint(Camera3D, Ray, RayCollision);
-	void PlayFrame(int);
-	void EditReplay();
-	void SaveReplay();
+	void EnterEvent(EventType event);
+	void EnterMode(Gamemode mode);
 
-	void ModeFreeplay();
-	void ModeReplay();
-
-	void Restart();
-	void UpdateFreeze();
 	void Step(int);
 	void Step();
+	void Freeze();
 	void Refreeze();
+
+	void Restart();
 	void Loop();
 
 	bool Running();
@@ -135,8 +169,27 @@ namespace Game {
 
 namespace Window
 {
+	static bool initialized = false; 
+
 	static float  width = 800;
 	static float height = 450;
+
+	static raylib::RenderTexture background;
+	static raylib::RenderTexture foreground;
+
+	static void (*DrawCallback)(float, float) = nullptr;
+
+	void Init();
+	void Update(raylib::Camera3D);
+
+	void SetDrawCallback(void (*callback)(float, float));
+
+	void RenderBackground(raylib::Camera3D camera);
+	void RenderForeground(raylib::Camera3D camera);
+	void Draw(raylib::Camera3D camera);
+
+	void  Close();
+	bool  Initialized();
 	float GetWidth ();
 	float GetHeight();
 };

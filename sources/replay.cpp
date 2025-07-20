@@ -2,48 +2,50 @@
 
 #include <fstream>
 
+using namespace raylib;
+
 void Replay::RecordFrame(int game_frame)
 {
-	/*std::string tempframe = "F";
+	std::string tempframe = "F";
 	tempframe.append(TextFormat(" %d\n",game_frame));
-	for (auto const& [player_name, p] : players) {
+	for (auto&  p : Game::GetPlayers()) {
 		std::string J = "J";
 		std::string P = "P";
 		std::string Q = "Q";
 		std::string L = "L";
 		std::string A = "A";
 
-		s_frames[game_frame].player[player_name] = p;
+		frames[game_frame].players.push_back(p);
 
-		for (auto const& [joint_name, j] : p.joint) {
+		for (auto& j : p.joint) {
 			J.append(TextFormat(" %d %d", j.state, j.state_alt));
 		}
 		tempframe.append(TextFormat("%s\n", J.c_str()));
 
-		for (auto const& [body_name, b] : p.body) {
+		for (auto& b : p.body) {
 			P.append(TextFormat(" %f %f %f",
-				b.freeze.position.x,
-				b.freeze.position.y,
-				b.freeze.position.z
+				b.freeze_position.x,
+				b.freeze_position.y,
+				b.freeze_position.z
 			));
 
 			Q.append(TextFormat(" %f %f %f %f",
-				b.freeze.orientation.w,
-				b.freeze.orientation.x,
-				b.freeze.orientation.y,
-				b.freeze.orientation.z
+				b.freeze_orientation.w,
+				b.freeze_orientation.x,
+				b.freeze_orientation.y,
+				b.freeze_orientation.z
 			));
 
 			L.append(TextFormat(" %f %f %f",
-				b.freeze.linear_vel.x,
-				b.freeze.linear_vel.y,
-				b.freeze.linear_vel.z
+				b.freeze_linear_vel.x,
+				b.freeze_linear_vel.y,
+				b.freeze_linear_vel.z
 			));
 
 			A.append(TextFormat(" %f %f %f",
-				b.freeze.angular_vel.x,
-				b.freeze.angular_vel.y,
-				b.freeze.angular_vel.z
+				b.freeze_angular_vel.x,
+				b.freeze_angular_vel.y,
+				b.freeze_angular_vel.z
 			));
 		}
 		tempframe.append(TextFormat("%s\n", P.c_str()));
@@ -64,7 +66,7 @@ void Replay::RecordFrame(int game_frame)
 
 	std::ofstream tempframefile("tempframefile.txt");
 	tempframefile << tempframe << std::endl;
-	tempframefile.close();*/
+	tempframefile.close();
 }
 
 void Replay::RecordFrame()
@@ -74,56 +76,47 @@ void Replay::RecordFrame()
 
 void Replay::Play(int game_frame)
 {
-	const auto& frame = Get(game_frame);
-	/*for (auto& [player_name, p] : frame.player) {
-		for (auto& [joint_name, j] : p.joint) {
+	for (auto& p : frames[game_frame].players) {
+		for (auto& j : p.joint) {
 			switch(j.state) {
 			case RELAX: {
 				j.state = RELAX;
-				players[p.name].joint[j.name]
-				.TriggerPassiveState(0.00);
+				j.TriggerPassiveState(0.00);
 			} break;
 			case HOLD: {
 				j.state = HOLD;
-				players[p.name].joint[j.name]
-				.TriggerPassiveState(j.strength);
+				j.TriggerPassiveState(j.strength);
 			} break;
 			case FORWARD: {
 				j.state = FORWARD;
-				players[p.name].joint[j.name]
-				.TriggerActiveState(1.00);
+				j.TriggerActiveState(1.00);
 			} break; 
 			case BACKWARD: {
 				j.state = BACKWARD;
-				players[p.name].joint[j.name]
-				.TriggerActiveState(-1.00);
+				j.TriggerActiveState(-1.00);
 			} break;
 			}
 		
 			switch(j.state_alt) {
 			case RELAX: {
 				j.state_alt = RELAX;
-				players[p.name].joint[j.name]
-				.TriggerPassiveStateAlt(0.00);
+				j.TriggerPassiveStateAlt(0.00);
 			} break;
 			case HOLD: {
 				j.state_alt = HOLD;
-				players[p.name].joint[j.name]
-				.TriggerPassiveStateAlt(j.strength_alt);
+				j.TriggerPassiveStateAlt(j.strength_alt);
 			} break;
 			case FORWARD: {
 				j.state_alt = FORWARD;
-				players[p.name].joint[j.name]
-				.TriggerActiveStateAlt(1.00);
+				j.TriggerActiveStateAlt(1.00);
 			} break;
 			case BACKWARD: {
 				j.state_alt = BACKWARD;
-				players[p.name].joint[j.name]
-				.TriggerActiveStateAlt(-1.00);
+				j.TriggerActiveStateAlt(-1.00);
 			} break;
 			}
 		}
-	}*/
+	}
 }
 
 void Replay::Save(std::string replay_name)
@@ -146,12 +139,12 @@ void Replay::Save()
 	Save("savedreplayname");
 }
 
-FrameData Replay::Get(int game_frame)
+FrameData Replay::Get(int frame)
 {
-	return s_frames[game_frame];
+	return frames[frame];
 }
 
-std::map<int, FrameData> Replay::Get()
+std::map<int, FrameData>& Replay::Get()
 {
-	return s_frames;
+	return frames;
 }

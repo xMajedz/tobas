@@ -3,7 +3,8 @@
 
 typedef int BodyID;
 
-enum BodyShape {
+enum BodyShape
+{
 	Box,
 	Sphere,
 	Capsule,
@@ -11,91 +12,160 @@ enum BodyShape {
 	Composite,
 };
 
-struct FreezeData {
-	Vector3 position;
-	Vector4 orientation;
-	Vector3 linear_vel;
-	Vector3 angular_vel;
-};
+struct Body
+{
+	BodyID m_id;
 
-struct Body {
 	std::string m_name;
 
 	dMass mass;
+
+	dWorldID m_world;
+	dSpaceID m_space;
 
 	dBodyID dBody;
 	dGeomID dGeom;
 
 	BodyShape shape;
 
-	Vector3 position;
-	Vector3 offset;
-	Vector4 orientation;
-	Vector3 sides;
-
-	Vector3 freeze_linear_vel;
-	Vector3 freeze_angulrt_vel;
-
-	Vector3 freeze_position;
-	Vector3 freeze_orientation;
-
 	dReal radius;
 	dReal length;
 	dReal density;
 
-	FreezeData freeze;
 
-	Color color;
-	Color ghost_color;
-	Color select_color;
-	//for grips
+	raylib::Vector4 m_orientation;
+	raylib::Vector3 m_position;
+	raylib::Vector3 m_offset;
+	raylib::Vector3 m_sides;
+
+	raylib::Vector3 frame_linear_vel;
+	raylib::Vector3 frame_angular_vel;
+
+	raylib::Vector4 frame_orientation;
+	raylib::Vector3 frame_position;
+	raylib::Vector3 frame_offset;
+
+	raylib::Vector3 freeze_linear_vel;
+	raylib::Vector3 freeze_angular_vel;
+
+	raylib::Vector4 freeze_orientation;
+	raylib::Vector3 freeze_position;
+	raylib::Vector3 freeze_offset;
+
+	raylib::Color m_color;
+	raylib::Color m_g_color;
+
+	raylib::Color m_select_color;
+	raylib::Color m_active_color;
+
+	bool interactive;
+
 	bool active;
-
 	bool select;
-	bool ghost;
-	bool static_state;
 
-	uint32_t cat_bits;
-	uint32_t col_bits;
+	bool ghost;
+	bool m_static;
+
+	uint32_t m_cat_bits;
+	uint32_t m_col_bits;
 
 	Body() {};
-	Body(std::string_view name);
+	Body(BodyID id, const char* name);
 
-	void create_geom(dWorldID world, dSpaceID space);
-	void create_body(dWorldID world, dSpaceID space);
-	void create_static(dWorldID world, dSpaceID space);
-	void create_dynamic(dWorldID world, dSpaceID space);
+	void SetColor(raylib::Color color);
 
-	void set_cat_bits(uint32_t bits);
-	void set_cat_bits();
-	void set_col_bits(uint32_t bits);
-	void set_col_bits();
+	void Create(dWorldID world, dSpaceID space);
 
-	void make_static(dWorldID world);
+	void CreateGeom();
+	void CreateBody();
+	void CreateStatic();
+	void CreateDynamic();
+	void CreateComposite(dBodyID b);
 
-	void update_freeze();
-	void refreeze();
-	void reset();
-	void draw_object(Color draw_color);
-	void draw(Color draw_color);
-	void draw_freeze();
-	void draw_ghost();
-	void draw(bool freeze);
-	void toggle_ghost();
+	void Step();
 
-	std::string get_name();
+	void SetCatBits(uint32_t bits);
+	void SetCatBits();
 
-	RayCollision collide_mouse_ray(Ray ray, RayCollision collision);
+	void SetColBits(uint32_t bits);
+	void SetColBits();
+
+	void Freeze();
+
+	void Refreeze();
+	void Reset();
+
+	void DrawObject(raylib::Color color);
+	void DrawObjectWires(raylib::Color color);
+
+	void Draw(raylib::Color color);
+	void Draw(bool freeze);
+	void DrawFreeze();
+	void DrawGhost();
+
+	void ToggleGhost();
+
+	BodyID GetID();
+	std::string GetName();
+
+	raylib::RayCollision collide_mouse_ray(raylib::Ray ray, raylib::RayCollision collision);
 };
 
-struct env_joint
+typedef int JointID;
+
+enum JointType
 {
-	std::string_view name;
+	Hinge,
+	Slider,
+	Universal,
+	Hinge2,
+};
+
+enum JointState
+{
+	RELAX,
+	HOLD,
+	FORWARD,
+	BACKWARD,
+};
+
+struct Joint : public Body
+{
+	dJointID dJoint;
+
+	JointType type;
+	JointState state;
+	JointState state_alt;
+
 	BodyID connections[2];
-	//JointType type;
-	Vector3 position;
-	Vector3 axis;
+
+	raylib::Vector3 axis;
+	raylib::Vector3 axis_alt;
+
 	dReal range[2];
+	dReal range_alt[2];
 	dReal strength;
+	dReal strength_alt;
 	dReal velocity;
+	dReal velocity_alt;
+
+	Joint(JointID id, const char* name);
+
+	void Create(dWorldID world, dSpaceID space, Body b1, Body b2);
+
+	void Draw(raylib::Color color);
+	void Draw(bool freeze);
+	void DrawAxis(bool freeze);
+	void DrawRange(bool freeze);
+
+	void TriggerActiveStateAlt(dReal direction);	
+	void TriggerPassiveStateAlt(dReal strength);	
+	void TriggerActiveState(dReal direction);	
+	void TriggerPassiveState(dReal strength);	
+	void TogglePassiveState();	
+	void TogglePassiveStateAlt();	
+	void ToggleActiveState();	
+	void ToggleActiveStateAlt();	
+	void CycleState();	
+	void CycleStateAlt();
 };
