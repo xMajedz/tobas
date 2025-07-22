@@ -29,17 +29,21 @@ Player::Player(PlayerID id, std::string_view name)
 
 void Player::Create(dWorldID world, dSpaceID space)
 {
+	if (use_engagepos) {
+		SetOffset();
+	}
+
 	for (auto& b : body) {
 		if (use_engagepos) {
 			b.m_position.x += engagepos.x;
 			b.m_position.y += engagepos.y;
 			b.m_position.z += engagepos.z;
 		}
-
-		b.m_position.x -= m_offset.x;
-		b.m_position.y -= m_offset.y;
-		b.m_position.z -= m_offset.z;
-
+		
+		//b.m_position.x -= m_offset.x;
+		//b.m_position.y -= m_offset.y;
+		//b.m_position.z -= m_offset.z;
+		
 		b.frame_position = b.m_position;
 		b.freeze_position = b.m_position;
 
@@ -66,9 +70,9 @@ void Player::Create(dWorldID world, dSpaceID space)
 			j.m_position.z += engagepos.z;
 		}
 
-		j.m_position.x -= m_offset.x;
-		j.m_position.y -= m_offset.y;
-		j.m_position.z -= m_offset.z;
+		//j.m_position.x -= m_offset.x;
+		//j.m_position.y -= m_offset.y;
+		//j.m_position.z -= m_offset.z;
 
 		j.frame_position = j.m_position;
 		j.freeze_position = j.m_position;

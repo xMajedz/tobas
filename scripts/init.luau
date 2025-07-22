@@ -2,9 +2,9 @@ local require = API["require"]
 local ms = require("modstuff")
 
 local loadmodTBM = ms["loadmodTBM"]
---loadmodTBM("shootboxing15")
+loadmodTBM("shootboxing15")
 local loadmod = API["loadmod"]
-loadmod("shootboxing15")
+--loadmod("shootboxing15")
 
 local showMenu = false
 local showRules = false
@@ -256,7 +256,8 @@ function API.Draw.init()
 	if showConsole then
 		RAYGUI.GuiTextBox(10, screenHeight-30, screenWidth-20, 20, true)
 		for i = 1, #messages do
-			RAYGUI.GuiLabel(10, screenHeight-(30+20*(#messages-i+1)), screenWidth-20, 20, messages[i])
+			--RAYGUI.GuiLabel(10, screenHeight-(30+20*(#messages-i+1)), screenWidth-20, 20, messages[i])
+			RAYLIB.DrawText(messages[i], 10, screenHeight-(30+20*(#messages-i+1)), 20, RAYLIB["BLACK"])
 		end
 	end
 end

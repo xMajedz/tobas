@@ -14,7 +14,7 @@ namespace Client
 
 	void SkipLocalSim();
 
-	void Join(const char* msg);
+	void Join(const char* nick);
 	void Whisper(int r_id, const char* msg);
 	void Echo(const char* msg);
 	void Ready();

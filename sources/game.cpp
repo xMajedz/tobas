@@ -82,65 +82,21 @@ void Game::NewGame()
 		o.Create(world, space);
 	}
 
-	Color colors[] = {
-		MAROON,
-		DARKBLUE,
-		DARKGREEN,
-		DARKPURPLE,
-	};
-
-	uint32_t cat_bits[][2] = {
-		{0b000000000010, 0b000000000100},
-		{0b000000001000, 0b000000010000},
-		{0b000000100000, 0b000001000000},
-		{0b000010000000, 0b000100000000},
-	};
-
-	uint32_t col_bits[][2] = {
-		{
-			0b0001|cat_bits[1][0]|cat_bits[2][0]|cat_bits[3][0],
-			0b0001|cat_bits[1][1]|cat_bits[2][1]|cat_bits[3][1],
-		},
-		{
-			0b0001|cat_bits[0][0]|cat_bits[2][0]|cat_bits[3][0],
-			0b0001|cat_bits[0][1]|cat_bits[2][1]|cat_bits[3][1],
-		},
-		{
-			0b0001|cat_bits[0][0]|cat_bits[1][0]|cat_bits[3][0],
-			0b0001|cat_bits[0][1]|cat_bits[1][1]|cat_bits[3][1],
-		},
-		{
-			0b0001|cat_bits[0][0]|cat_bits[1][0]|cat_bits[2][0],
-			0b0001|cat_bits[0][1]|cat_bits[1][1]|cat_bits[2][1],
-		},
-	};
-
+	Color colors[] = { MAROON, DARKBLUE, DARKGREEN, DARKPURPLE };
+	
 	for (auto& p : players) {
-		auto id = p.GetID();
-
 		p.b_count = p.body.size();
 		p.j_count = p.joint.size();
 		
-		if (rules.engageheight || rules.engagedistance) {
-			p.SetOffset();
-		}
-
-		if (rules.engageheight) {
-			p.SetEngageheight(rules.engageheight);
-		}
-
 		if (rules.engagedistance) {
-			p.SetEngagedistance(rules.engagedistance,  id * (360/rules.numplayers));
+			//p.SetEngagedistance(rules.engagedistance,  id * (360/rules.numplayers));
 		}
 
+		auto id = p.GetID();
+		p.SetCatBits(0b0000, 0b0000);
+		p.SetColBits(0b0001, 0b0001);
 		p.SetColors(RAYWHITE, colors[id], Fade(colors[id], 0.10));
-		p.SetCatBits(cat_bits[id][0], cat_bits[id][1]);
-		p.SetColBits(col_bits[id][0], col_bits[id][1]);
 		p.Create(world, space);
-
-		if (rules.engageheight || rules.engagedistance) {
-			p.SetOffset();
-		}
 	}
 
 
@@ -154,9 +110,11 @@ void Game::NewGame()
 void Game::Quit()
 {
 	API::Close();
-	dJointGroupDestroy(contactgroup);
-	dSpaceDestroy(space);
-	dCloseODE();
+	if (state.running) {
+		dJointGroupDestroy(contactgroup);
+		dSpaceDestroy(space);
+		dCloseODE();
+	}
 
 	if (Window::Initialized()) {
 		Window::Close();
@@ -379,6 +337,10 @@ void Game::SetCallback(CallbackType type, void(*callback)(void*))
 
 void Game::Update(dReal dt)
 {
+	if (!state.running) {
+		NewGame();
+	}
+
 	if (!state.pause) {
 		UpdateState(dt);
 
@@ -667,10 +629,21 @@ void Game::CycleSelectedJointState()
 	players[state.selected_player].joint[state.selected_joint].CycleState();
 }
 
+static Shader shader;
+
+void rl_log(int level, const char* msg, va_list)
+{
+	Console::log(TextFormat("%d: %s", level, msg));
+}
+
 void Window::Init()
 {
 	SetTraceLogLevel(LOG_ERROR);
+	SetTraceLogCallback(rl_log);
+
 	InitWindow(width, height, "TOBAS");
+
+	shader = LoadShader(0, "resources/shader/tobas.fs");
 
 	background = LoadRenderTexture(width, height);
 	foreground = LoadRenderTexture(width, height);
@@ -823,16 +796,18 @@ void Window::Draw()
 	RenderBackground(camera);
 	RenderForeground(camera);
 	BeginDrawing();
-	DrawTextureRec(background.texture, {0, 0, width, -height}, {0, 0}, WHITE);
-	DrawTextureRec(foreground.texture, {0, 0, width, -height}, {0, 0}, WHITE);	
-
+	ClearBackground(RAYWHITE);
+	BeginShaderMode(shader);
+		DrawTextureRec(background.texture, {0, 0, width, -height}, {0, 0}, WHITE);
+		DrawTextureRec(foreground.texture, {0, 0, width, -height}, {0, 0}, WHITE);	
+	EndShaderMode();
 	API::DrawCallback();
-
 	EndDrawing();
 }
 
 void Window::Close()
 {
+	UnloadShader(shader);
 	UnloadRenderTexture(background);
 	UnloadRenderTexture(foreground);
 	CloseWindow();

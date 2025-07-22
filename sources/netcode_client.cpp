@@ -27,19 +27,6 @@ static f64_t last_t = 0;
 
 static Config cfg = NetCommon::LoadConfig();
 
-static void Send(NetCommon::Client::Command::Type CMD)
-{
-	using namespace NetCommon::Client::Command;
-	switch (CMD) {
-		case Type::Join: {
-		} break;
-		case Type::Ready: {
-		} break;
-		case Type::Echo: {
-		} break;
-	}
-}
-
 static void Receive(NetCommon::Server::Command::Type CMD, ENetPacket* p)
 {
 	uint8_t* data = p->data;
@@ -92,7 +79,7 @@ static void Receive(NetCommon::Server::Command::Type CMD, ENetPacket* p)
 		} break;
 	}
 
-};
+}
 
 int Client::Connect(const char* host_address, int port)
 {
@@ -129,9 +116,8 @@ int Client::Connect(const char* host_address, int port)
 		std::cout <<
 			"Client: Connection to " << host_address << ":" << port << " succeeded." <<
 		std::endl;	
-
-		using namespace NetCommon::Client::Command;
-		Send(Type::Join);
+		
+		Client::Join("Player");
 
 		connected = true;
 		status = CONNECTED;
@@ -156,27 +142,15 @@ void Client::SkipLocalSim()
 	skip_local_sim = true;
 }
 
-void Client::Join(const char* username)
+void Client::Join(const char* nick)
 {
 	using namespace NetCommon::Client::Command;
-	size_t b_size = 2;
+	size_t b_size = 2 + strlen(nick);
 	uint8_t b[b_size];
 	b[0] = (uint8_t)Type::Join;
-	b[1] = (uint8_t)0;
-	ENetPacket* p = enet_packet_create(b, b_size, ENET_PACKET_FLAG_RELIABLE);
-	enet_peer_send(host, 0, p);
-}
-
-void Client::Whisper(int r_id, const char* msg)
-{
-	using namespace NetCommon::Client::Command;
-	size_t b_size = 3 + strlen(msg);
-	uint8_t b[b_size];
-	b[0] = (uint8_t)Type::Whisper;
 	b[1] = (uint8_t)p_id;
-	b[2] = (uint8_t)r_id;
-	for (int i = 0; i < 255 && i < b_size - 3; i += 1) {
-		b[3 + i] = msg[i];
+	for (int i = 0; i < 255 && i < b_size - 2; i += 1) {
+		b[2 + i] = nick[i];
 	}
 	ENetPacket* p = enet_packet_create(b, b_size, ENET_PACKET_FLAG_RELIABLE);
 	enet_peer_send(host, 0, p);
@@ -191,6 +165,21 @@ void Client::Echo(const char* msg)
 	b[1] = (uint8_t)p_id;
 	for (int i = 0; i < 255 && i < b_size - 2; i += 1) {
 		b[2 + i] = msg[i];
+	}
+	ENetPacket* p = enet_packet_create(b, b_size, ENET_PACKET_FLAG_RELIABLE);
+	enet_peer_send(host, 0, p);
+}
+
+void Client::Whisper(int r_id, const char* msg)
+{
+	using namespace NetCommon::Client::Command;
+	size_t b_size = 3 + strlen(msg);
+	uint8_t b[b_size];
+	b[0] = (uint8_t)Type::Whisper;
+	b[1] = (uint8_t)p_id;
+	b[2] = (uint8_t)r_id;
+	for (int i = 0; i < 255 && i < b_size - 3; i += 1) {
+		b[3 + i] = msg[i];
 	}
 	ENetPacket* p = enet_packet_create(b, b_size, ENET_PACKET_FLAG_RELIABLE);
 	enet_peer_send(host, 0, p);
@@ -222,12 +211,15 @@ void Client::Update(f64_t t, f32_t dt)
 		return;
 	}
 
+	if (!skip_local_sim) {
+		Game::Update(Game::GetFrameTime());
+	}
+
 	if (t - last_update_t > update_interval) {
 		last_update_t = t;
 	}
 
 	ENetEvent event;
-
   	while (enet_host_service(client, &event, 0) > 0) {
       		switch (event.type) {
 		case ENET_EVENT_TYPE_RECEIVE: {
@@ -249,6 +241,10 @@ void Client::Disconnect()
 	if (host != nullptr) {
 		enet_peer_disconnect(host, 0);
 		disconnecting = true;
+	}
+
+	if (!skip_local_sim) {
+		Game::Quit();
 	}
 }
 

@@ -42,7 +42,19 @@ end
 function ms.loadModifiedTBM(fn)
 	ms.loadTBM(fn())
 end
-
+--[[
+function mx.loadTable()
+	return {
+		["mod"] = "string",
+		["gravity"] = { 0.00, 0.00, 0.00 },
+		["turnframes"] = 10,
+		["reactiontime"] = 20,
+		["numplayers"] = 20,
+		["friction"] = 10000,
+		["bounce"] = 10,
+	}
+end
+]]
 function ms.loadTBM(TBM)
 	local E2Q = ms["E2Q"]
 
@@ -180,6 +192,8 @@ end
 function ms.parseTBM(filename)
 	local file_lines = fs.readfile("mods/" .. filename:gsub(".tbm", "") .. ".tbm")
 	local TBM = table.clone(default)
+	TBM["player"][1] = table.clone(TBM["player"][1])
+	TBM["player"][2] = table.clone(TBM["player"][2])
 	local env_obj_num = ""
 	local env_obj_joint_num = ""
 	local player_name = ""

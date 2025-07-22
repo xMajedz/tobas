@@ -6,7 +6,6 @@ int main()
 	Window::Init();
 
 	Game::Init();
-	Game::NewGame();
 
 	bool running = true;
 	while (running)
