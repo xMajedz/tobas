@@ -44,7 +44,8 @@ struct Player
 	uint32_t b_col_bits;
 	uint32_t j_cat_bits;
 	uint32_t j_col_bits;
-
+	
+	bool ready;
 	bool ghost;
 
 	raylib::Color m_g_color;
@@ -53,6 +54,9 @@ struct Player
 
 	raylib::Color m_b_active_color;
 	raylib::Color m_j_select_color;
+
+	void Ready();
+	bool IsReady();
 
 	Player(PlayerID id, std::string_view name);
 	Player(std::string_view name);
@@ -98,8 +102,8 @@ struct Player
 
 	void TriggerPlayerPassiveStates(PlayerPassiveStates state);
 	void TriggerPlayerPassiveStatesAlt(PlayerPassiveStates state);
-	void TogglePlayerPassiveStates();
-	void TogglePlayerPassiveStatesAlt();
+	void TogglePassiveStates();
+	void TogglePassiveStatesAlt();
 	void RelaxAll();
 	void RelaxAllAlt();
 };

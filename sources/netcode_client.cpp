@@ -1,3 +1,4 @@
+#include "api.h"
 #include "game.h"
 
 #include "netcode_common.h"
@@ -31,33 +32,17 @@ static void Send(NetCommon::Client::Command::Type CMD)
 	using namespace NetCommon::Client::Command;
 	switch (CMD) {
 		case Type::Join: {
-			size_t b_size = 2;
-			uint8_t b[b_size];
-			b[0] = (uint8_t)Type::Join;
-			b[1] = (uint8_t)0;
-			ENetPacket* p = enet_packet_create(b, b_size, ENET_PACKET_FLAG_RELIABLE);
-			enet_peer_send(host, 0, p);
 		} break;
 		case Type::Ready: {
-			auto game_player = Game::GetPlayer((int)p_id);
-			size_t j_count = game_player.joint.size();
-			size_t b_size = 2 + j_count;
-			uint8_t b[b_size];
-			b[0] = (uint8_t)Type::Ready;
-			b[1] = (uint8_t)p_id;
-			for (int i = 0; i < j_count; i += 1) {
-				uint8_t j_state = (uint8_t)game_player.GetJointState(i);
-				uint8_t j_state_alt = (uint8_t)game_player.GetJointStateAlt(i);
-				b[2 + i] = j_state + j_state_alt << 2; 
-			}
-			ENetPacket* p = enet_packet_create(b, b_size, ENET_PACKET_FLAG_RELIABLE);
-			enet_peer_send(host, 0, p);
+		} break;
+		case Type::Echo: {
 		} break;
 	}
-};
+}
 
-static void Receive(NetCommon::Server::Command::Type CMD, uint8_t* data)
+static void Receive(NetCommon::Server::Command::Type CMD, ENetPacket* p)
 {
+	uint8_t* data = p->data;
 	auto rules = Game::GetGamerules();
 	using namespace NetCommon::Server::Command;
 	switch(CMD) {
@@ -65,6 +50,20 @@ static void Receive(NetCommon::Server::Command::Type CMD, uint8_t* data)
 			std::cout <<
 				"Client: a player connected ID: " << (int)data[1] <<
 			std::endl;
+		} break;
+		case Type::P_Whisper: {
+			char msg[p->dataLength + 1] = { 0 };
+			for (int i = 0; i < p->dataLength - 3; i += 1) {
+				msg[i] = (char)data[i + 3];
+			}
+			Console::log(msg);
+		} break;
+		case Type::P_Echo: {
+			char msg[p->dataLength + 1] = { 0 };
+			for (int i = 0; i < p->dataLength - 2; i += 1) {
+				msg[i] = (char)data[i + 2];
+			}
+			Console::log(msg);
 		} break;
 		case Type::P_Disconnect: {
 			std::cout <<
@@ -145,21 +144,74 @@ int Client::Connect(const char* host_address, int port)
 	}
 
 	return 0;
-};
+}
 
 int Client::Connect()
 {
 	return Connect(cfg.host.c_str(), cfg.port);
-};
+}
 
 void Client::SkipLocalSim()
 {
 	skip_local_sim = true;
 }
 
+void Client::Join(const char* username)
+{
+	using namespace NetCommon::Client::Command;
+	size_t b_size = 2;
+	uint8_t b[b_size];
+	b[0] = (uint8_t)Type::Join;
+	b[1] = (uint8_t)0;
+	ENetPacket* p = enet_packet_create(b, b_size, ENET_PACKET_FLAG_RELIABLE);
+	enet_peer_send(host, 0, p);
+}
+
+void Client::Whisper(int r_id, const char* msg)
+{
+	using namespace NetCommon::Client::Command;
+	size_t b_size = 3 + strlen(msg);
+	uint8_t b[b_size];
+	b[0] = (uint8_t)Type::Whisper;
+	b[1] = (uint8_t)p_id;
+	b[2] = (uint8_t)r_id;
+	for (int i = 0; i < 255 && i < b_size - 3; i += 1) {
+		b[3 + i] = msg[i];
+	}
+	ENetPacket* p = enet_packet_create(b, b_size, ENET_PACKET_FLAG_RELIABLE);
+	enet_peer_send(host, 0, p);
+}
+
+void Client::Echo(const char* msg)
+{
+	using namespace NetCommon::Client::Command;
+	size_t b_size = 2 + strlen(msg);
+	uint8_t b[b_size];
+	b[0] = (uint8_t)Type::Echo;
+	b[1] = (uint8_t)p_id;
+	for (int i = 0; i < 255 && i < b_size - 2; i += 1) {
+		b[2 + i] = msg[i];
+	}
+	ENetPacket* p = enet_packet_create(b, b_size, ENET_PACKET_FLAG_RELIABLE);
+	enet_peer_send(host, 0, p);
+}
+
 void Client::Ready()
 {
-	ready = true;
+	using namespace NetCommon::Client::Command;
+	auto game_player = Game::GetPlayer((int)p_id);
+	size_t j_count = game_player.joint.size();
+	size_t b_size = 2 + j_count;
+	uint8_t b[b_size];
+	b[0] = (uint8_t)Type::Ready;
+	b[1] = (uint8_t)p_id;
+	for (int i = 0; i < j_count; i += 1) {
+		uint8_t j_state = (uint8_t)game_player.GetJointState(i);
+		uint8_t j_state_alt = (uint8_t)game_player.GetJointStateAlt(i);
+		b[2 + i] = j_state + j_state_alt << 2; 
+	}
+	ENetPacket* p = enet_packet_create(b, b_size, ENET_PACKET_FLAG_RELIABLE);
+	enet_peer_send(host, 0, p);
 }
 
 void Client::Update(f64_t t, f32_t dt)
@@ -171,14 +223,7 @@ void Client::Update(f64_t t, f32_t dt)
 	}
 
 	if (t - last_update_t > update_interval) {
-
 		last_update_t = t;
-	}
-
-	if (ready) {
-		using namespace NetCommon::Client::Command;
-		Send(Type::Ready);
-		ready = false;
 	}
 
 	ENetEvent event;
@@ -187,7 +232,7 @@ void Client::Update(f64_t t, f32_t dt)
       		switch (event.type) {
 		case ENET_EVENT_TYPE_RECEIVE: {
 			uint8_t* data = (uint8_t*)event.packet->data;
-			Receive((NetCommon::Server::Command::Type)data[0], data);
+			Receive((NetCommon::Server::Command::Type)data[0], event.packet);
         		enet_packet_destroy(event.packet);
 		} break;
 		case ENET_EVENT_TYPE_DISCONNECT: {

@@ -5,7 +5,7 @@ local loadModifiedTBM = ms["loadModifiedTBM"]
 loadModifiedTBM(function()
 	local TBM = ms.parseTBM("shootboxing15")
 	TBM["mod"] = "m_shootboxing15"
-	TBM["reactiontime"] = 40
+	--TBM["reactiontime"] = 40
 	TBM["numplayers"] = 4
 	TBM["player"][3] = TBM["player"][1]
 	TBM["player"][4] = TBM["player"][1]

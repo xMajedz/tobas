@@ -29,13 +29,29 @@ public:
 	};
 };
 
+void Luau::setlogcallback(void(*callback)(const char*))
+{
+	log = callback;
+}
+
+static void log(const char* msg)
+{
+	if (Luau::log != nullptr) {
+		Luau::log(msg);
+	} else {
+		LOG(msg)
+	}
+}
+
 static int run(lua_State* L, std::string_view string, std::string_view chunkname)
 {
 	Bytecode bytecode(string);
 	int result = luau_load(L, TextFormat("=%s", chunkname.data()), bytecode.data(), bytecode.size(), 0);
 	int nresults = 1;
 	int status = lua_pcall(L, 0, nresults, 0);
-	if (status != LUA_OK) { LOG(lua_tostring(L, -1)) }
+	if (status != LUA_OK) {
+		log(lua_tostring(L, -1));
+	}
 	return nresults;
 }
 

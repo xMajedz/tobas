@@ -19,7 +19,15 @@ workspace "tobas"
 
 		"vendor/ode/include",
 
+		"vendor/enet/include",
+
 		"sources",
+	}
+
+	links {
+		"luaucompiler", "luauast", "luauvm",
+		"raylib",
+		"ode",
 	}
 
 	files {
@@ -54,46 +62,9 @@ workspace "tobas"
 	filter { "not system:Windows" }
 	libdirs { "lib/linux" }
 
-project "netcode_common"
-	kind "Staticlib"
-	includedirs { "sources", "vendor/enet/include" }
-	files { "sources/netcode_common.h", "sources/netcode_common.cpp" }
-
-project "netcode_client"
-	kind "Staticlib"
-	includedirs { "sources", "vendor/enet/include" }
-	files {
-		"sources/netcode_common.h", "sources/netcode_common.cpp",
-		"sources/netcode_client.h", "sources/netcode_client.cpp",
-	}
-	links { "netcode_common" }
-
-project "netcode_server"
-	kind "Staticlib"
-	includedirs { "sources", "vendor/enet/include" }
-	files {
-		"sources/netcode_common.h", "sources/netcode_common.cpp",
-		"sources/netcode_server.h", "sources/netcode_server.cpp",
-	}
-	links { "netcode_common" }
-
-project "tobas_common"
-	kind "Staticlib"
-	links {
-		"luaucompiler", "luauast", "luauvm",
-		"raylib",
-		"ode",
-	}
-
 project "tobas_sp"
 	kind "WindowedApp"
 	files { "sources/tobas_sp.cpp" }
-	links { "tobas_common" }
-	links {
-		"luaucompiler", "luauast", "luauvm",
-		"raylib",
-		"ode",
-	}
 	defines { "OFFLINE" }
 
 	filter { "system:Windows" }
@@ -102,13 +73,11 @@ project "tobas_sp"
 
 project "tobas"
 	kind "WindowedApp"
-	includedirs { "sources", "vendor/enet/include" }
-	files { "sources/tobas.cpp" }
-	links { "tobas_common", "netcode_server", "netcode_client" }
-	links {
-		"luaucompiler", "luauast", "luauvm",
-		"raylib",
-		"ode",
+	files {
+		"sources/tobas.cpp",
+		"sources/netcode_common.h", "sources/netcode_common.cpp",
+		"sources/netcode_client.h", "sources/netcode_client.cpp",
+		"sources/netcode_server.h", "sources/netcode_server.cpp",
 	}
 
 	filter { "system:Windows" }
@@ -118,13 +87,11 @@ project "tobas"
 
 project "tobas_server"
 	kind "ConsoleApp"
-	includedirs { "sources", "vendor/enet/include" }
-	files { "sources/tobas_server.cpp" }
-	links { "tobas_common", "netcode_server" }
-	links {
-		"luaucompiler", "luauast", "luauvm",
-		"raylib",
-		"ode",
+	files {
+		"sources/tobas_server.cpp",
+		"sources/netcode_common.h", "sources/netcode_common.cpp",
+		"sources/netcode_client.h", "sources/netcode_client.cpp",
+		"sources/netcode_server.h", "sources/netcode_server.cpp",
 	}
 
 	filter { "system:Windows" }

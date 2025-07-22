@@ -23,6 +23,7 @@ Player::Player(PlayerID id, std::string_view name)
 	use_engagepos = false;
 	use_engagerot = false;
 
+	ready = false;
 	ghost = true;
 }
 
@@ -99,6 +100,16 @@ PlayerID Player::GetID()
 std::string_view Player::GetName()
 {
 	return m_name;
+}
+
+void Player::Ready()
+{
+	ready = true;
+}
+
+bool Player::IsReady()
+{
+	return ready;
 }
 
 JointState Player::GetJointState(JointID joint_id)
@@ -311,6 +322,8 @@ void Player::Freeze()
 	}
 
 	freeze_offset = CalculateFreezeOffset();
+
+	ready = false;
 }
 
 void Player::Refreeze()
@@ -406,7 +419,7 @@ void Player::TriggerPlayerPassiveStatesAlt(PlayerPassiveStates state)
 	}
 }
 
-void Player::TogglePlayerPassiveStates()
+void Player::TogglePassiveStates()
 {
 	Refreeze();
 
@@ -419,7 +432,7 @@ void Player::TogglePlayerPassiveStates()
 	}
 }
 
-void Player::TogglePlayerPassiveStatesAlt()
+void Player::TogglePassiveStatesAlt()
 {
 	Refreeze();
 

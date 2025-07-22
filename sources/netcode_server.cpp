@@ -1,3 +1,4 @@
+#include "api.h"
 #include "game.h"
 
 #include "netcode_common.h"
@@ -5,8 +6,8 @@
 
 #include <thread>
 
-static ENetAddress address = { 0 };
-static ENetHost* host = { 0 };
+static ENetAddress address;
+static ENetHost* host = nullptr;
 
 static std::thread game_thread;
 
@@ -18,7 +19,8 @@ static bool running = false;
 
 static Config cfg = NetCommon::LoadConfig();
 
-struct NetPlayer {
+struct NetPlayer
+{
 	uint8_t id = -1;
 	uint8_t j_state = 0;
 	uint8_t j_state_alt = 0;
@@ -68,7 +70,7 @@ static void SendTo(NetPlayer player, ENetPacket* p)
 	if (player.occupied) {
 		enet_peer_send(player.peer, 0, p);
 	}
-};
+}
 
 static void SendToAllExcept(NetPlayer player, ENetPacket* p)
 {
@@ -77,14 +79,14 @@ static void SendToAllExcept(NetPlayer player, ENetPacket* p)
 			SendTo(players[i], p);
 		}
 	}
-};
+}
 
 static void SendToAll(ENetPacket* p)
 {
 	for (int i = 0; i < cfg.max_clients; i += 1) {
 		SendTo(players[i], p);
 	}
-};
+}
 
 static void Receive(ENetPacket* packet)
 {
@@ -93,9 +95,28 @@ static void Receive(ENetPacket* packet)
 	using namespace NetCommon;
 	switch((Client::Command::Type)data[0]) {
 		case Client::Command::Type::Join: {
+			Console::log("Server: received join command from a client.");
 			std::cout <<
 				"Server: received join command from a client." <<
 			std::endl;
+		} break;
+		case Client::Command::Type::Whisper: {
+			size_t b_size = packet->dataLength;
+			uint8_t b[b_size] = { 0 };
+			for (int i = 0; i < packet->dataLength; i += 1) {
+				b[i] = data[i];
+			}
+			ENetPacket* p = enet_packet_create(b, b_size, ENET_PACKET_FLAG_RELIABLE);
+			SendTo(players[data[2]], p);
+		} break;
+		case Client::Command::Type::Echo: {
+			size_t b_size = packet->dataLength;
+			uint8_t b[b_size] = { 0 };
+			for (int i = 0; i < packet->dataLength; i += 1) {
+				b[i] = data[i];
+			}
+			ENetPacket* p = enet_packet_create(b, b_size, ENET_PACKET_FLAG_RELIABLE);
+			SendToAll(p);
 		} break;
 		case Client::Command::Type::Ready: {
 			uint8_t p_id = data[1];
@@ -140,7 +161,7 @@ static void Receive(ENetPacket* packet)
 			}
 		} break;
 	}
-};
+}
 
 static uint8_t PeerWho(ENetPeer* peer)
 {
@@ -150,7 +171,7 @@ static uint8_t PeerWho(ENetPeer* peer)
 		}
 	}
 	return (uint8_t)-1;
-};
+}
 
 void Server::HostGame()
 {
@@ -194,7 +215,7 @@ void Server::HostGame()
 			}
 		}
 
-		while (enet_host_service(host, &event, 1000) > 0) {
+		while (enet_host_service(host, &event, 2000) > 0) {
 			switch (event.type) {
 			case ENET_EVENT_TYPE_CONNECT: {
 				uint8_t p_id = (uint8_t)-1;

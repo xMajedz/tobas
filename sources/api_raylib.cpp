@@ -138,9 +138,27 @@ static int RAYLIB_GetFPS(lua_State* L)
 	return 1;
 }
 
+static int RAYLIB_IsMouseButtonPressed(lua_State* L)
+{
+	lua_pushboolean(L, IsMouseButtonPressed(lua_tointeger(L, -1)));
+	return 1;
+}
+
 static int RAYLIB_IsKeyPressed(lua_State* L)
 {
 	lua_pushboolean(L, IsKeyPressed(lua_tointeger(L, -1)));
+	return 1;
+}
+
+static int RAYLIB_IsKeyDown(lua_State* L)
+{
+	lua_pushboolean(L, IsKeyDown(lua_tointeger(L, -1)));
+	return 1;
+}
+
+static int RAYLIB_IsKeyUp(lua_State* L)
+{
+	lua_pushboolean(L, IsKeyUp(lua_tointeger(L, -1)));
 	return 1;
 }
 
@@ -156,7 +174,12 @@ static const luaL_Reg api_raylib[] {
 	{"GetFrameTime", RAYLIB_GetFrameTime},
 	{"GetFPS", RAYLIB_GetFPS},
 
+	{"IsMouseButtonPressed", RAYLIB_IsMouseButtonPressed},
+
 	{"IsKeyPressed", RAYLIB_IsKeyPressed},
+	{"IsKeyDown", RAYLIB_IsKeyDown},
+	{"IsKeyUp", RAYLIB_IsKeyUp},
+
 
 	{NULL, NULL},
 };
@@ -194,6 +217,22 @@ static RaylibColor raylib_colors[] = {
 	{"BLANK",BLANK},
 	{"MAGENTA",MAGENTA},
 	{"RAYWHITE",RAYWHITE},
+};
+
+struct RaylibMouseBtn
+{
+	const char* btn;
+	int constant;
+};
+
+static RaylibMouseBtn raylib_mousebtns[] = {
+	{"MOUSE_BUTTON_LEFT",0},
+	{"MOUSE_BUTTON_RIGHT",1},
+	{"MOUSE_BUTTON_MIDDLE",2},
+	{"MOUSE_BUTTON_SIDE",3},
+	{"MOUSE_BUTTON_EXTRA",4},
+	{"MOUSE_BUTTON_FORWARD",5},
+	{"MOUSE_BUTTON_BACK",6},
 };
 
 struct RaylibKey
@@ -342,20 +381,25 @@ int luaopen_api_raylib(lua_State* L)
 
 	for (auto& [name, col] : raylib_colors) {
 		lua_newtable(L);
-		lua_pushnumber(L, col.r);
+		lua_pushinteger(L, col.r);
 		lua_rawseti(L, -2, 1);
-		lua_pushnumber(L, col.g);
+		lua_pushinteger(L, col.g);
 		lua_rawseti(L, -2, 2);
-		lua_pushnumber(L, col.b);
+		lua_pushinteger(L, col.b);
 		lua_rawseti(L, -2, 3);
-		lua_pushnumber(L, col.a);
+		lua_pushinteger(L, col.a);
 		lua_rawseti(L, -2, 4);
 		lua_setfield(L, -2, name);
 	}
 
 	for (auto& [key, constant] : raylib_keys) {
-		lua_pushnumber(L, constant);
+		lua_pushinteger(L, constant);
 		lua_setfield(L, -2, key);
+	}
+
+	for (auto& [btn, constant] : raylib_mousebtns) {
+		lua_pushinteger(L, constant);
+		lua_setfield(L, -2, btn);
 	}
 
 	lua_pop(L, 1);

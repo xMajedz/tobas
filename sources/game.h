@@ -6,9 +6,10 @@ enum Gamemode
 {
 	FREE_PLAY,
 	SELF_PLAY,
-	NET_PLAY,
 	REPLAY_PLAY,
 	REPLAY_EDIT,
+
+	FREE_PLAY_TOGETEHR,
 };
 
 enum EventType
@@ -67,11 +68,11 @@ struct Gamestate {
 
 
 namespace Game {
-	static dWorldID world;
-	static dSpaceID space;
-	static dJointGroupID contactgroup;
+	static dWorldID world = nullptr;
+	static dSpaceID space = nullptr;
+	static dJointGroupID contactgroup = nullptr;
 	
-	static dGeomID floor;
+	static dGeomID floor = nullptr;
 		
 	static Gamestate state;
 	static Gamerules rules;
@@ -146,6 +147,26 @@ namespace Game {
 	void Reset();
 	void ToggleGhosts();
 
+	void TogglePlayerPassiveStatesAlt(PlayerID player_id);
+	void TogglePlayerPassiveStates(PlayerID player_id);
+	void ToggleSelectedPlayerPassiveStatesAlt();
+	void ToggleSelectedPlayerPassiveStates();
+
+	void ToggleJointActiveStateAlt(JointID selected_joint_id);
+	void ToggleJointActiveState(JointID selected_joint_id);
+	void ToggleJointPassiveStateAlt(JointID selected_joint_id);
+	void ToggleJointPassiveState(JointID selected_joint_id);
+	void CycleJointStateAlt(JointID selected_joint_id);
+	void CycleJointState(JointID selected_joint_id);
+
+	void ToggleSelectedJointActiveStateAlt();
+	void ToggleSelectedJointActiveState();
+	void ToggleSelectedJointPassiveStateAlt();
+	void ToggleSelectedJointPassiveState();
+
+	void CycleSelectedJointStateAlt();
+	void CycleSelectedJointState();
+
 	void UpdateState(dReal dt);
 	void Update(dReal dt);
 
@@ -180,13 +201,13 @@ namespace Window
 	static void (*DrawCallback)(float, float) = nullptr;
 
 	void Init();
-	void Update(raylib::Camera3D);
+	void Update();
 
 	void SetDrawCallback(void (*callback)(float, float));
 
 	void RenderBackground(raylib::Camera3D camera);
 	void RenderForeground(raylib::Camera3D camera);
-	void Draw(raylib::Camera3D camera);
+	void Draw();
 
 	void  Close();
 	bool  Initialized();

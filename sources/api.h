@@ -18,8 +18,8 @@ namespace API
 	static size_t o_count;
 	static size_t p_count;
 
-	static Body*   o;
-	static Player* p;
+	static Body*   o = nullptr;
+	static Player* p = nullptr;
 	
 	static std::map<std::string_view, BodyID> b_map;
 	static std::vector<Body>  b_vector;
@@ -28,8 +28,8 @@ namespace API
 	static size_t b_count;
 	static size_t j_count;
 	
-	static Body*  b;
-	static Joint* j;
+	static Body*  b = nullptr;
+	static Joint* j = nullptr;
 	
 	void Init();
 	void Reset();
@@ -37,10 +37,13 @@ namespace API
 
 	lua_State* GetL();
 	Gamerules GetRules();
+
 	std::vector<Body> GetObjects();
 	std::vector<Player> GetPlayers();
+
+	size_t GetObjectsCount();
+	size_t GetPlayersCount();
 	
-	int TriggerCallback(const char* event, void* arg);
 	int UpdateCallback(dReal dt);
 	int DrawCallback();
 	int NewGameCallback();

@@ -1,4 +1,5 @@
 #include "game.h"
+#include "camera.h"
 #include "replay.h"
 #include "luau.h"
 #include "api.h"
@@ -21,7 +22,6 @@ void Game::Init()
 
 	API::Init();
 	API::loadscript("init");
-	//API::loadmod("shootboxing15");
 
 	state.time = GetTime();
 	state.running = false;
@@ -31,14 +31,33 @@ void Game::Init()
 
 void Game::NewGame()
 {
+	if (space != nullptr) {
+		dSpaceDestroy(space);
+	}
+
+	if (contactgroup != nullptr) {
+		dJointGroupDestroy(contactgroup);
+	}
+
+	if (objects.size() > 0) {
+		objects.clear();
+	}
+
+	if (players.size() > 0) {
+		players.clear();
+	}
+
 	rules = API::GetRules();
 	rules.max_contacts = 8;
 
+	o_count = API::GetObjectsCount();
+	p_count = API::GetPlayersCount();
+
+	objects.reserve(o_count);
+	players.reserve(p_count);
+
 	objects = API::GetObjects();
 	players = API::GetPlayers();
-
-	o_count = objects.size();
-	p_count = players.size();
 
 	state.game_frame = 0;
 
@@ -127,7 +146,9 @@ void Game::NewGame()
 
 	state.running = true;
 
-	TriggerCallback(CallbackType::NEWGAME, nullptr);
+	Replay::RecordFrame();
+
+	API::NewGameCallback();
 }
 
 void Game::Quit()
@@ -266,9 +287,32 @@ void Game::Freeze()
 
 void Game::Step(int frame_count)
 {
-	state.step_frames = frame_count;
+	switch(state.mode)
+	{
+	case SELF_PLAY: {
+		bool ready = true;
 
-	EnterEvent(STEP);
+		if (state.selected_player != -1) {
+			players[state.selected_player].Ready();
+		}
+
+		for (auto& p : players) {
+			if (!p.IsReady()) {
+				state.selected_player = p.GetID();
+				ready = false;
+				break;
+			}
+		}
+		
+		if (!ready) {
+			break;
+		}
+	};
+	case FREE_PLAY: {
+		state.step_frames = frame_count;
+		EnterEvent(STEP);
+	} break;
+	}
 }
 
 void Game::Step()
@@ -281,6 +325,7 @@ void Game::UpdateState(dReal dt)
 	if (!state.freeze) {
 		state.game_frame += 1;
 		switch (state.mode) {
+		case SELF_PLAY: {};
 		case FREE_PLAY: {
 			state.step_count += 1;
 			if (state.step_count >= state.step_frames) {
@@ -301,6 +346,7 @@ void Game::UpdateState(dReal dt)
 		}
 	} else {
 		switch (state.mode) {
+		case SELF_PLAY: {};
 		case FREE_PLAY: {
 			state.freeze_count += 1;
 			if (state.freeze_count >= state.freeze_frames) {
@@ -349,7 +395,7 @@ void Game::Update(dReal dt)
 		}
 	}
 
-	TriggerCallback(CallbackType::UPDATE, &dt);
+	API::UpdateCallback(dt);
 }
 
 void Game::DrawContacts(bool freeze)
@@ -540,6 +586,87 @@ void Game::ToggleGhosts()
 	Refreeze();
 }
 
+void Game::TogglePlayerPassiveStatesAlt(PlayerID player_id)
+{
+	players[player_id].TogglePassiveStatesAlt();
+}
+
+void Game::TogglePlayerPassiveStates(PlayerID player_id)
+{
+	players[player_id].TogglePassiveStates();
+}
+
+void Game::ToggleSelectedPlayerPassiveStatesAlt()
+{
+	players[state.selected_player].TogglePassiveStatesAlt();
+}
+
+void Game::ToggleSelectedPlayerPassiveStates()
+{
+	players[state.selected_player].TogglePassiveStates();
+}
+
+void Game::ToggleJointActiveStateAlt(JointID joint_id)
+{
+	players[state.selected_player].joint[joint_id].ToggleActiveStateAlt();
+}
+
+void Game::ToggleJointActiveState(JointID joint_id)
+{
+	players[state.selected_player].joint[joint_id].ToggleActiveState();
+}
+
+void Game::ToggleJointPassiveStateAlt(JointID joint_id)
+{
+	players[state.selected_player].joint[joint_id].TogglePassiveStateAlt();
+}
+
+void Game::ToggleJointPassiveState(JointID joint_id)
+{
+	players[state.selected_player].joint[joint_id].TogglePassiveState();
+}
+
+void Game::CycleJointStateAlt(JointID joint_id)
+{
+	players[state.selected_player].joint[joint_id].CycleStateAlt();
+}
+
+void Game::CycleJointState(JointID joint_id)
+{
+	players[state.selected_player].joint[joint_id].CycleState();
+}
+
+void Game::ToggleSelectedJointActiveStateAlt()
+{
+	players[state.selected_player].joint[state.selected_joint].ToggleActiveStateAlt();
+}
+
+void Game::ToggleSelectedJointActiveState()
+{
+	players[state.selected_player].joint[state.selected_joint].ToggleActiveState();
+}
+
+void Game::ToggleSelectedJointPassiveStateAlt()
+{
+
+	players[state.selected_player].joint[state.selected_joint].TogglePassiveStateAlt();
+}
+
+void Game::ToggleSelectedJointPassiveState()
+{
+	players[state.selected_player].joint[state.selected_joint].TogglePassiveState();
+}
+
+void Game::CycleSelectedJointStateAlt()
+{
+	players[state.selected_player].joint[state.selected_joint].CycleStateAlt();
+}
+
+void Game::CycleSelectedJointState()
+{
+	players[state.selected_player].joint[state.selected_joint].CycleState();
+}
+
 void Window::Init()
 {
 	SetTraceLogLevel(LOG_ERROR);
@@ -549,6 +676,8 @@ void Window::Init()
 	foreground = LoadRenderTexture(width, height);
 
 	initialized = true;
+
+	Gamecam::Init();
 }
 
 static Ray MouseRay = { 0 };
@@ -630,14 +759,11 @@ static void SelectJoint(Camera3D camera)
 	}
 }
 
-void Window::Update(Camera3D camera)
+void Window::Update()
 {
 	SetWindowTitle(TextFormat("TOBAS %dFPS", GetFPS()));
 
-	if (IsFileDropped()) {
-		FilePathList dropped_files = LoadDroppedFiles();
-		UnloadDroppedFiles(dropped_files);
-	}
+	const auto& camera = Gamecam::Get();
 
 	if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && Game::GetSelectedPlayerID() >= 0) {
 		SelectBody(camera);
@@ -649,6 +775,20 @@ void Window::Update(Camera3D camera)
 
 	if (Game::GetSelectedPlayerID() >= 0) {
 		SelectJoint(camera);
+	}
+
+
+	if (0 > Game::GetSelectedPlayerID()) {
+		Gamecam::UpdateSpectatorcam(Game::GetFreeze(), Game::GetPlayers());
+	} else {
+		Gamecam::UpdatePlaycam(Game::GetFreeze(), Game::GetSelectedPlayer());
+	}
+
+	Gamecam::Update();
+
+	if (IsFileDropped()) {
+		FilePathList dropped_files = LoadDroppedFiles();
+		UnloadDroppedFiles(dropped_files);
 	}
 }
 
@@ -676,16 +816,18 @@ void Window::SetDrawCallback(void (*callback)(float, float))
 	DrawCallback = callback;
 }
 
-void Window::Draw(Camera3D camera)
+void Window::Draw()
 {
+	const auto& camera = Gamecam::Get();
+
 	RenderBackground(camera);
 	RenderForeground(camera);
 	BeginDrawing();
 	DrawTextureRec(background.texture, {0, 0, width, -height}, {0, 0}, WHITE);
 	DrawTextureRec(foreground.texture, {0, 0, width, -height}, {0, 0}, WHITE);	
-	if (DrawCallback != nullptr) {
-		DrawCallback(width, height);
-	}
+
+	API::DrawCallback();
+
 	EndDrawing();
 }
 

@@ -2,13 +2,24 @@
 
 using namespace raylib;
 
-enum GameContext {
+enum Context
+{
 	NoContext,
 	ObjectContext,
 	PlayerContext,
 	BodyContext,
 	JointContext,
 } DataContext = NoContext;
+
+static void log_luau (const char* msg)
+{
+	Console::log(msg);
+}
+
+static void log_ode(int errnum, const char* msg, va_list ap)
+{
+	Console::log(TextFormat("%d: %s", errnum, msg));
+}
 
 void API::Init()
 {
@@ -21,17 +32,25 @@ void API::Init()
 	luaopen_api_raymath(L);
 	luaL_openlibs(L);
 	luaL_sandbox(L);
+
+	Luau::setlogcallback(log_luau);
+
+	dSetErrorHandler(log_ode);
+	dSetDebugHandler(log_ode);
+	dSetMessageHandler(log_ode);
 }
 
 void API::Reset()
 {
+	DataContext = NoContext;
+
 	rules = {.mod = "NONE"};
 
 	o_vector.clear();
 	p_vector.clear();
 	
-	o = 0;
-	p = 0;
+	o = nullptr;
+	p = nullptr;
 
 	o_count = 0;
 	p_count = 0;
@@ -39,8 +58,8 @@ void API::Reset()
 	b_vector.clear();
 	j_vector.clear();
 
-	b = 0;
-	j = 0;
+	b = nullptr;
+	j = nullptr;
 
 	b_count = 0;
 	j_count = 0;
@@ -64,66 +83,55 @@ Gamerules API::GetRules()
 
 std::vector<Body> API::GetObjects()
 {
-	return API::o_vector;
-};
+	return o_vector;
+}
 
 std::vector<Player> API::GetPlayers()
 {
-	return API::p_vector;
-};
-	/*lua_getglobal(L, "API");
-	lua_getfield(L, -1, event);
-	if (lua_istable(L, -3)) {
-		lua_pushnil(L);
-		while (lua_next(L, -4) != 0) {
-			if (!lua_isfunction(L, -1) || lua_pcall(L, 0, 0, 0) != 0) {
-LOG(lua_tostring(L, -1))
-			}
-		}
-	}*/
+	return p_vector;
+}
 
-int API::TriggerCallback(const char* event, void* arg)
+size_t API::GetObjectsCount()
 {
-	return 1;
+	return o_count;
+}
+
+size_t API::GetPlayersCount()
+{
+	return p_count;
 }
 
 int API::UpdateCallback(dReal dt)
 {
-	Luau::dostring(L, TextFormat("_G[\"API\"][\"%s\"][\"init\"](%lf)", "Update", dt));
-	return 1;
+	return Luau::dostring(L, TextFormat("_G[\"API\"][\"%s\"][\"init\"](%lf)", "Update", dt));
 }
 
 int API::DrawCallback()
 {
-	Luau::dostring(L, TextFormat("_G[\"API\"][\"%s\"][\"init\"](%s)", "Draw", ""));
-	return 1;
+	return Luau::dostring(L, TextFormat("_G[\"API\"][\"%s\"][\"init\"](%s)", "Draw", ""));
 }
 
 int API::NewGameCallback()
 {
-	Luau::dostring(L, TextFormat("_G[\"API\"][\"%s\"][\"init\"](%s)", "NewGame", ""));
-	return 1;
+	return Luau::dostring(L, TextFormat("_G[\"API\"][\"%s\"][\"init\"](%s)", "NewGame", ""));
 }
 
 int API::FreezeCallback()
 {
-	Luau::dostring(L, TextFormat("_G[\"API\"][\"%s\"][\"init\"](%s)", "Freeze", ""));
-	return 1;
+	return Luau::dostring(L, TextFormat("_G[\"API\"][\"%s\"][\"init\"](%s)", "Freeze", ""));
 }
 
 int API::StepCallback()
 {
-	Luau::dostring(L, TextFormat("_G[\"API\"][\"%s\"][\"init\"](%s)", "Step", ""));
-	return 1;
+	return Luau::dostring(L, TextFormat("_G[\"API\"][\"%s\"][\"init\"](%s)", "Step", ""));
 }
 
 int API::ConsoleCallback(const char* message)
 {
-	Luau::dostring(L, TextFormat("_G[\"API\"][\"%s\"][\"init\"](\"%s\")", "Console", message));
-	return 1;
+	return Luau::dostring(L, TextFormat("_G[\"API\"][\"%s\"][\"init\"](\"%s\")", "Console", message));
 }
 
-int API::loadmod (std::string_view modpath)
+int API::loadmod(std::string_view modpath)
 {
 	return Luau::dofile(
 		L,
@@ -132,7 +140,7 @@ int API::loadmod (std::string_view modpath)
 	);
 }
 
-int API::loadscript (std::string_view scriptpath)
+int API::loadscript(std::string_view scriptpath)
 {
 	return Luau::dofile(
 		L,
@@ -392,9 +400,7 @@ static int API_gravity(lua_State* L)
 static int API_mod(lua_State* L)
 {
 	API::rules.mod = lua_tostring(L, -1);
-
-	lua_Number result = 1;
-	lua_pushnumber(L, result);
+	lua_pushinteger(L, 1);
 	return 1;
 }
 
@@ -416,7 +422,6 @@ static int API_player(lua_State* L)
 	DataContext = PlayerContext;
 	const char* name = lua_tostring(L, -1);
 	lua_Number result = 0;
-
 	if (API::p_count < API::rules.numplayers) {
 		API::b_count = 0;
 		API::j_count = 0;
@@ -427,7 +432,6 @@ static int API_player(lua_State* L)
 		API::p_count += 1;
 		result = 1;
 	}
-
 	lua_pushnumber(L, result);
 	return 1;
 }
@@ -953,15 +957,9 @@ void Console::log(const char* message)
 
 void Console::Update()
 {
-	if (0 < message_count) {
-		for (int i = 0; message_count != 0; i += 1) {
-			if (m_callback != nullptr) {
-				m_callback(messages[i]);
-			} else {
-				LOG(messages[i] << " - Default Logging")
-			}
-			message_count -= 1;
-		}
+	for (int i = 0; message_count != 0; i += 1) {
+		API::ConsoleCallback(messages[i]);
+		message_count -= 1;
 	}
 }
 
@@ -981,12 +979,18 @@ void Console::SetMessage(const char* message)
 	} else {
 		messages[message_count - 1] = last_message;
 	}
-	has_message = true;
 }
 
 static int API_log(lua_State* L)
 {
 	Console::log(lua_tostring(L, -1));
+	lua_pushinteger(L, 1);
+	return 1;
+}
+
+static int API_Reset(lua_State* L)
+{
+	API::Reset();
 	lua_pushinteger(L, 1);
 	return 1;
 }
@@ -1010,6 +1014,7 @@ static int API_parse_t (lua_State* L)
 }
 
 static const luaL_Reg api_main[] {
+	{"Reset", API_Reset},
 	{"log", API_log},
 	{"parse_t", API_parse_t},
 

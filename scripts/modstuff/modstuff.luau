@@ -49,15 +49,15 @@ function ms.loadTBM(TBM)
 	API["mod"] (TBM["mod"])
 	API["gravity"] {TBM["gravity"][1] + 0, TBM["gravity"][2] + 0, TBM["gravity"][3] + 0}
 	API["turnframes"] {TBM["turnframes"] + 0}
-	API["reactiontime"] {TBM["reactiontime"] + 0}
+	API["reactiontime"] {TBM["reactiontime"] or 0}
 	if TBM["engageheight"] then
-		API.engageheight {TBM["engageheight"] + 0}
+		API["engageheight"] {TBM["engageheight"] + 0}
 	end
 	if TBM["engagedistance"] then
-		API.engagedistance {TBM["engagedistance"] + 0}
+		API["engagedistance"] {TBM["engagedistance"] + 0}
 	end
-	API.numplayers {TBM["numplayers"] + 0}
-	API.friction {TBM["friction"] or 1000.00}
+	API["numplayers"] {TBM["numplayers"] + 0}
+	API["friction"] {TBM["friction"] or 1000.00}
 	for env_obj_num, env_obj in TBM["env_obj"] do
 		API.object(env_obj_num)
 		if env_obj["shape"] then
