@@ -367,6 +367,42 @@ static int API_engagerot(lua_State* L)
 	return 1;
 }
 
+static int API_color(lua_State* L)
+{
+	Color color;
+
+	lua_rawgeti(L, -1, 1);
+	color.r = lua_tonumber(L, -1);
+	lua_rawgeti(L, -2, 2);
+	color.g = lua_tonumber(L, -1);
+	lua_rawgeti(L, -3, 3);
+	color.b = lua_tonumber(L, -1);
+	lua_rawgeti(L, -4, 4);
+	color.a = lua_tonumber(L, -1);
+
+	switch(DataContext) {
+		case NoContext: {
+			// Error Handling
+		} break;
+		case PlayerContext: {
+			API::p->m_color = color;
+		} break;
+		case ObjectContext: {
+			// Error Handling
+		} break;
+		case BodyContext: {
+			// Error Handling
+		} break;
+		case JointContext: {
+			// Error Handling
+		} break;
+	}
+
+	lua_Number result = 1;
+	lua_pushnumber(L, result);
+	return 1;
+}
+
 static int API_gravity(lua_State* L)
 {
 	Vector3 gravity;
@@ -466,51 +502,18 @@ static int API_joint(lua_State* L)
 
 static int API_shape(lua_State* L)
 {
-	std::string shape = lua_tostring(L, -1);
+	lua_Integer shape = lua_tointeger(L, -1);
 
 	switch(DataContext) {
-		case NoContext: {
-			// Error Handling
-		} break;
-		case ObjectContext: {
-			if ("box" == shape) {
-				API::o->shape = Box;
-			} else if ("sphere" == shape) {
-				API::o->shape = Sphere;
-			} else if ("capsule" == shape) {
-				API::o->shape = Capsule;
-			} else if ("cylinder" == shape) {
-				API::o->shape = Cylinder;
-			} else  {
-				//Error Handling
-			}
-		} break;
-		case BodyContext: {
-			if ("box" == shape) {
-				API::b->shape = Box;
-			} else if ("sphere" == shape) {
-				API::b->shape = Sphere;
-			} else if ("capsule" == shape) {
-				API::b->shape = Capsule;
-			} else if ("cylinder" == shape) {
-				API::b->shape = Cylinder;
-			} else  {
-				//Error Handling
-			}
-		} break;
-		case JointContext: {
-			if ("box"  == shape) {
-				API::j->shape = Box;
-			} else if ("sphere" == shape) {
-				API::j->shape = Sphere;
-			} else if ("capsule" == shape) {
-				API::j->shape = Capsule;
-			} else if ("cylinder" == shape) {
-				API::j->shape = Cylinder;
-			} else  {
-				//Error Handling
-			}
-		} break;
+	case ObjectContext: {
+		API::o->shape = (BodyShape)shape;
+	} break;
+	case BodyContext: {
+		API::b->shape = (BodyShape)shape;
+	} break;
+	case JointContext: {
+		API::j->shape = (BodyShape)shape;
+	} break;
 	}
 
 	lua_Number result = 1;
@@ -651,6 +654,29 @@ static int API_static(lua_State* L)
 		case JointContext: {
 			API::j->m_static = true;
 		} break;
+	}
+
+	lua_Number result = 1;
+	lua_pushnumber(L, result);
+	return 1;
+}
+
+static int API_flag(lua_State* L)
+{
+	lua_getfield(L, -1, "static");
+	bool flag_static = !lua_isnil(L, -1);
+
+	switch(DataContext)
+	{
+	case ObjectContext: {
+		API::o->m_static = flag_static;
+	} break;
+	case BodyContext: {
+		API::b->m_static = flag_static;
+	} break;
+	case JointContext: {
+		API::j->m_static = flag_static;
+	} break;
 	}
 
 	lua_Number result = 1;
@@ -882,22 +908,13 @@ static int API_connections(lua_State* L)
 
 static int API_connection_type(lua_State* L)
 {
-	std::string type = lua_tostring(L, -1); 	
+	//std::string type = lua_tostring(L, -1); 	
+	lua_Integer type = lua_tointeger(L, -1);
 
 	switch(DataContext) {
-		case JointContext: {
-			if ("hinge" == type) {
-				API::j->type = Hinge;
-			} else if ("slider" == type) {
-				API::j->type = Slider;
-			} else if ("universal" == type) {
-				API::j->type = Universal;
-			} else if ("hinge2" == type) {
-				API::j->type = Hinge2;
-			} else {
-			// Error Handling
-			}
-		} break;
+	case JointContext: {
+		API::j->type = (JointType)type;
+	} break;
 	}
 
 	lua_Number result = 1;
@@ -1027,15 +1044,17 @@ static const luaL_Reg api_main[] {
 	{"loadmod", API_loadmod},
 
 	{"reactiontime", API_reactiontime},
-
 	{"turnframes", API_turnframes},
 	{"numplayers", API_numplayers},
 	{"friction", API_friction},
 	{"engagedistance", API_engagedistance},
 	{"engageheight", API_engageheight},
+
+	{"gravity", API_gravity},
+
 	{"engagepos", API_engagepos},
 	{"engagerot", API_engagerot},
-	{"gravity", API_gravity},
+	{"color", API_color},
 
 	{"mod", API_mod},
 	{"object", API_object},
@@ -1048,6 +1067,8 @@ static const luaL_Reg api_main[] {
 	{"sides", API_sides},
 	{"density", API_density},
 	{"static", API_static},
+	{"flag", API_flag},
+
 	{"radius", API_radius},
 	{"length", API_length},
 	{"strength", API_strength},
@@ -1075,17 +1096,25 @@ static const char* events[] = {
 };
 
 static const char* shapes[] = {
-	"Box",
-	"Sphere",
-	"Capsule",
-	"Cylinder",
+	"SHAPE_BOX",
+	"SHAPE_SPHERE",
+	"SHAPE_CAPSULE",
+	"SHAPE_CYLINDER",
+	"SHAPE_COMPOSITE",
 };
 
 static const char* joint_types[] = {
-	"Hinge",
-	"Slider",
-	"Universal",
-	"Hinge2",
+	"JOINT_NULL",
+
+	"JOINT_BALL",
+	"JOINT_HINGE",
+	"JOINT_SLIDER",
+
+	"JOINT_UNIVERSAL",
+	"JOINT_HINGE2",
+
+	"JOINT_FIXED",
+	"JOINT_CONTACT",
 };
 
 int luaopen_api_main(lua_State* L) {
@@ -1098,21 +1127,18 @@ int luaopen_api_main(lua_State* L) {
 	}
 
 	int count;
-	lua_newtable(L);
 	count = 0;
 	for (auto shape : shapes) {
 		lua_pushinteger(L, count);
 		lua_setfield(L, -2, shape);
 		count += 1;
 	}
-	lua_setfield(L, -2, "SHAPE");
 	count = 0;
-	for (auto type : joint_types) {
+	for (auto joint : joint_types) {
 		lua_pushinteger(L, count);
-		lua_setfield(L, -2, type);
+		lua_setfield(L, -2, joint);
 		count += 1;
 	}
-	lua_setfield(L, -2, "JOINT_TYPE");
 
 	lua_pop(L, 1);
 	return 1;

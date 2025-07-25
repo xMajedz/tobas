@@ -5,11 +5,11 @@ typedef int BodyID;
 
 enum BodyShape
 {
-	Box,
-	Sphere,
-	Capsule,
-	Cylinder,
-	Composite,
+	BOX,
+	SPHERE,
+	CAPSULE,
+	CYLINDER,
+	COMPOSITE,
 };
 
 struct Body
@@ -115,10 +115,15 @@ typedef int JointID;
 
 enum JointType
 {
-	Hinge,
-	Slider,
-	Universal,
-	Hinge2,
+	BALL = 1,
+	HINGE,
+	dSLIDER,
+
+	UNIVERSAL,
+	HINGE2,
+
+	FIXED,
+	CONTACT,
 };
 
 enum JointState

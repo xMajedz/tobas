@@ -225,45 +225,101 @@ static int RAYMATH_QuaternionFromMatrix(lua_State* L)
 	Quaternion q = QuaternionFromMatrix(m);
 
 	lua_newtable(L);
+
 	lua_pushnumber(L, q.w);
-	lua_setfield(L, -2, "w");
+	lua_rawseti(L, -2, 1);
 	lua_pushnumber(L, q.x);
-	lua_setfield(L, -2, "x");
+	lua_rawseti(L, -2, 2);
 	lua_pushnumber(L, q.y);
-	lua_setfield(L, -2, "y");
+	lua_rawseti(L, -2, 3);
 	lua_pushnumber(L, q.z);
-	lua_setfield(L, -2, "z");
+	lua_rawseti(L, -2, 4);
 	return 1;
 }
 
 static int RAYMATH_QuaternionIdentity(lua_State* L)
 {
 	Quaternion q = QuaternionIdentity();
+
 	lua_newtable(L);
+
 	lua_pushnumber(L, q.w);
-	lua_setfield(L, -2, "w");
+	lua_rawseti(L, -2, 1);
 	lua_pushnumber(L, q.x);
-	lua_setfield(L, -2, "x");
+	lua_rawseti(L, -2, 2);
 	lua_pushnumber(L, q.y);
-	lua_setfield(L, -2, "y");
+	lua_rawseti(L, -2, 3);
 	lua_pushnumber(L, q.z);
-	lua_setfield(L, -2, "z");
+	lua_rawseti(L, -2, 4);
 	return 1;
 }
 
 static int RAYMATH_QuaternionMultiply(lua_State* L)
 {
-	Quaternion q1;
-	Quaternion q2;
-	QuaternionMultiply(q1, q2);
+	Quaternion p;
+	lua_rawgeti(L, -1, 1);
+	p.w = lua_tonumber(L, -1);
+	lua_rawgeti(L, -2, 2);
+	p.x = lua_tonumber(L, -1);
+	lua_rawgeti(L, -3, 3);
+	p.y = lua_tonumber(L, -1);
+	lua_rawgeti(L, -4, 4);
+	p.z = lua_tonumber(L, -1);
+
+	Quaternion q;
+	lua_rawgeti(L, -6, 1);
+	q.w = lua_tonumber(L, -1);
+	lua_rawgeti(L, -7, 2);
+	q.x = lua_tonumber(L, -1);
+	lua_rawgeti(L, -8, 3);
+	q.y = lua_tonumber(L, -1);
+	lua_rawgeti(L, -9, 4);
+	q.z = lua_tonumber(L, -1);
+
+	q = QuaternionMultiply(q, p);
+
+	lua_newtable(L);
+	lua_pushnumber(L, q.w);
+	lua_rawseti(L, -2, 1);
+	lua_pushnumber(L, q.x);
+	lua_rawseti(L, -2, 2);
+	lua_pushnumber(L, q.y);
+	lua_rawseti(L, -2, 3);
+	lua_pushnumber(L, q.z);
+	lua_rawseti(L, -2, 4);
+
 	return 1;
 }
 
 static int RAYMATH_Vector3RotateByQuaternion(lua_State* L)
 {
-	Vector3 v;
 	Quaternion q;
-	Vector3RotateByQuaternion(v, q);
+	lua_rawgeti(L, -1, 1);
+	q.w = lua_tonumber(L, -1);
+	lua_rawgeti(L, -2, 2);
+	q.x = lua_tonumber(L, -1);
+	lua_rawgeti(L, -3, 3);
+	q.y = lua_tonumber(L, -1);
+	lua_rawgeti(L, -4, 4);
+	q.z = lua_tonumber(L, -1);
+
+	Vector3 v;
+	lua_rawgeti(L, -6, 1);
+	v.x = lua_tonumber(L, -1);
+	lua_rawgeti(L, -7, 2);
+	v.y = lua_tonumber(L, -1);
+	lua_rawgeti(L, -8, 3);
+	v.z = lua_tonumber(L, -1);
+
+	v = Vector3RotateByQuaternion(v, q);
+
+	lua_newtable(L);
+	lua_pushnumber(L, v.x);
+	lua_rawseti(L, -2, 1);
+	lua_pushnumber(L, v.y);
+	lua_rawseti(L, -2, 2);
+	lua_pushnumber(L, v.z);
+	lua_rawseti(L, -2, 3);
 	return 1;
 }
 

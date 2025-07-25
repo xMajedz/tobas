@@ -7,7 +7,8 @@ Player::Player(PlayerID id, std::string_view name)
 {
 	m_id = id;
 	m_name = name;
-
+	
+	m_color = WHITE;
 	m_b_color = WHITE;
 	m_j_color = BLACK;
 	m_g_color = Fade(BLACK, 0.10);
@@ -32,6 +33,10 @@ void Player::Create(dWorldID world, dSpaceID space)
 	if (use_engagepos) {
 		SetOffset();
 	}
+
+	m_b_color = WHITE;
+	m_j_color = m_color;
+	m_g_color = Fade(m_color, 0.10);
 
 	for (auto& b : body) {
 		if (use_engagepos) {
@@ -377,19 +382,19 @@ void Player::TriggerPlayerPassiveStates(PlayerPassiveStates state)
 			j.state = HOLD;
 		}
 		switch(j.type) {
-			case Hinge: {
+			case HINGE: {
 				dJointSetHingeParam(j.dJoint, dParamFMax, strength);
 				dJointSetHingeParam(j.dJoint, dParamVel, 0.0f);
 			} break;
-			case Slider: {
+			case dSLIDER: {
 				dJointSetSliderParam(j.dJoint, dParamFMax, strength);
 				dJointSetSliderParam(j.dJoint, dParamVel, 0.0f);
 			} break;
-			case Universal: {
+			case UNIVERSAL: {
 				dJointSetUniversalParam(j.dJoint, dParamFMax, strength);
 				dJointSetUniversalParam(j.dJoint, dParamVel, 0.0f);
 			} break;
-			case Hinge2: {
+			case HINGE2: {
 				dJointSetHinge2Param(j.dJoint, dParamFMax, strength);
 				dJointSetHinge2Param(j.dJoint, dParamVel, 0.0f);
 			} break;
@@ -407,15 +412,15 @@ void Player::TriggerPlayerPassiveStatesAlt(PlayerPassiveStates state)
 			j.state_alt = HOLD;
 		}
 		switch(j.type) {
-			case Hinge: {
+			case HINGE: {
 			} break;
-			case Slider: {
+			case dSLIDER: {
 			} break;
-			case Universal: {
+			case UNIVERSAL: {
 				dJointSetUniversalParam(j.dJoint, dParamFMax2, strength);
 				dJointSetUniversalParam(j.dJoint, dParamVel2, 0.0f);
 			} break;
-			case Hinge2: {
+			case HINGE2: {
 				dJointSetHinge2Param(j.dJoint, dParamFMax2, strength);
 				dJointSetHinge2Param(j.dJoint, dParamVel2, 0.0f);
 			} break;

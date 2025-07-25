@@ -26,7 +26,7 @@ void Game::Init()
 	state.time = GetTime();
 	state.running = false;
 
-	SetExitKey(0);
+	SetExitKey(KEY_NULL);
 }
 
 void Game::NewGame()
@@ -82,7 +82,7 @@ void Game::NewGame()
 		o.Create(world, space);
 	}
 
-	Color colors[] = { MAROON, DARKBLUE, DARKGREEN, DARKPURPLE };
+	Color colors[] = { MAROON, DARKBLUE, DARKGREEN, DARKPURPLE, YELLOW, PINK };
 	
 	for (auto& p : players) {
 		p.b_count = p.body.size();
@@ -95,7 +95,7 @@ void Game::NewGame()
 		auto id = p.GetID();
 		p.SetCatBits(0b0000, 0b0000);
 		p.SetColBits(0b0001, 0b0001);
-		p.SetColors(RAYWHITE, colors[id], Fade(colors[id], 0.10));
+		//p.SetColors(RAYWHITE, colors[id], Fade(colors[id], 0.10));
 		p.Create(world, space);
 	}
 
@@ -113,6 +113,7 @@ void Game::Quit()
 	if (state.running) {
 		dJointGroupDestroy(contactgroup);
 		dSpaceDestroy(space);
+		dWorldDestroy(world);
 		dCloseODE();
 	}
 

@@ -1,11 +1,6 @@
 local require = API["require"]
 local ms = require("modstuff")
 
-local loadmodTBM = ms["loadmodTBM"]
-loadmodTBM("shootboxing15")
-local loadmod = API["loadmod"]
---loadmod("shootboxing15")
-
 local showMenu = false
 local showRules = false
 local showMods = false
@@ -268,6 +263,7 @@ function API.Console.init(msg)
 		cmd = commands[cmd:match("^%w+")]
 		cmd = cmd and cmd(msg:gsub("^/%w+%s*", ""))
 	else
+		print(msg)
 		table.insert(messages, msg)
 	end
 end

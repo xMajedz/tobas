@@ -48,6 +48,7 @@ struct Player
 	bool ready;
 	bool ghost;
 
+	raylib::Color m_color;
 	raylib::Color m_g_color;
 	raylib::Color m_b_color;
 	raylib::Color m_j_color;

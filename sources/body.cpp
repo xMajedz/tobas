@@ -94,19 +94,19 @@ void Body::CreateBody()
 void Body::CreateGeom()
 {
 	switch(shape) {
-		case Box: {
+		case BOX: {
 			dGeom = dCreateBox(m_space, m_sides.x, m_sides.y, m_sides.z);
 			dMassSetBox(&mass, density, m_sides.x, m_sides.y, m_sides.z);
 		} break;
-		case Sphere: {
+		case SPHERE: {
 			dGeom = dCreateSphere(m_space, radius);
 			dMassSetSphere(&mass, density, radius);
 		} break;
-		case Capsule: {
+		case CAPSULE: {
 			dGeom = dCreateCapsule(m_space, radius, length);
 			dMassSetCapsule(&mass, density, 1, length, radius);
 		} break;
-		case Cylinder: {
+		case CYLINDER: {
 			dGeom = dCreateCylinder(m_space, radius, length);
 			dMassSetCylinder(&mass, density, 1, length, radius);
 		} break;
@@ -270,13 +270,13 @@ void Body::Reset()
 void Body::DrawObject(Color color)
 {
 	switch(shape) {
-		case Box: {
+		case BOX: {
 			DrawCube((Vector3){ 0.0f, 0.0f, 0.0f }, m_sides.x, m_sides.y, m_sides.z, color);
 		} break;
-		case Sphere: {
+		case SPHERE: {
 			DrawSphere((Vector3){ 0.0f, 0.0f, 0.0f }, radius, color);
 		} break;
-		case Capsule: {
+		case CAPSULE: {
 			DrawCapsule(
 					(Vector3){ 0.0f, 0.0f, -(length/2) },
 					(Vector3){ 0.0f, 0.0f,  (length/2) },
@@ -286,7 +286,7 @@ void Body::DrawObject(Color color)
 					color
 			);
 		} break;
-		case Cylinder: {
+		case CYLINDER: {
 			DrawCylinderEx(
 					(Vector3){ 0.0f, 0.0f, -(length/2) },
 					(Vector3){ 0.0f, 0.0f,  (length/2) },
@@ -302,13 +302,13 @@ void Body::DrawObject(Color color)
 void Body::DrawObjectWires(Color color)
 {
 	switch(shape) {
-		case Box: {
+		case BOX: {
 			DrawCubeWires((Vector3){ 0.0f, 0.0f, 0.0f }, m_sides.x, m_sides.y, m_sides.z, color);
 		} break;
-		case Sphere: {
+		case SPHERE: {
 			DrawSphereWires((Vector3){ 0.0f, 0.0f, 0.0f }, radius, 16, 16, color);
 		} break;
-		case Capsule: {
+		case CAPSULE: {
 			DrawCapsuleWires(
 					(Vector3){ 0.0f, 0.0f, -(length/2) },
 					(Vector3){ 0.0f, 0.0f,  (length/2) },
@@ -318,7 +318,7 @@ void Body::DrawObjectWires(Color color)
 					color
 			);
 		} break;
-		case Cylinder: {
+		case CYLINDER: {
 			DrawCylinderWiresEx(
 					(Vector3){ 0.0f, 0.0f, -(length/2) },
 					(Vector3){ 0.0f, 0.0f,  (length/2) },
@@ -410,9 +410,10 @@ std::string Body::GetName()
 	return m_name;
 }
 
-RayCollision Body::collide_mouse_ray(Ray ray, RayCollision collision) {
+RayCollision Body::collide_mouse_ray(Ray ray, RayCollision collision)
+{
 	switch(shape) {
-	case Box: {
+	case BOX: {
 		collision = GetRayCollisionBox(ray,
 			(BoundingBox) {
 				(Vector3){
@@ -428,7 +429,7 @@ RayCollision Body::collide_mouse_ray(Ray ray, RayCollision collision) {
 			}
 		);
 	} break;
-	case Sphere: {
+	case SPHERE: {
 		collision = GetRayCollisionSphere(ray,
 			(Vector3){
 				freeze_position.x,
@@ -438,7 +439,7 @@ RayCollision Body::collide_mouse_ray(Ray ray, RayCollision collision) {
 			radius
 		);
 	} break;
-	case Capsule: {
+	case CAPSULE: {
 		collision = GetRayCollisionBox(ray,
 			(BoundingBox) {
 				(Vector3){
@@ -454,7 +455,7 @@ RayCollision Body::collide_mouse_ray(Ray ray, RayCollision collision) {
 			}
 		);
 	} break;
-	case Cylinder: {
+	case CYLINDER: {
 		collision = GetRayCollisionBox(ray,
 			(BoundingBox) {
 				(Vector3){
@@ -473,7 +474,7 @@ RayCollision Body::collide_mouse_ray(Ray ray, RayCollision collision) {
 	}
 
 	return collision;
-};
+}
 
 Joint::Joint(JointID id, const char* name)
 {
@@ -510,145 +511,146 @@ void Joint::Create(dWorldID world, dSpaceID space, Body b1, Body b2)
 	});
 	*/
 
-	switch(type) {
-		case Hinge: {
-			dJoint = dJointCreateHinge(world, 0);
-			dJointAttach(dJoint, dBody, b2.dBody);
-			dJointSetHingeAnchor(
-				dJoint,
-				m_position.x,
-				m_position.y,
-				m_position.z);
-			dJointSetHingeAxis(
-				dJoint,
-				axis.x,
-				axis.y,
-				axis.z);
+	switch(type)
+	{
+	case HINGE: {
+		dJoint = dJointCreateHinge(world, 0);
+		dJointAttach(dJoint, dBody, b2.dBody);
+		dJointSetHingeAnchor(
+			dJoint,
+			m_position.x,
+			m_position.y,
+			m_position.z);
+		dJointSetHingeAxis(
+			dJoint,
+			axis.x,
+			axis.y,
+			axis.z);
+
+		dJointSetHingeParam(
+			dJoint,
+			dParamHiStop,
+			range[0]);
+		dJointSetHingeParam(
+			dJoint,
+			dParamLoStop,
+			range[1]);
+	} break;
+	case dSLIDER: {
+		dJoint = dJointCreateSlider(world, 0);
+		dJointAttach(dJoint, dBody, b2.dBody);
+		dJointSetSliderAxis(
+			dJoint,
+			axis.x,
+			axis.y,
+			axis.z);
+
+		dJointSetSliderParam(
+			dJoint,
+			dParamHiStop,
+			range[0]);
+		dJointSetSliderParam(
+			dJoint,
+			dParamLoStop,
+			range[1]);
+	} break;
+	case UNIVERSAL: {
+		dJoint = dJointCreateUniversal(world, 0);
+		dJointAttach(dJoint, dBody, b2.dBody);
+		dJointSetUniversalAnchor(
+			dJoint,
+			m_position.x,
+			m_position.y,
+			m_position.z);
+
+		dJointSetUniversalAnchor(
+			dJoint,
+			m_position.x,
+			m_position.y,
+			m_position.z);
+
+		dJointSetUniversalAxis1(
+			dJoint,
+			axis.x,
+			axis.y,
+			axis.z);
+		dJointSetUniversalAxis2(
+			dJoint,
+			axis_alt.x,
+			axis_alt.y,
+			axis_alt.z);
+
+		dJointSetUniversalParam(
+			dJoint,
+			dParamHiStop,
+			range[0]);
+
+		dJointSetUniversalParam(
+			dJoint,
+			dParamHiStop2,
+			range_alt[0]);
+
+		dJointSetUniversalParam(
+			dJoint,
+			dParamLoStop,
+			range[1]);
+
+		dJointSetUniversalParam(
+			dJoint,
+			dParamLoStop2,
+			range_alt[1]);
+	} break;
+	case HINGE2: {
+		dJoint = dJointCreateHinge2(world, 0);
+		dJointAttach(dJoint, dBody, b2.dBody);
+		dJointSetHinge2Anchor(
+			dJoint,
+			m_position.x,
+			m_position.y,
+			m_position.z);
+
+		dJointSetHinge2Anchor(
+			dJoint,
+			m_position.x,
+			m_position.y,
+			m_position.z);
 	
-			dJointSetHingeParam(
-				dJoint,
-				dParamHiStop,
-				range[0]);
-			dJointSetHingeParam(
-				dJoint,
-				dParamLoStop,
-				range[1]);
-		} break;
-		case Slider: {
-			dJoint = dJointCreateSlider(world, 0);
-			dJointAttach(dJoint, dBody, b2.dBody);
-			dJointSetSliderAxis(
-				dJoint,
-				axis.x,
-				axis.y,
-				axis.z);
-	
-			dJointSetSliderParam(
-				dJoint,
-				dParamHiStop,
-				range[0]);
-			dJointSetSliderParam(
-				dJoint,
-				dParamLoStop,
-				range[1]);
-		} break;
-		case Universal: {
-			dJoint = dJointCreateUniversal(world, 0);
-			dJointAttach(dJoint, dBody, b2.dBody);
-			dJointSetUniversalAnchor(
-				dJoint,
-				m_position.x,
-				m_position.y,
-				m_position.z);
-	
-			dJointSetUniversalAnchor(
-				dJoint,
-				m_position.x,
-				m_position.y,
-				m_position.z);
-	
-			dJointSetUniversalAxis1(
-				dJoint,
-				axis.x,
-				axis.y,
-				axis.z);
-			dJointSetUniversalAxis2(
-				dJoint,
-				axis_alt.x,
-				axis_alt.y,
-				axis_alt.z);
-	
-			dJointSetUniversalParam(
-				dJoint,
-				dParamHiStop,
-				range[0]);
-	
-			dJointSetUniversalParam(
-				dJoint,
-				dParamHiStop2,
-				range_alt[0]);
-	
-			dJointSetUniversalParam(
-				dJoint,
-				dParamLoStop,
-				range[1]);
-	
-			dJointSetUniversalParam(
-				dJoint,
-				dParamLoStop2,
-				range_alt[1]);
-		} break;
-		case Hinge2: {
-			dJoint = dJointCreateHinge2(world, 0);
-			dJointAttach(dJoint, dBody, b2.dBody);
-			dJointSetHinge2Anchor(
-				dJoint,
-				m_position.x,
-				m_position.y,
-				m_position.z);
-	
-			dJointSetHinge2Anchor(
-				dJoint,
-				m_position.x,
-				m_position.y,
-				m_position.z);
-		
-			dJointSetHinge2Axes(dJoint,
-				(dVector3){
-				axis.x,
-				axis.y,
-				axis.z,
-			},
-				(dVector3){
-				axis_alt.x,
-				axis_alt.y,
-				axis_alt.z,
-			});
-	
-			dJointSetHinge2Param(
-				dJoint,
-				dParamHiStop,
-				range[0]);
-	
-			dJointSetHinge2Param(
-				dJoint,
-				dParamHiStop2,
-				range_alt[0]);
-	
-			dJointSetHinge2Param(
-				dJoint,
-				dParamLoStop,
-				range[1]);
-	
-			dJointSetHinge2Param(
-				dJoint,
-				dParamLoStop2,
-				range_alt[1]);
-		} break;
-		default:
-			dJoint = dJointCreateFixed(world, 0);
-			dJointAttach(dJoint, dBody, b2.dBody);
-			dJointSetFixed(dJoint);
+		dJointSetHinge2Axes(dJoint,
+			(dVector3){
+			axis.x,
+			axis.y,
+			axis.z,
+		},
+			(dVector3){
+			axis_alt.x,
+			axis_alt.y,
+			axis_alt.z,
+		});
+
+		dJointSetHinge2Param(
+			dJoint,
+			dParamHiStop,
+			range[0]);
+
+		dJointSetHinge2Param(
+			dJoint,
+			dParamHiStop2,
+			range_alt[0]);
+
+		dJointSetHinge2Param(
+			dJoint,
+			dParamLoStop,
+			range[1]);
+
+		dJointSetHinge2Param(
+			dJoint,
+			dParamLoStop2,
+			range_alt[1]);
+	} break;
+	default:
+		dJoint = dJointCreateFixed(world, 0);
+		dJointAttach(dJoint, dBody, b2.dBody);
+		dJointSetFixed(dJoint);
 	}
 
 	dGeomSetCategoryBits(dGeom, m_cat_bits);
@@ -755,83 +757,81 @@ void Joint::DrawRange(bool freeze)
 
 void Joint::TriggerActiveStateAlt(dReal direction)
 {
-	switch(type) {
-		case Hinge: {
-		} break;
-		case Slider: {
-		} break;
-		case Universal: {
-			dJointSetUniversalParam(dJoint, dParamFMax2, strength_alt);
-			dJointSetUniversalParam(dJoint, dParamVel2, direction * velocity_alt);
-		} break;
-		case Hinge2: {
-			dJointSetHinge2Param(dJoint, dParamFMax2, strength_alt);
-			dJointSetHinge2Param(dJoint, dParamVel2, direction * velocity_alt);
-		} break;
+	switch(type)
+	{
+	case UNIVERSAL: {
+		dJointSetUniversalParam(dJoint, dParamFMax2, strength_alt);
+		dJointSetUniversalParam(dJoint, dParamVel2, direction * velocity_alt);
+	} break;
+	case HINGE2: {
+		dJointSetHinge2Param(dJoint, dParamFMax2, strength_alt);
+		dJointSetHinge2Param(dJoint, dParamVel2, direction * velocity_alt);
+	} break;
 	}
 }
 
 void Joint::TriggerPassiveStateAlt(dReal strength)
 {
 	switch(type) {
-		case Hinge: {
-		} break;
-		case Slider: {
-		} break;
-		case Universal: {
-			dJointSetUniversalParam(dJoint, dParamFMax2, strength);
-			dJointSetUniversalParam(dJoint, dParamVel2, 0.00);
-		} break;
-		case Hinge2: {
-			dJointSetHinge2Param(dJoint, dParamFMax2, strength);
-			dJointSetHinge2Param(dJoint, dParamVel2, 0.00);
-		} break;
+	case UNIVERSAL: {
+		dJointSetUniversalParam(dJoint, dParamFMax2, strength);
+		dJointSetUniversalParam(dJoint, dParamVel2, 0.00);
+	} break;
+	case HINGE2: {
+		dJointSetHinge2Param(dJoint, dParamFMax2, strength);
+		dJointSetHinge2Param(dJoint, dParamVel2, 0.00);
+	} break;
 	}
 }
 
-void Joint::TriggerActiveState(dReal direction) {
-	switch(type) {
-		case Hinge: {
-			dJointSetHingeParam(dJoint, dParamFMax, strength);
-			dJointSetHingeParam(dJoint, dParamVel, direction * velocity);
-		} break;
-		case Slider: {
-			dJointSetSliderParam(dJoint, dParamFMax, strength);
-			dJointSetSliderParam(dJoint, dParamVel, direction * velocity);
-		} break;
-		case Universal: {
-			dJointSetUniversalParam(dJoint, dParamFMax, strength);
-			dJointSetUniversalParam(dJoint, dParamVel, direction * velocity);
-		} break;
-		case Hinge2: {
-			dJointSetHinge2Param(dJoint, dParamFMax, strength);
-			dJointSetHinge2Param(dJoint, dParamVel, direction * velocity);
-		} break;
+void Joint::TriggerActiveState(dReal direction)
+{
+	switch(type)
+	{
+	case HINGE: {
+		dJointSetHingeParam(dJoint, dParamFMax, strength);
+		dJointSetHingeParam(dJoint, dParamVel, direction * velocity);
+	} break;
+	case dSLIDER: {
+		dJointSetSliderParam(dJoint, dParamFMax, strength);
+		dJointSetSliderParam(dJoint, dParamVel, direction * velocity);
+	} break;
+	case UNIVERSAL: {
+		dJointSetUniversalParam(dJoint, dParamFMax, strength);
+		dJointSetUniversalParam(dJoint, dParamVel, direction * velocity);
+	} break;
+	case HINGE2: {
+		dJointSetHinge2Param(dJoint, dParamFMax, strength);
+		dJointSetHinge2Param(dJoint, dParamVel, direction * velocity);
+	} break;
 	}
-};
+}
 
-void Joint::TriggerPassiveState(dReal strength) {
-	switch(type) {
-		case Hinge: {
-			dJointSetHingeParam(dJoint, dParamFMax, strength);
-			dJointSetHingeParam(dJoint, dParamVel, 0.00);
-		} break;
-		case Slider: {
-			dJointSetSliderParam(dJoint, dParamFMax, strength);
-			dJointSetSliderParam(dJoint, dParamVel, 0.00);
-		} break;
-		case Universal: {
-			dJointSetUniversalParam(dJoint, dParamFMax, strength);
-			dJointSetUniversalParam(dJoint, dParamVel, 0.00);
-		} break;
-		case Hinge2: {
-			dJointSetHinge2Param(dJoint, dParamFMax, strength);
-			dJointSetHinge2Param(dJoint, dParamVel, 0.00);
-		} break;
+void Joint::TriggerPassiveState(dReal strength)
+{
+	switch(type)
+	{
+	case HINGE: {
+		dJointSetHingeParam(dJoint, dParamFMax, strength);
+		dJointSetHingeParam(dJoint, dParamVel, 0.00);
+	} break;
+	case dSLIDER: {
+		dJointSetSliderParam(dJoint, dParamFMax, strength);
+		dJointSetSliderParam(dJoint, dParamVel, 0.00);
+	} break;
+	case UNIVERSAL: {
+		dJointSetUniversalParam(dJoint, dParamFMax, strength);
+		dJointSetUniversalParam(dJoint, dParamVel, 0.00);
+	} break;
+	case HINGE2: {
+		dJointSetHinge2Param(dJoint, dParamFMax, strength);
+		dJointSetHinge2Param(dJoint, dParamVel, 0.00);
+	} break;
 	}
-};
+}
 
-void Joint::TogglePassiveState() {
+void Joint::TogglePassiveState()
+{
 	if (state == RELAX) {
 		state = HOLD;
 		TriggerPassiveState(strength);
@@ -839,9 +839,10 @@ void Joint::TogglePassiveState() {
 		state = RELAX;
 		TriggerPassiveState(0.00);
 	}
-};
+}
 
-void Joint::TogglePassiveStateAlt() {
+void Joint::TogglePassiveStateAlt()
+{
 	if (state_alt == RELAX) {
 		state_alt = HOLD;
 		TriggerPassiveStateAlt(strength);
@@ -849,9 +850,10 @@ void Joint::TogglePassiveStateAlt() {
 		state_alt = RELAX;
 		TriggerPassiveStateAlt(0.00);
 	}
-};
+}
 
-void Joint::ToggleActiveState() {
+void Joint::ToggleActiveState()
+{
 	if (state == FORWARD) {
 		state = BACKWARD;
 		TriggerActiveState(-1.00);
@@ -859,9 +861,10 @@ void Joint::ToggleActiveState() {
 		state = FORWARD;
 		TriggerActiveState(1.00);
 	}
-};
+}
 
-void Joint::ToggleActiveStateAlt() {
+void Joint::ToggleActiveStateAlt()
+{
 	if (state_alt == FORWARD) {
 		state_alt = BACKWARD;
 		TriggerActiveStateAlt(-1.00);
@@ -869,36 +872,48 @@ void Joint::ToggleActiveStateAlt() {
 		state_alt = FORWARD;
 		TriggerActiveStateAlt(1.00);
 	}
-};
+}
 
-void Joint::CycleState() {
-	if (state == FORWARD) {
+void Joint::CycleState()
+{
+	switch(state)
+	{
+	case FORWARD: {
 		state = BACKWARD;
 		TriggerActiveState(-1.00);
-	} else if (state == BACKWARD) {
+	} break;
+	case BACKWARD: {
 		state = HOLD;
 		TriggerPassiveState(strength);
-	} else if (state == HOLD) {
+	} break;
+	case HOLD: {
 		state = RELAX;
 		TriggerPassiveState(0.00);
-	} else {
+	} break;
+	default:
 		state = FORWARD;
 		TriggerActiveState(1.00);
 	}
-};
+}
 
-void Joint::CycleStateAlt() {	
-	if (state_alt == FORWARD) {
+void Joint::CycleStateAlt()
+{
+	switch(state_alt)
+	{
+	case FORWARD: {
 		state_alt = BACKWARD;
 		TriggerActiveStateAlt(-1.00);
-	} else if (state_alt == BACKWARD) {
+	} break;
+	case BACKWARD: {
 		state_alt = HOLD;
 		TriggerPassiveStateAlt(strength_alt);
-	} else if (state_alt == HOLD) {
+	} break;
+	case HOLD: {
 		state_alt = RELAX;
 		TriggerPassiveStateAlt(0.00);
-	} else {
+	} break;
+	default:
 		state_alt = FORWARD;
 		TriggerActiveStateAlt(1.00);
 	}
-};
+}

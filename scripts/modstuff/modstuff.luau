@@ -4,27 +4,107 @@ local fs = require("filestuff")
 local Math = require("Math")
 
 local ms = {}
-ms.player_name_table = {}
-ms.player_name_table[1] = "ichiji"
-ms.player_name_table[2] = "niji"
-ms.player_name_table[3] = "sanji"
-ms.player_name_table[4] = "yonji"
+ms["player_name"] = {}
+ms["player_name"][1] = "ichiji"
+ms["player_name"][2] = "niji"
+ms["player_name"][3] = "sanji"
+ms["player_name"][4] = "yonji"
+ms["player_name"][5] = "goji"
+ms["player_name"][6] = "rokuji"
 
-ms.connections = {}
-ms.connections["breast"] = "chest"
-ms.connections["chest"] = "lumbar"
-ms.connections["stomach"] = "abs"
-ms.connections["groin"] = "abs"
-ms.connections["l_pecs"] = "l_pecs"
-ms.connections["r_pecs"] = "r_pecs"
-ms.connections["l_biceps"] = "l_shoulder"
-ms.connections["r_biceps"] = "r_shoulder"
-ms.connections["l_triceps"] = "l_elbow"
-ms.connections["r_triceps"] = "r_elbow"
-ms.connections["l_thigh"] = "l_hip"
-ms.connections["r_thigh"] = "r_hip"
-ms.connections["l_leg"] = "l_knee"
-ms.connections["r_leg"] = "r_knee"
+ms["player_color"] = {}
+ms["player_color"][1] = RAYLIB["RED"]
+ms["player_color"][2] = RAYLIB["BLUE"]
+ms["player_color"][3] = RAYLIB["GREEN"]
+ms["player_color"][4] = RAYLIB["MAGENTA"]
+ms["player_color"][5] = RAYLIB["YELLOW"]
+ms["player_color"][6] = RAYLIB["PINK"]
+
+ms["connections"] = {}
+ms["connections"]["breast"] = "chest"
+ms["connections"]["chest"] = "lumbar"
+ms["connections"]["stomach"] = "abs"
+ms["connections"]["groin"] = "abs"
+ms["connections"]["l_pecs"] = "l_pecs"
+ms["connections"]["r_pecs"] = "r_pecs"
+ms["connections"]["l_biceps"] = "l_shoulder"
+ms["connections"]["r_biceps"] = "r_shoulder"
+ms["connections"]["l_triceps"] = "l_elbow"
+ms["connections"]["r_triceps"] = "r_elbow"
+ms["connections"]["l_thigh"] = "l_hip"
+ms["connections"]["r_thigh"] = "r_hip"
+ms["connections"]["l_leg"] = "l_knee"
+ms["connections"]["r_leg"] = "r_knee"
+
+ms["SHAPE_MAP"] = {}
+ms["SHAPE_MAP"]["box"] = API["SHAPE_BOX"]
+ms["SHAPE_MAP"]["sphere"] = API["SHAPE_SPHERE"]
+ms["SHAPE_MAP"]["cylinder"] = API["SHAPE_CAPSULE"]
+
+function ms.set_player_engagedistance(TBM, p, p_idx)
+	local angle = (360/TBM["numplayers"]) * (p_idx - 1)
+	local q = RAYMATH.QuaternionFromMatrix(RAYMATH.MatrixRotateZ(RAYMATH["DEG2RAD"]*angle))
+	local v = {0.00, TBM["engagedistance"], 0.00}
+	local pos = RAYMATH.Vector3RotateByQuaternion(v, q)
+	for _, b in p["body"] do
+		local E2Q, DEG2RAD = ms["E2Q"], RAYMATH["DEG2RAD"]
+		local rot = b["rot"] or {0.00, 0.00, 0.00}
+		b["qat"] = E2Q(rot[1] * DEG2RAD, rot[2] * DEG2RAD, rot[3] * DEG2RAD)
+		b["qat"] = RAYMATH.QuaternionMultiply(q, b["qat"])
+		b["pos"] = RAYMATH.Vector3RotateByQuaternion(b["pos"], q)
+		b["pos"][1] = b["pos"][1] + pos[1]
+		b["pos"][2] = b["pos"][2] + pos[2]
+		b["pos"][3] = b["pos"][3] + pos[3]
+	end
+	for _, j in p["joint"] do
+		j["pos"] = RAYMATH.Vector3RotateByQuaternion(j["pos"], q)
+		j["pos"][1] = j["pos"][1] + pos[1]
+		j["pos"][2] = j["pos"][2] + pos[2]
+		j["pos"][3] = j["pos"][3] + pos[3]
+	end
+end
+
+function ms.set_player_offset(p, v)
+	for _, b in p["body"] do
+		b["pos"][1] = b["pos"][1] + v[1]
+		b["pos"][2] = b["pos"][2] + v[2]
+		b["pos"][3] = b["pos"][3] + v[3]
+	end
+	for _, j in p["joint"] do
+		j["pos"][1] = j["pos"][1] + v[1]
+		j["pos"][2] = j["pos"][2] + v[2]
+		j["pos"][3] = j["pos"][3] + v[3]
+	end
+end
+
+function ms.calculate_player_offset(p)
+	local sum = {0.00, 0.00, 0.00}
+	local count = 0
+	for _, b in p["body"] do
+		sum[1] = sum[1] + b["pos"][1]
+		sum[2] = sum[2] + b["pos"][2]
+		sum[3] = sum[3] + b["pos"][3]
+		count = count + 1
+	end
+	for _, j in p["joint"] do
+		sum[1] = sum[1] + j["pos"][1]
+		sum[2] = sum[2] + j["pos"][2]
+		sum[3] = sum[3] + j["pos"][3]
+		count = count + 1
+	end
+	return {sum[1]/count, sum[2]/count, sum[3]/count}
+end
+
+function ms.normalize_player_offset(v)
+	local magnitude = math.sqrt(v[1]*v[1] + v[2]*v[2] + v[3]*v[3])
+	return {v[1]/magnitude, v[2]/magnitude, v[3]/magnitude}
+end
+
+function ms.scale_player_joint_strength(p)
+	for joint_name, j in p["joint"] do
+		j["strength"] = 4 * j["strength"]
+	end
+end
 
 function ms.E2Q(u, v, w)
 	return Math.MatrixToQuaternion(Math.EulerToMatrix(u, v, w))
@@ -42,24 +122,26 @@ end
 function ms.loadModifiedTBM(fn)
 	ms.loadTBM(fn())
 end
---[[
-function mx.loadTable()
-	return {
+
+function ms.loadTable()
+	API["parse_t"] {
 		["mod"] = "string",
-		["gravity"] = { 0.00, 0.00, 0.00 },
 		["turnframes"] = 10,
 		["reactiontime"] = 20,
 		["numplayers"] = 20,
 		["friction"] = 10000,
 		["bounce"] = 10,
+		["gravity"] = { 0.00, 0.00, 0.00 },
 	}
 end
-]]
+
+function ms.loadTBM2(TBM)
+end
 function ms.loadTBM(TBM)
 	local E2Q = ms["E2Q"]
+	local DEG2RAD = RAYMATH["DEG2RAD"]
 
 	API["mod"] (TBM["mod"])
-	API["gravity"] {TBM["gravity"][1] + 0, TBM["gravity"][2] + 0, TBM["gravity"][3] + 0}
 	API["turnframes"] {TBM["turnframes"] + 0}
 	API["reactiontime"] {TBM["reactiontime"] or 0}
 	if TBM["engageheight"] then
@@ -70,121 +152,101 @@ function ms.loadTBM(TBM)
 	end
 	API["numplayers"] {TBM["numplayers"] + 0}
 	API["friction"] {TBM["friction"] or 1000.00}
+	API["gravity"] {TBM["gravity"][1] + 0, TBM["gravity"][2] + 0, TBM["gravity"][3] + 0}
 	for env_obj_num, env_obj in TBM["env_obj"] do
-		API.object(env_obj_num)
-		if env_obj["shape"] then
-			API.shape(env_obj["shape"])
-		elseif env_obj.shape == "cylinder" then
-			API.shape "capsule"
-		else
-			API.shape "box"
+		API["object"](env_obj_num)
+		API["shape"](env_obj["shape"] or API["SHAPE_BOX"])
+		API["position"] {env_obj["pos"][1] + 0, env_obj["pos"][2] + 0, env_obj["pos"][3] + 0}
+		if env_obj["rot"] then
+			local q = E2Q(env_obj["rot"][1] * DEG2RAD, env_obj["rot"][2] * DEG2RAD, env_obj["rot"][3] * DEG2RAD)
+			API["orientation"] {q[1], q[2], q[3], q[4]}
 		end
-		API.position {env_obj["pos"][1] + 0, env_obj["pos"][2] + 0, env_obj["pos"][3] + 0}
-		if  env_obj["rot"] then
-			local q = E2Q(
-				env_obj["rot"][1] * Math.DEG2RAD,
-				env_obj["rot"][2] * Math.DEG2RAD,
-				env_obj["rot"][3] * Math.DEG2RAD
-			)
-			API.orientation {q[1], q[2], q[3], q[4]}
-		end
-		if env_obj["shape"] == "sphere" then
-			API.radius {env_obj["radius"] + 0}
-		elseif env_obj["shape"] == "cylinder" then
-			API.radius {env_obj["radius"] + 0}
-			API.length {env_obj["length"] + 0}
+		if env_obj["shape"] == API["SHAPE_SPHERE"] then
+			API["radius"] {env_obj["radius"] + 0}
+		elseif env_obj["shape"] == API["SHAPE_CAPSULE"] then
+			API["radius"] {env_obj["radius"] + 0}
+			API["length"] {env_obj["length"] + 0}
 		else
-			API.sides {env_obj["sides"][1] + 0, env_obj["sides"][2] + 0, env_obj["sides"][3] + 0}
+			API["sides"] {env_obj["sides"][1] + 0, env_obj["sides"][2] + 0, env_obj["sides"][3] + 0}
 		end
 		if env_obj["density"] then
-			API.density {env_obj["density"] + 0}
+			API["density"] {env_obj["density"] + 0}
 		else
-			API.density {0.25}
+			API["density"] {0.25}
 		end
-		if env_obj["flag"] == "24" then
-			API.static()
-		end
+		API["flag"] { static = env_obj["flag"] == "24" }
 	end
 	for player_name, p in TBM["player"] do
-		API.player(ms.player_name_table[player_name])
+		API["player"](ms["player_name"][player_name])
+		API["color"](ms["player_color"][player_name])
 		if p["engagepos"] then
-			API.engagepos {p["engagepos"][1] + 0, p["engagepos"][2] + 0, p["engagepos"][3] + 0}
+			API["engagepos"] {p["engagepos"][1] + 0, p["engagepos"][2] + 0, p["engagepos"][3] + 0}
 		end
 		if p["engagerot"] then
-			API.engagerot {p["engagerot"][1] + 0, p["engagerot"][2] + 0, p["engagerot"][3] + 0}
+			API["engagerot"] {p["engagerot"][1] + 0, p["engagerot"][2] + 0, p["engagerot"][3] + 0}
 		end
 		for body_name, b in p["body"] do
-			API.body(body_name)
-			if b["shape"] == "cylinder" then
-				API.shape "capsule"
-			else
-				API.shape(b["shape"])
-			end
+			API["body"](body_name)
+			API["shape"](b["shape"])
 			if type(b["pos"]) == "string" then
 				b["pos"] = b["pos"]:split(" ")
 			end
-			API.position {b["pos"][1] + 0, b["pos"][2] + 0, b["pos"][3] + 0}
-			if b["rot"] then
-				local q = E2Q(
-					b["rot"][1] * Math.DEG2RAD,
-					b["rot"][2] * Math.DEG2RAD,
-					b["rot"][3] * Math.DEG2RAD
-				)
-				API.orientation {q[1], q[2], q[3], q[4]}
+			API["position"] {b["pos"][1] + 0, b["pos"][2] + 0, b["pos"][3] + 0}
+			if b["qat"] then
+				API["orientation"] {b["qat"][1], b["qat"][2], b["qat"][3], b["qat"][4]}
+			elseif b["rot"] then
+				local q = E2Q(b["rot"][1] * DEG2RAD, b["rot"][2] * DEG2RAD, b["rot"][3] * DEG2RAD)
+				API["orientation"] {q[1], q[2], q[3], q[4]}
 			end
-			if body_name == "head" or b["shape"] == "sphere" then
-				API.radius {b["radius"] + 0}
-			elseif b["shape"] == "cylinder" then
-				API.radius {b["radius"] + 0}
-				API.length {b["length"] + 0}
+			if body_name == "head" or b["shape"] == API["SHAPE_SPHERE"] then
+				API["radius"] {b["radius"] + 0}
+			elseif b["shape"] == API["SHAPE_CAPSULE"] then
+				API["radius"] {b["radius"] + 0}
+				API["length"] {b["length"] + 0}
 			else
 				if type(b["sides"]) == "string" then
 					b["sides"] = b["sides"]:split(" ")
 				end
-				API.sides {b["sides"][1] + 0, b["sides"][2] + 0, b["sides"][3] + 0}
+				API["sides"] {b["sides"][1] + 0, b["sides"][2] + 0, b["sides"][3] + 0}
 			end
-			API.density {b["density"] + 0}
+			API["density"] {b["density"] + 0}
 		end
 		for joint_name, j in p["joint"] do
-			API.joint(joint_name)
-			API.shape "sphere"
-			API.radius {j["radius"]}
+			API["joint"](joint_name)
+			API["shape"](API["SHAPE_SPHERE"])
+			API["radius"] {j["radius"]}
 			if type(j["pos"]) == "string" then
 				 j["pos"] = j["pos"]:split(" ")
 			end
-			API.position {j["pos"][1], j["pos"][2], j["pos"][3]}
-			API.density {0.0025}
-			API.strength {j["strength"]}
+			API["position"] {j["pos"][1], j["pos"][2], j["pos"][3]}
+			API["density"] {0.0025}
+			API["strength"] {j["strength"]}
 			if j["strength_alt"] then
-				API.strength_alt {j["strength_alt"]}
+				API["strength_alt"] {j["strength_alt"]}
 			end
-			API.velocity {j["velocity"]}
+			API["velocity"] {j["velocity"]}
 			if j["strength_alt"] then
-				API.velocity_alt {j["velocity_alt"]}
+				API["velocity_alt"] {j["velocity_alt"]}
 			end
 			if type(j["axis"]) == "string" then
 				 j["axis"] = j["axis"]:split(" ")
 			end
-			API.axis {j["axis"][1], j["axis"][2], j["axis"][3]}
+			API["axis"] {j["axis"][1], j["axis"][2], j["axis"][3]}
 			if j["axis_alt"] then
-				API.axis_alt {j["axis_alt"][1], j["axis_alt"][2], j["axis_alt"][3]}
+				API["axis_alt"] {j["axis_alt"][1], j["axis_alt"][2], j["axis_alt"][3]}
 			end
 			if type(j["range"]) == "string" then
 				 j["range"] = j["range"]:split(" ")
 			end
-			API.range {j["range"][1], j["range"][2]}
+			API["range"] {j["range"][1], j["range"][2]}
 			if j["range_alt"] then
-				API.range_alt {j["range_alt"][1], j["range_alt"][2]}
+				API["range_alt"] {j["range_alt"][1], j["range_alt"][2]}
 			end
 			if type(j["connections"]) == "string" then
 				j["connections"] = j["connections"]:split(" ")
 			end
-			API.connections {j["connections"][1], j["connections"][2]}
-			if j["connectionType"] then
-				API.connection_type(j["connectionType"])
-			else 
-				API.connection_type "hinge"
-			end
+			API["connections"] {j["connections"][1], j["connections"][2]}
+			API["connection_type"](j["type"] or API["JOINT_HINGE"])
 		end
 	end
 end
@@ -256,9 +318,9 @@ function ms.parseTBM(filename)
 		elseif line:match("shape ") then
 			line = line:gsub(".*shape ", "")
 			if context == "body" or context == "joint" then
-				TBM["player"][player_name][context][data]["shape"] = line
+				TBM["player"][player_name][context][data]["shape"] = ms["SHAPE_MAP"][line]
 			else
-				TBM[context][data]["shape"] = line
+				TBM[context][data]["shape"] = ms["SHAPE_MAP"][line]
 			end
 		elseif line:match("pos ") then
 			line = line:gsub(".*pos ", "")
@@ -280,18 +342,18 @@ function ms.parseTBM(filename)
 			line = line:gsub(".*sides ", "")
 			line = line:split(" ")
       if context == "body" or context == "joint" then
-					if TBM["player"][player_name][context][data]["shape"] == "sphere" then
+					if TBM["player"][player_name][context][data]["shape"] == API["SHAPE_SPHERE"] then
 						TBM["player"][player_name][context][data]["radius"] = line[1]
-					elseif TBM["player"][player_name][context][data]["shape"] == "cylinder" then
+					elseif TBM["player"][player_name][context][data]["shape"] == API["SHAPE_CAPSULE"] then
 						TBM["player"][player_name][context][data]["radius"] = line[1]
 						TBM["player"][player_name][context][data]["length"] = line[2]
 					else
 						TBM["player"][player_name][context][data]["sides"] = line
 					end
 			else
-					if TBM[context][data]["shape"] == "sphere" then
+					if TBM[context][data]["shape"] == API["SHAPE_SPHERE"] then
 						TBM[context][data]["radius"] = line[1]
-					elseif TBM[context][data]["shape"] == "cylinder" then
+					elseif TBM[context][data]["shape"] == API["SHAPE_CAPSULE"] then
 						TBM[context][data]["radius"] = line[1]
 						TBM[context][data]["length"] = line[2]
 					else
