@@ -58,14 +58,13 @@ struct Body
 	raylib::Color m_select_color;
 	raylib::Color m_active_color;
 
-	bool interactive;
-
 	bool active;
 	bool select;
 
 	bool ghost;
-	bool m_static;
 
+	bool m_static;
+	bool m_interactive;
 	uint32_t m_cat_bits;
 	uint32_t m_col_bits;
 

@@ -18,15 +18,8 @@ enum EventType
 	FREEZE,
 };
 
-enum CallbackType
+struct Gamerules
 {
-	NEWGAME,
-	UPDATE,
-};
-
-typedef void (*Callback)(void*);
-
-struct Gamerules {
 	std::string_view mod;
 
 	int numplayers;
@@ -40,7 +33,8 @@ struct Gamerules {
 	raylib::Vector3 gravity;
 };
 
-struct Gamestate {
+struct Gamestate
+{
 	Gamemode mode = FREE_PLAY;
 	EventType event = FREEZE;
 
@@ -67,7 +61,8 @@ struct Gamestate {
 };
 
 
-namespace Game {
+namespace Game
+{
 	static dWorldID world = nullptr;
 	static dSpaceID space = nullptr;
 	static dJointGroupID contactgroup = nullptr;
@@ -94,7 +89,9 @@ namespace Game {
 
 	static dContact m_frame_contacts[1024];
 	static dContact m_freeze_contacts[1024];
-	static bool has_contact = false;
+
+	static int numcontacts;
+	static int numcollisions;
 
 	void Init();
 	void Quit();
@@ -124,11 +121,6 @@ namespace Game {
 	std::vector<Player> GetPlayers();
 	std::vector<Body> GetObjects();
 	
-	static std::map<int, Callback> callbacks;
-
-	void SetCallback(CallbackType type ,Callback callback);
-	void TriggerCallback(CallbackType type, void* arg);
-
 	void NearCallback(dGeomID o1, dGeomID o2);
 
 	std::string_view GetMod();
@@ -198,12 +190,8 @@ namespace Window
 	static raylib::RenderTexture background;
 	static raylib::RenderTexture foreground;
 
-	static void (*DrawCallback)(float, float) = nullptr;
-
 	void Init();
 	void Update();
-
-	void SetDrawCallback(void (*callback)(float, float));
 
 	void RenderBackground(raylib::Camera3D camera);
 	void RenderForeground(raylib::Camera3D camera);

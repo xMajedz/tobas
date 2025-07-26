@@ -41,10 +41,16 @@ ms["SHAPE_MAP"]["box"] = API["SHAPE_BOX"]
 ms["SHAPE_MAP"]["sphere"] = API["SHAPE_SPHERE"]
 ms["SHAPE_MAP"]["cylinder"] = API["SHAPE_CAPSULE"]
 
+function ms.player_set_origin(p)
+	local x, y, z = ms.calculate_player_offset(p)
+	ms.set_player_offset(p, -x, -y, -z)
+end
+
 function ms.set_player_engagedistance(TBM, p, p_idx)
 	local angle = (360/TBM["numplayers"]) * (p_idx - 1)
+	local dir = {0.00, 1.00, 0.00}
 	local q = RAYMATH.QuaternionFromMatrix(RAYMATH.MatrixRotateZ(RAYMATH["DEG2RAD"]*angle))
-	local v = {0.00, TBM["engagedistance"], 0.00}
+	local v = {dir[1]*TBM["engagedistance"], dir[2]*TBM["engagedistance"], dir[3]*TBM["engagedistance"]}
 	local pos = RAYMATH.Vector3RotateByQuaternion(v, q)
 	for _, b in p["body"] do
 		local E2Q, DEG2RAD = ms["E2Q"], RAYMATH["DEG2RAD"]
@@ -64,7 +70,17 @@ function ms.set_player_engagedistance(TBM, p, p_idx)
 	end
 end
 
-function ms.set_player_offset(p, v)
+function ms.set_player_engageheight(TBM, p)
+	for _, b in p["body"] do
+		b["pos"][3] = b["pos"][3] + TBM["engageheight"]
+	end
+	for _, j in p["joint"] do
+		j["pos"][3] = j["pos"][3] + TBM["engageheight"]
+	end
+end
+
+function ms.set_player_offset(p, x, y, z)
+	local v = {x, y, z}
 	for _, b in p["body"] do
 		b["pos"][1] = b["pos"][1] + v[1]
 		b["pos"][2] = b["pos"][2] + v[2]
@@ -92,7 +108,7 @@ function ms.calculate_player_offset(p)
 		sum[3] = sum[3] + j["pos"][3]
 		count = count + 1
 	end
-	return {sum[1]/count, sum[2]/count, sum[3]/count}
+	return sum[1]/count, sum[2]/count, sum[3]/count
 end
 
 function ms.normalize_player_offset(v)
@@ -100,9 +116,15 @@ function ms.normalize_player_offset(v)
 	return {v[1]/magnitude, v[2]/magnitude, v[3]/magnitude}
 end
 
-function ms.scale_player_joint_strength(p)
-	for joint_name, j in p["joint"] do
-		j["strength"] = 4 * j["strength"]
+function ms.scale_player_joint_strength(p, factor)
+	for _, j in p["joint"] do
+		j["strength"] = j["strength"] * factor
+	end
+end
+
+function ms.scale_player_joint_strength_alt(p, factor)
+	for _, j in p["joint"] do
+		j["strength_alt"] = j["strength_alt"] * factor
 	end
 end
 
@@ -111,8 +133,7 @@ function ms.E2Q(u, v, w)
 end
 
 function ms.E2Q2(u, v, w)
-	local q = RAYMATH.QuaternionFromMatrix(RAYMATH.MatrixRotateXYZ({u, v, w}))
-	return {q["w"], q["x"], q["y"], q["z"]}
+	return RAYMATH.QuaternionFromMatrix(RAYMATH.MatrixRotateXYZ({u, v, w}))
 end
 
 function ms.loadmodTBM(modname)
@@ -210,6 +231,7 @@ function ms.loadTBM(TBM)
 				API["sides"] {b["sides"][1] + 0, b["sides"][2] + 0, b["sides"][3] + 0}
 			end
 			API["density"] {b["density"] + 0}
+			API["flag"] (b["flag"] or {})
 		end
 		for joint_name, j in p["joint"] do
 			API["joint"](joint_name)

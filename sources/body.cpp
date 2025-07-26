@@ -36,8 +36,6 @@ Body::Body(BodyID id, const char* name)
 	freeze_linear_vel = { 0 };
 	freeze_angular_vel = { 0 };
 
-	interactive = false;
-
 	active = false;
 	m_active_color = BLACK;
 
@@ -45,6 +43,7 @@ Body::Body(BodyID id, const char* name)
 	m_select_color = WHITE;
 
 	m_static = false;
+	m_interactive = false;
 }
 
 void Body::Create(dWorldID world, dSpaceID space)
@@ -57,12 +56,8 @@ void Body::Create(dWorldID world, dSpaceID space)
 
 	if (m_static) {
 		CreateStatic();
-		SetCatBits(0b0001);
-		SetColBits(0b0000);
 	} else {
 		CreateDynamic();
-		SetCatBits(0b0001);
-		SetColBits(0b0001);
 		m_color = GREEN;
 	}
 }
@@ -94,24 +89,23 @@ void Body::CreateBody()
 void Body::CreateGeom()
 {
 	switch(shape) {
-		case BOX: {
-			dGeom = dCreateBox(m_space, m_sides.x, m_sides.y, m_sides.z);
-			dMassSetBox(&mass, density, m_sides.x, m_sides.y, m_sides.z);
-		} break;
-		case SPHERE: {
-			dGeom = dCreateSphere(m_space, radius);
-			dMassSetSphere(&mass, density, radius);
-		} break;
-		case CAPSULE: {
-			dGeom = dCreateCapsule(m_space, radius, length);
-			dMassSetCapsule(&mass, density, 1, length, radius);
-		} break;
-		case CYLINDER: {
-			dGeom = dCreateCylinder(m_space, radius, length);
-			dMassSetCylinder(&mass, density, 1, length, radius);
-		} break;
+	case BOX: {
+		dGeom = dCreateBox(m_space, m_sides.x, m_sides.y, m_sides.z);
+		dMassSetBox(&mass, density, m_sides.x, m_sides.y, m_sides.z);
+	} break;
+	case SPHERE: {
+		dGeom = dCreateSphere(m_space, radius);
+		dMassSetSphere(&mass, density, radius);
+	} break;
+	case CAPSULE: {
+		dGeom = dCreateCapsule(m_space, radius, length);
+		dMassSetCapsule(&mass, density, 1, length, radius);
+	} break;
+	case CYLINDER: {
+		dGeom = dCreateCylinder(m_space, radius, length);
+		dMassSetCylinder(&mass, density, 1, length, radius);
+	} break;
 	}
-
 }
 
 void Body::CreateDynamic()
@@ -270,64 +264,64 @@ void Body::Reset()
 void Body::DrawObject(Color color)
 {
 	switch(shape) {
-		case BOX: {
-			DrawCube((Vector3){ 0.0f, 0.0f, 0.0f }, m_sides.x, m_sides.y, m_sides.z, color);
-		} break;
-		case SPHERE: {
-			DrawSphere((Vector3){ 0.0f, 0.0f, 0.0f }, radius, color);
-		} break;
-		case CAPSULE: {
-			DrawCapsule(
-					(Vector3){ 0.0f, 0.0f, -(length/2) },
-					(Vector3){ 0.0f, 0.0f,  (length/2) },
-					radius,
-					16,
-					16,
-					color
-			);
-		} break;
-		case CYLINDER: {
-			DrawCylinderEx(
-					(Vector3){ 0.0f, 0.0f, -(length/2) },
-					(Vector3){ 0.0f, 0.0f,  (length/2) },
-					radius,
-					radius,
-					16,
-					color
-			);
-		} break;
+	case BOX: {
+		DrawCube((Vector3){ 0.0f, 0.0f, 0.0f }, m_sides.x, m_sides.y, m_sides.z, color);
+	} break;
+	case SPHERE: {
+		DrawSphere((Vector3){ 0.0f, 0.0f, 0.0f }, radius, color);
+	} break;
+	case CAPSULE: {
+		DrawCapsule(
+				(Vector3){ 0.0f, 0.0f, -(length/2) },
+				(Vector3){ 0.0f, 0.0f,  (length/2) },
+				radius,
+				16,
+				16,
+				color
+		);
+	} break;
+	case CYLINDER: {
+		DrawCylinderEx(
+				(Vector3){ 0.0f, 0.0f, -(length/2) },
+				(Vector3){ 0.0f, 0.0f,  (length/2) },
+				radius,
+				radius,
+				16,
+				color
+		);
+	} break;
 	}
 }
 
 void Body::DrawObjectWires(Color color)
 {
 	switch(shape) {
-		case BOX: {
-			DrawCubeWires((Vector3){ 0.0f, 0.0f, 0.0f }, m_sides.x, m_sides.y, m_sides.z, color);
-		} break;
-		case SPHERE: {
-			DrawSphereWires((Vector3){ 0.0f, 0.0f, 0.0f }, radius, 16, 16, color);
-		} break;
-		case CAPSULE: {
-			DrawCapsuleWires(
-					(Vector3){ 0.0f, 0.0f, -(length/2) },
-					(Vector3){ 0.0f, 0.0f,  (length/2) },
-					radius,
-					16,
-					16,
-					color
-			);
-		} break;
-		case CYLINDER: {
-			DrawCylinderWiresEx(
-					(Vector3){ 0.0f, 0.0f, -(length/2) },
-					(Vector3){ 0.0f, 0.0f,  (length/2) },
-					radius,
-					radius,
-					16,
-					color
-			);
-		} break;
+	case BOX: {
+		DrawCubeWires((Vector3){ 0.0f, 0.0f, 0.0f }, m_sides.x, m_sides.y, m_sides.z, color);
+	} break;
+	case SPHERE: {
+		DrawSphereWires((Vector3){ 0.0f, 0.0f, 0.0f }, radius, 16, 16, color);
+	} break;
+	case CAPSULE: {
+		DrawCapsuleWires(
+				(Vector3){ 0.0f, 0.0f, -(length/2) },
+				(Vector3){ 0.0f, 0.0f,  (length/2) },
+				radius,
+				16,
+				16,
+				color
+		);
+	} break;
+	case CYLINDER: {
+		DrawCylinderWiresEx(
+				(Vector3){ 0.0f, 0.0f, -(length/2) },
+				(Vector3){ 0.0f, 0.0f,  (length/2) },
+				radius,
+				radius,
+				16,
+				color
+		);
+	} break;
 	}
 }
 
@@ -652,9 +646,6 @@ void Joint::Create(dWorldID world, dSpaceID space, Body b1, Body b2)
 		dJointAttach(dJoint, dBody, b2.dBody);
 		dJointSetFixed(dJoint);
 	}
-
-	dGeomSetCategoryBits(dGeom, m_cat_bits);
-	dGeomSetCollideBits(dGeom, m_col_bits);
 }
 
 void Joint::Draw(Color color)

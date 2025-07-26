@@ -63,7 +63,6 @@ void Player::Create(dWorldID world, dSpaceID space)
 		b.ghost = true;
 		b.m_static = false;
 
-		b.interactive = true;
 		b.m_active_color = m_g_color;
 
 	}
@@ -381,23 +380,24 @@ void Player::TriggerPlayerPassiveStates(PlayerPassiveStates state)
 			strength = j.strength;
 			j.state = HOLD;
 		}
-		switch(j.type) {
-			case HINGE: {
-				dJointSetHingeParam(j.dJoint, dParamFMax, strength);
-				dJointSetHingeParam(j.dJoint, dParamVel, 0.0f);
-			} break;
-			case dSLIDER: {
-				dJointSetSliderParam(j.dJoint, dParamFMax, strength);
-				dJointSetSliderParam(j.dJoint, dParamVel, 0.0f);
-			} break;
-			case UNIVERSAL: {
-				dJointSetUniversalParam(j.dJoint, dParamFMax, strength);
-				dJointSetUniversalParam(j.dJoint, dParamVel, 0.0f);
-			} break;
-			case HINGE2: {
-				dJointSetHinge2Param(j.dJoint, dParamFMax, strength);
-				dJointSetHinge2Param(j.dJoint, dParamVel, 0.0f);
-			} break;
+		switch(j.type)
+		{
+		case HINGE: {
+			dJointSetHingeParam(j.dJoint, dParamFMax, strength);
+			dJointSetHingeParam(j.dJoint, dParamVel, 0.00);
+		} break;
+		case dSLIDER: {
+			dJointSetSliderParam(j.dJoint, dParamFMax, strength);
+			dJointSetSliderParam(j.dJoint, dParamVel, 0.00);
+		} break;
+		case UNIVERSAL: {
+			dJointSetUniversalParam(j.dJoint, dParamFMax, strength);
+			dJointSetUniversalParam(j.dJoint, dParamVel, 0.00);
+		} break;
+		case HINGE2: {
+			dJointSetHinge2Param(j.dJoint, dParamFMax, strength);
+			dJointSetHinge2Param(j.dJoint, dParamVel, 0.00);
+		} break;
 		}
 	}
 }
@@ -411,19 +411,16 @@ void Player::TriggerPlayerPassiveStatesAlt(PlayerPassiveStates state)
 			strength = j.strength_alt;
 			j.state_alt = HOLD;
 		}
-		switch(j.type) {
-			case HINGE: {
-			} break;
-			case dSLIDER: {
-			} break;
-			case UNIVERSAL: {
-				dJointSetUniversalParam(j.dJoint, dParamFMax2, strength);
-				dJointSetUniversalParam(j.dJoint, dParamVel2, 0.0f);
-			} break;
-			case HINGE2: {
-				dJointSetHinge2Param(j.dJoint, dParamFMax2, strength);
-				dJointSetHinge2Param(j.dJoint, dParamVel2, 0.0f);
-			} break;
+		switch(j.type)
+		{
+		case UNIVERSAL: {
+			dJointSetUniversalParam(j.dJoint, dParamFMax2, strength);
+			dJointSetUniversalParam(j.dJoint, dParamVel2, 0.00);
+		} break;
+		case HINGE2: {
+			dJointSetHinge2Param(j.dJoint, dParamFMax2, strength);
+			dJointSetHinge2Param(j.dJoint, dParamVel2, 0.00);
+		} break;
 		}
 	}
 }

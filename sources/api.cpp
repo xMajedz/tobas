@@ -101,34 +101,34 @@ size_t API::GetPlayersCount()
 	return p_count;
 }
 
-int API::UpdateCallback(dReal dt)
-{
-	return Luau::dostring(L, TextFormat("_G[\"API\"][\"%s\"][\"init\"](%lf)", "Update", dt));
-}
-
 int API::DrawCallback()
 {
-	return Luau::dostring(L, TextFormat("_G[\"API\"][\"%s\"][\"init\"](%s)", "Draw", ""));
+	return Luau::dostring(L, TextFormat("for _, fn in _G[\"API\"][\"%s\"] do fn() end", "Draw"));
 }
 
 int API::NewGameCallback()
 {
-	return Luau::dostring(L, TextFormat("_G[\"API\"][\"%s\"][\"init\"](%s)", "NewGame", ""));
+	return Luau::dostring(L, TextFormat("for _, fn in _G[\"API\"][\"%s\"] do fn() end", "NewGame"));
 }
 
 int API::FreezeCallback()
 {
-	return Luau::dostring(L, TextFormat("_G[\"API\"][\"%s\"][\"init\"](%s)", "Freeze", ""));
+	return Luau::dostring(L, TextFormat("for _, fn in _G[\"API\"][\"%s\"] do fn() end", "Freeze"));
 }
 
 int API::StepCallback()
 {
-	return Luau::dostring(L, TextFormat("_G[\"API\"][\"%s\"][\"init\"](%s)", "Step", ""));
+	return Luau::dostring(L, TextFormat("for _, fn in _G[\"API\"][\"%s\"] do fn() end", "Step"));
+}
+
+int API::UpdateCallback(dReal dt)
+{
+	return Luau::dostring(L, TextFormat("for _, fn in _G[\"API\"][\"%s\"] do fn(%lf) end", "Update", dt));
 }
 
 int API::ConsoleCallback(const char* message)
 {
-	return Luau::dostring(L, TextFormat("_G[\"API\"][\"%s\"][\"init\"](\"%s\")", "Console", message));
+	return Luau::dostring(L, TextFormat("for _, fn in _G[\"API\"][\"%s\"] do fn(\"%s\") end", "Console", message));
 }
 
 int API::loadmod(std::string_view modpath)
@@ -665,17 +665,22 @@ static int API_flag(lua_State* L)
 {
 	lua_getfield(L, -1, "static");
 	bool flag_static = !lua_isnil(L, -1);
+	lua_getfield(L, -2, "interactive");
+	bool flag_interactive = !lua_isnil(L, -1);
 
 	switch(DataContext)
 	{
 	case ObjectContext: {
 		API::o->m_static = flag_static;
+		API::o->m_interactive = flag_interactive;
 	} break;
 	case BodyContext: {
 		API::b->m_static = flag_static;
+		API::b->m_interactive = flag_interactive;
 	} break;
 	case JointContext: {
 		API::j->m_static = flag_static;
+		API::j->m_interactive = flag_interactive;
 	} break;
 	}
 

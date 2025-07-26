@@ -1,16 +1,25 @@
 local require = API["require"]
-local Math = require("Math")
 local ms = require("modstuff")
 local TBM = ms.parseTBM("shootboxing15")
 TBM["mod"] = "6p_shootboxing15"
 TBM["numplayers"] = 6
-TBM["engageheight"] = 4.00
-TBM["engagedistance"] = 2.00
+TBM["engageheight"] = 1.60
+TBM["engagedistance"] = 5.00
+
+TBM["env_obj"] = {}
+
+--TBM["player"][1]["body"]["r_hand"]["flag"] = { nogrip = TBM["player"][1]["body"]["r_hand"]["flag"] == "24" }
+
+TBM["player"][1]["engagepos"] = nil
+TBM["player"][1]["body"]["head"]["flag"] = { interactive = true }
+TBM["player"][1]["body"]["l_hand"]["flag"] = { interactive = true }
+TBM["player"][1]["body"]["r_hand"]["flag"] = { interactive = true }
 
 for i = 2, TBM["numplayers"] do
 	TBM["player"][i] = table.clone(TBM["player"][1])
 	TBM["player"][i]["body"] = table.clone(TBM["player"][1]["body"])
 	TBM["player"][i]["joint"] = table.clone(TBM["player"][1]["joint"])
+
 	for body_name, b in TBM["player"][1]["body"] do
 		TBM["player"][i]["body"][body_name] = table.clone(TBM["player"][1]["body"][body_name])
 		TBM["player"][i]["body"][body_name]["pos"] = table.clone(TBM["player"][1]["body"][body_name]["pos"])
@@ -23,9 +32,10 @@ end
 
 for p_idx, p in TBM["player"] do
 	local offset = ms.calculate_player_offset(p)
-	ms.set_player_offset(p, {-offset[1], -offset[2], 0.00 })
+	ms.set_player_offset(p, {-offset[1], -offset[2], -offset[3]})
 	ms.set_player_engagedistance(TBM, p, p_idx)
-	ms.scale_player_joint_strength(p)
+	ms.set_player_engageheight(TBM, p)
+	ms.scale_player_joint_strength(p, 4)
 end
 
 ms.loadTBM(TBM)

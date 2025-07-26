@@ -124,28 +124,16 @@ void Game::Quit()
 
 void Game::NearCallback(dGeomID o1, dGeomID o2)
 {
-	dBodyID b1 = dGeomGetBody(o1);
-	dBodyID b2 = dGeomGetBody(o2);
-
 	/* if geoms are static (immovable) don't collide */
 	/* if geoms share the same body dont collide */
 	/* if geoms share the same joint dont collide */
 
+	dBodyID b1 = dGeomGetBody(o1);
+	dBodyID b2 = dGeomGetBody(o2);
+
 	if (0 == b1 || 0 == b2 && b1 == b2 && dAreConnected(b1, b2)) {
 		return;
 	}
-
-	/*
-	uint32_t cat1 = dGeomGetCategoryBits(o1);
-	uint32_t col1 = dGeomGetCollideBits(o1);
-
-	uint32_t cat2 = dGeomGetCategoryBits(o2);
-	uint32_t col2 = dGeomGetCollideBits(o2);
-
- 	if (!((cat1 & col2) || (cat2 & col1))) {
-		return;
-	}*/
-
 
 	dContact contacts[rules.max_contacts];
 
@@ -158,18 +146,19 @@ void Game::NearCallback(dGeomID o1, dGeomID o2)
 		m_frame_contacts[i] = contacts[i];
 	}
 
-	if (int numc = dCollide(o1, o2, rules.max_contacts, &contacts->geom, sizeof(dContact))) {
-		for (int i = 0; i < numc; i += 1) {
-			dJointID c = dJointCreateContact(world, contactgroup, contacts + i);
-			dJointAttach(c, b1, b2);
-		}
+	numcontacts = dCollide(o1, o2, rules.max_contacts, &contacts->geom, sizeof(dContact));
+
+	for (int i = 0; i < numcontacts; i += 1) {
+		dJointID c = dJointCreateContact(world, contactgroup, &contacts[i]);
+		dJointAttach(c, b1, b2);
 	}
+
+	numcollisions += 1;
 }
 
 static void nearCallback(void*, dGeomID o1, dGeomID o2)
 {
 	Game::NearCallback(o1, o2);
-	Game::has_contact = true;
 }
 
 void Game::Refreeze()
@@ -323,19 +312,6 @@ void Game::UpdateState(dReal dt)
 	}
 }
 
-
-void Game::TriggerCallback(CallbackType type, void* arg)
-{
-	if (callbacks[type] != nullptr) {
-		callbacks[(int)type](arg);
-	}
-}
-
-void Game::SetCallback(CallbackType type, void(*callback)(void*))
-{
-	callbacks[(int)type] = callback;
-}
-
 void Game::Update(dReal dt)
 {
 	if (!state.running) {
@@ -344,6 +320,8 @@ void Game::Update(dReal dt)
 
 	if (!state.pause) {
 		UpdateState(dt);
+
+		numcollisions = 0;
 
 		dSpaceCollide(space, 0, nearCallback);
 		dWorldStep(world, step);
@@ -371,22 +349,22 @@ void Game::DrawContacts(bool freeze)
 		contacts = m_frame_contacts;
 	}
 
-	for (int i = 0; i < rules.max_contacts; i += 1) {
+	for (int i = 0; numcollisions != 0; i += 1) {
 		auto position = contacts[i].geom.pos;
 		DrawSphere((Vector3){position[0], position[1], position[2]}, 0.10, Fade(YELLOW, 0.10));
+		numcollisions -= 1;
 	}
 }
 
 void Game::DrawFloor()
 {
-	rlPushMatrix();
-	Vector3 axis;
 	float angle;
+	Vector3 axis;
 	QuaternionToAxisAngle(QuaternionFromMatrix(MatrixRotateX(DEG2RAD*90)), &axis, &angle);
+
+	rlPushMatrix();
 	rlRotatef(RAD2DEG * angle, axis.x, axis.y, axis.z);
-	DrawPlane((Vector3){ 0 },  { 20.1f, 20.1f }, BLACK);
-	DrawPlane((Vector3){ 0 },  { 20.0f, 20.0f }, WHITE);
-	DrawGrid(20, 1.0f);
+	DrawGrid(2, 20);
 	rlPopMatrix();
 }
 
@@ -400,6 +378,7 @@ void Game::Draw()
 		p.Draw(state.freeze);
 	}
 
+	Game::DrawFloor();
 	DrawContacts(state.freeze);
 }
 
@@ -706,7 +685,7 @@ static void SelectBody(Camera3D camera)
 		MouseCollision = b.collide_mouse_ray(MouseRay, MouseCollision);
 		if (MouseCollision.hit) {
 			collision = MouseCollision;
-			if (b.interactive) {
+			if (b.m_interactive) {
 				b.active = b.active == false;
 			}
 			break;
@@ -769,25 +748,20 @@ void Window::Update()
 void Window::RenderBackground(Camera3D camera)
 {
 	BeginTextureMode(background);
-		ClearBackground(RAYWHITE);
-		BeginMode3D(camera);
-			Game::Draw();
-		EndMode3D();
+	ClearBackground(RAYWHITE);
+	BeginMode3D(camera);
+	Game::Draw();
+	EndMode3D();
 	EndTextureMode();
 }
 
 void Window::RenderForeground(Camera3D camera)
 {
 	BeginTextureMode(foreground);
-		BeginMode3D(camera);
-		ClearBackground(Fade(WHITE, 0.00));
-		EndMode3D();
+	BeginMode3D(camera);
+	ClearBackground(Fade(WHITE, 0.00));
+	EndMode3D();
 	EndTextureMode();
-}
-
-void Window::SetDrawCallback(void (*callback)(float, float))
-{
-	DrawCallback = callback;
 }
 
 void Window::Draw()
@@ -799,8 +773,8 @@ void Window::Draw()
 	BeginDrawing();
 	ClearBackground(RAYWHITE);
 	BeginShaderMode(shader);
-		DrawTextureRec(background.texture, {0, 0, width, -height}, {0, 0}, WHITE);
-		DrawTextureRec(foreground.texture, {0, 0, width, -height}, {0, 0}, WHITE);	
+	DrawTextureRec(background.texture, {0, 0, width, -height}, {0, 0}, WHITE);
+	DrawTextureRec(foreground.texture, {0, 0, width, -height}, {0, 0}, WHITE);	
 	EndShaderMode();
 	API::DrawCallback();
 	EndDrawing();

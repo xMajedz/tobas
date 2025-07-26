@@ -102,8 +102,8 @@ static int RAYGUI_GuiMessageBox(lua_State* L)
 	return 1;
 }
 
-static char RAYGUI_GuiTextBoxContent[1024];
 static int RAYGUI_GuiTextBoxTextSize = 1024;
+static char RAYGUI_GuiTextBoxContent[1024];
 
 static int RAYGUI_GuiTextBox(lua_State* L)
 {
@@ -111,15 +111,8 @@ static int RAYGUI_GuiTextBox(lua_State* L)
 	lua_getfield(L, -1, "_VAR");
 	lua_getfield(L, -1, "GuiTextBox");
 	
-	size_t _VAR_length;
-	const char* _VAR = lua_tolstring(L, -1, &_VAR_length);
-	for (int i = 0; i < RAYGUI_GuiTextBoxTextSize; i += 1) {
-		if (i < _VAR_length) {
-			RAYGUI_GuiTextBoxContent[i] = _VAR[i];
-		} else {
-			RAYGUI_GuiTextBoxContent[i] = '\0';
-		}
-	}
+	const char* _VAR = lua_tostring(L, -1);
+	TextCopy(RAYGUI_GuiTextBoxContent, _VAR);
 
 	bool editMode = lua_toboolean(L, -4);
 	float h = lua_tonumber(L, -5);
