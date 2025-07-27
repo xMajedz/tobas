@@ -14,6 +14,40 @@ TBM["player"][1]["body"]["head"]["flag"] = { interactive = true }
 TBM["player"][1]["body"]["l_hand"]["flag"] = { interactive = true }
 TBM["player"][1]["body"]["r_hand"]["flag"] = { interactive = true }
 
+local b_pos, j_pos, q
+
+j_pos = TBM["player"][1]["joint"]["l_shoulder"]["pos"]
+b_pos = TBM["player"][1]["body"]["l_biceps"]["pos"]
+
+b_pos[1] = b_pos[1] - j_pos[1]
+b_pos[2] = b_pos[2] - j_pos[2]
+b_pos[3] = b_pos[3] - j_pos[3]
+
+q = RAYMATH.QuaternionFromMatrix(RAYMATH.MatrixRotateY(-90*RAYMATH["DEG2RAD"]))
+b_pos = RAYMATH.Vector3RotateByQuaternion(b_pos, q)
+
+b_pos[1] = b_pos[1] + j_pos[1]
+b_pos[2] = b_pos[2] + j_pos[2]
+b_pos[3] = b_pos[3] + j_pos[3]
+
+TBM["player"][1]["body"]["l_biceps"]["pos"] = b_pos
+
+j_pos = TBM["player"][1]["joint"]["r_shoulder"]["pos"]
+b_pos = TBM["player"][1]["body"]["r_biceps"]["pos"]
+
+b_pos[1] = b_pos[1] - j_pos[1]
+b_pos[2] = b_pos[2] - j_pos[2]
+b_pos[3] = b_pos[3] - j_pos[3]
+
+q = RAYMATH.QuaternionFromMatrix(RAYMATH.MatrixRotateY(90*RAYMATH["DEG2RAD"]))
+b_pos = RAYMATH.Vector3RotateByQuaternion(b_pos, q)
+
+b_pos[1] = b_pos[1] + j_pos[1]
+b_pos[2] = b_pos[2] + j_pos[2]
+b_pos[3] = b_pos[3] + j_pos[3]
+
+TBM["player"][1]["body"]["r_biceps"]["pos"] = b_pos
+
 for i = 2, TBM["numplayers"] do
 	TBM["player"][i] = table.clone(TBM["player"][1])
 	TBM["player"][i]["body"] = table.clone(TBM["player"][1]["body"])
@@ -31,13 +65,9 @@ end
 
 for p_idx, p in TBM["player"] do
 	ms.player_set_origin(p)
-	--ms.set_player_engagedistance(TBM, p, p_idx)
-	--ms.set_player_engageheight(TBM, p)
-	--ms.scale_player_joint_strength(p, 1000)
+	ms.set_player_engagedistance(TBM, p, p_idx)
+	ms.set_player_engageheight(TBM, p)
+	ms.scale_player_joint_strength(p, 1000)
 end
 
 ms.loadTBM(TBM)
-
-function API.NewGame.temp()
-	print(TBM["mod"])
-end

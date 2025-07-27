@@ -82,21 +82,14 @@ void Game::NewGame()
 		o.Create(world, space);
 	}
 
-	Color colors[] = { MAROON, DARKBLUE, DARKGREEN, DARKPURPLE, YELLOW, PINK };
-	
+	int count = 1;
 	for (auto& p : players) {
 		p.b_count = p.body.size();
 		p.j_count = p.joint.size();
-		
-		if (rules.engagedistance) {
-			//p.SetEngagedistance(rules.engagedistance,  id * (360/rules.numplayers));
-		}
-
-		auto id = p.GetID();
-		p.SetCatBits(0b0000, 0b0000);
-		p.SetColBits(0b0001, 0b0001);
-		//p.SetColors(RAYWHITE, colors[id], Fade(colors[id], 0.10));
+		p.SetCatBits(2<<count, 2<<count);
+		p.SetColBits(255-(2<<count), 255-(2<<count));
 		p.Create(world, space);
+		count += 1;
 	}
 
 
@@ -124,16 +117,15 @@ void Game::Quit()
 
 void Game::NearCallback(dGeomID o1, dGeomID o2)
 {
-	/* if geoms are static (immovable) don't collide */
-	/* if geoms share the same body dont collide */
-	/* if geoms share the same joint dont collide */
-
 	dBodyID b1 = dGeomGetBody(o1);
 	dBodyID b2 = dGeomGetBody(o2);
 
-	if (0 == b1 || 0 == b2 && b1 == b2 && dAreConnected(b1, b2)) {
-		return;
-	}
+	uint32_t cat1 = dGeomGetCategoryBits(o1);
+	uint32_t col1 = dGeomGetCollideBits(o1);
+	uint32_t cat2 = dGeomGetCategoryBits(o2);
+	uint32_t col2 = dGeomGetCollideBits(o2);
+
+	if (!(cat1 & col2 || cat2 & col1)) return;
 
 	dContact contacts[rules.max_contacts];
 
@@ -252,9 +244,7 @@ void Game::Step(int frame_count)
 			}
 		}
 		
-		if (!ready) {
-			break;
-		}
+		if (!ready) break;
 	};
 	case FREE_PLAY: {
 		state.step_frames = frame_count;
@@ -622,6 +612,7 @@ void Window::Init()
 	SetTraceLogCallback(rl_log);
 
 	InitWindow(width, height, "TOBAS");
+	SetTargetFPS(60);
 
 	shader = LoadShader(0, "resources/shader/tobas.fs");
 

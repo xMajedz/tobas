@@ -52,10 +52,10 @@ void Player::Create(dWorldID world, dSpaceID space)
 		b.frame_position = b.m_position;
 		b.freeze_position = b.m_position;
 
-		b.Create(world, space);
+		b.m_cat_bits = b_cat_bits;
+		b.m_col_bits = b_col_bits;
 
-		b.SetCatBits(b_cat_bits);
-		b.SetColBits(b_col_bits);
+		b.Create(world, space);
 
 		b.m_color = m_b_color;
 		b.m_g_color = m_g_color;
@@ -81,10 +81,10 @@ void Player::Create(dWorldID world, dSpaceID space)
 		j.frame_position = j.m_position;
 		j.freeze_position = j.m_position;
 
-		j.Create(world, space, body[j.connections[0]], body[j.connections[1]]);
+		j.m_cat_bits = j_cat_bits;
+		j.m_col_bits = j_col_bits;
 
-		j.SetCatBits(j_cat_bits);
-		j.SetColBits(j_col_bits);
+		j.Create(world, space, body[j.connections[0]], body[j.connections[1]]);
 
 		j.m_color = m_j_color;
 		j.m_g_color = m_g_color;

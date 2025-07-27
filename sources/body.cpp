@@ -60,6 +60,9 @@ void Body::Create(dWorldID world, dSpaceID space)
 		CreateDynamic();
 		m_color = GREEN;
 	}
+
+	SetCatBits();
+	SetColBits();
 }
 
 void Body::CreateBody()
@@ -492,18 +495,7 @@ void Joint::Create(dWorldID world, dSpaceID space, Body b1, Body b2)
 		m_position.z - b1.m_position.z,
 	};
 
-	dGeomSetOffsetPosition(dGeom, m_offset.x, m_offset.y, m_offset.z);
-
-	/*
-	dGeomSetOffsetQuaternion(
-		dGeom,
-		(dQuaternion) {
-		orientation.w,
-		orientation.x,
-		orientation.y,
-		orientation.z,
-	});
-	*/
+	dGeomSetOffsetWorldPosition(dGeom, m_position.x, m_position.y, m_position.z);
 
 	switch(type)
 	{
@@ -646,6 +638,9 @@ void Joint::Create(dWorldID world, dSpaceID space, Body b1, Body b2)
 		dJointAttach(dJoint, dBody, b2.dBody);
 		dJointSetFixed(dJoint);
 	}
+
+	SetCatBits();
+	SetColBits();
 }
 
 void Joint::Draw(Color color)

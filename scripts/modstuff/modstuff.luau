@@ -200,6 +200,8 @@ function ms.loadTBM(TBM)
 	for player_name, p in TBM["player"] do
 		API["player"](ms["player_name"][player_name])
 		API["color"](ms["player_color"][player_name])
+		--API["catbits"](ms["player_catbits"][player_name])
+		--API["colbits"](ms["player_colbits"][player_name])
 		if p["engagepos"] then
 			API["engagepos"] {p["engagepos"][1] + 0, p["engagepos"][2] + 0, p["engagepos"][3] + 0}
 		end
