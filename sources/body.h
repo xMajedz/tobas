@@ -12,8 +12,17 @@ enum BodyShape
 	COMPOSITE,
 };
 
+struct BodyUserData
+{
+	bool active;
+	dContact contact;
+	dJointID contact_joint = nullptr;
+};
+
 struct Body
 {
+	BodyUserData m_data;
+
 	BodyID m_id;
 
 	std::string m_name;
@@ -63,6 +72,8 @@ struct Body
 
 	bool ghost;
 
+	bool m_composite;
+
 	bool m_static;
 	bool m_interactive;
 	uint32_t m_cat_bits;
@@ -71,6 +82,7 @@ struct Body
 	Body() {};
 	Body(BodyID id, const char* name);
 
+	void SetOffset(raylib::Vector3 offset);
 	void SetColor(raylib::Color color);
 
 	void Create(dWorldID world, dSpaceID space);

@@ -7,21 +7,32 @@ namespace API
 {
 	static lua_State* L;
 
-	static lua_State* DrawT;
-	static lua_State* UpdateT;
-
 	static Gamerules rules;
 
 	static std::vector<Body>   o_vector;
+	static std::vector<Joint>   oj_vector;
+
 	static std::vector<Player> p_vector;
 	 
 	static size_t o_count;
+	static size_t oj_count;
+
 	static size_t p_count;
 
-	static Body*   o = nullptr;
-	static Player* p = nullptr;
+	static Body*   o  = nullptr;
+	static Joint*  oj = nullptr;
+
+	static Player* p  = nullptr;
+
+
+	std::vector<Joint> GetJointObjects();
+	size_t GetJointObjectsCount();
+
 	
+	static std::map<std::string_view, BodyID> o_map;
+
 	static std::map<std::string_view, BodyID> b_map;
+
 	static std::vector<Body>  b_vector;
 	static std::vector<Joint> j_vector;
 

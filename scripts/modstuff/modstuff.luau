@@ -20,30 +20,119 @@ ms["player_color"][4] = RAYLIB["MAGENTA"]
 ms["player_color"][5] = RAYLIB["YELLOW"]
 ms["player_color"][6] = RAYLIB["PINK"]
 
-ms["connections"] = {}
-ms["connections"]["breast"] = "chest"
-ms["connections"]["chest"] = "lumbar"
-ms["connections"]["stomach"] = "abs"
-ms["connections"]["groin"] = "abs"
-ms["connections"]["l_pecs"] = "l_pecs"
-ms["connections"]["r_pecs"] = "r_pecs"
-ms["connections"]["l_biceps"] = "l_shoulder"
-ms["connections"]["r_biceps"] = "r_shoulder"
-ms["connections"]["l_triceps"] = "l_elbow"
-ms["connections"]["r_triceps"] = "r_elbow"
-ms["connections"]["l_thigh"] = "l_hip"
-ms["connections"]["r_thigh"] = "r_hip"
-ms["connections"]["l_leg"] = "l_knee"
-ms["connections"]["r_leg"] = "r_knee"
-
 ms["SHAPE_MAP"] = {}
 ms["SHAPE_MAP"]["box"] = API["SHAPE_BOX"]
 ms["SHAPE_MAP"]["sphere"] = API["SHAPE_SPHERE"]
 ms["SHAPE_MAP"]["cylinder"] = API["SHAPE_CAPSULE"]
 
+function ms.clone_player(p)
+	local clone = {}
+	clone = table.clone(p)
+	clone["body"] = table.clone(p["body"])
+	clone["joint"] = table.clone(p["joint"])
+
+	for b_name, b in p["body"] do
+		clone["body"][b_name] = table.clone(p["body"][b_name])
+		clone["body"][b_name]["pos"] = table.clone(p["body"][b_name]["pos"])
+	end
+	for j_name, j in p["joint"] do
+		clone["joint"][j_name] = table.clone(p["joint"][j_name])
+		clone["joint"][j_name]["pos"] = table.clone(p["joint"][j_name]["pos"])
+		if type(p["joint"][j_name]["axis"]) == "string" then
+			p["joint"][j_name]["axis"] = p["joint"][j_name]["axis"]:split(" ")
+		end
+		clone["joint"][j_name]["axis"] = table.clone(p["joint"][j_name]["axis"])
+	end
+	return clone
+end
+
 function ms.player_set_origin(p)
 	local x, y, z = ms.calculate_player_offset(p)
 	ms.set_player_offset(p, -x, -y, -z)
+end
+
+function ms.rotateX_joint_axis(p, j_name, degree)
+	local q = RAYMATH.QuaternionFromMatrix(RAYMATH.MatrixRotateX(RAYMATH["DEG2RAD"]*degree))
+	if type(p["joint"][j_name]["axis"]) == "string" then
+		p["joint"][j_name]["axis"] = p["joint"][j_name]["axis"]:split(" ")
+	end
+	local j_axis = p["joint"][j_name]["axis"]
+
+	p["joint"][j_name]["axis"] = RAYMATH.Vector3RotateByQuaternion(j_axis, q)
+end
+
+function ms.rotateY_joint_axis(p, j_name, degree)
+	local q = RAYMATH.QuaternionFromMatrix(RAYMATH.MatrixRotateY(RAYMATH["DEG2RAD"]*degree))
+	if type(p["joint"][j_name]["axis"]) == "string" then
+		p["joint"][j_name]["axis"] = p["joint"][j_name]["axis"]:split(" ")
+	end
+	local j_axis = p["joint"][j_name]["axis"]
+
+	p["joint"][j_name]["axis"] = RAYMATH.Vector3RotateByQuaternion(j_axis, q)
+end
+
+function ms.rotateZ_joint_axis(p, j_name, degree)
+	local q = RAYMATH.QuaternionFromMatrix(RAYMATH.MatrixRotateZ(RAYMATH["DEG2RAD"]*degree))
+	if type(p["joint"][j_name]["axis"]) == "string" then
+		p["joint"][j_name]["axis"] = p["joint"][j_name]["axis"]:split(" ")
+	end
+	local j_axis = p["joint"][j_name]["axis"]
+
+	p["joint"][j_name]["axis"] = RAYMATH.Vector3RotateByQuaternion(j_axis, q)
+end
+
+function ms.rotateX_body_around_joint(p, b_name, j_name, degree)
+	local q = RAYMATH.QuaternionFromMatrix(RAYMATH.MatrixRotateX(RAYMATH["DEG2RAD"]*degree))
+	local j_pos = p["joint"][j_name]["pos"]
+	local b_pos = p["body"][b_name]["pos"]
+	
+	b_pos[1] = b_pos[1] - j_pos[1]
+	b_pos[2] = b_pos[2] - j_pos[2]
+	b_pos[3] = b_pos[3] - j_pos[3]
+	
+	b_pos = RAYMATH.Vector3RotateByQuaternion(b_pos, q)
+	
+	b_pos[1] = b_pos[1] + j_pos[1]
+	b_pos[2] = b_pos[2] + j_pos[2]
+	b_pos[3] = b_pos[3] + j_pos[3]
+	
+	p["body"][b_name]["pos"] = b_pos
+end
+
+function ms.rotateY_body_around_joint(p, b_name, j_name, degree)
+	local q = RAYMATH.QuaternionFromMatrix(RAYMATH.MatrixRotateY(RAYMATH["DEG2RAD"]*degree))
+	local j_pos = p["joint"][j_name]["pos"]
+	local b_pos = p["body"][b_name]["pos"]
+	
+	b_pos[1] = b_pos[1] - j_pos[1]
+	b_pos[2] = b_pos[2] - j_pos[2]
+	b_pos[3] = b_pos[3] - j_pos[3]
+	
+	b_pos = RAYMATH.Vector3RotateByQuaternion(b_pos, q)
+	
+	b_pos[1] = b_pos[1] + j_pos[1]
+	b_pos[2] = b_pos[2] + j_pos[2]
+	b_pos[3] = b_pos[3] + j_pos[3]
+	
+	p["body"][b_name]["pos"] = b_pos
+end
+
+function ms.rotateZ_body_around_joint(p, b_name, j_name, degree)
+	local q = RAYMATH.QuaternionFromMatrix(RAYMATH.MatrixRotateZ(RAYMATH["DEG2RAD"]*degree))
+	local j_pos = p["joint"][j_name]["pos"]
+	local b_pos = p["body"][b_name]["pos"]
+	
+	b_pos[1] = b_pos[1] - j_pos[1]
+	b_pos[2] = b_pos[2] - j_pos[2]
+	b_pos[3] = b_pos[3] - j_pos[3]
+	
+	b_pos = RAYMATH.Vector3RotateByQuaternion(b_pos, q)
+	
+	b_pos[1] = b_pos[1] + j_pos[1]
+	b_pos[2] = b_pos[2] + j_pos[2]
+	b_pos[3] = b_pos[3] + j_pos[3]
+	
+	p["body"][b_name]["pos"] = b_pos
 end
 
 function ms.set_player_engagedistance(TBM, p, p_idx)
@@ -158,6 +247,7 @@ end
 
 function ms.loadTBM2(TBM)
 end
+
 function ms.loadTBM(TBM)
 	local E2Q = ms["E2Q"]
 	local DEG2RAD = RAYMATH["DEG2RAD"]
@@ -195,8 +285,63 @@ function ms.loadTBM(TBM)
 		else
 			API["density"] {0.25}
 		end
-		API["flag"] { static = env_obj["flag"] == "24" }
+		if env_obj["color"] then
+			API["color"] {
+				255 * (env_obj["color"][1] + 0),
+				255 * (env_obj["color"][2] + 0),
+				255 * (env_obj["color"][3] + 0),
+				255 * (env_obj["color"][4] + 0),
+			}
+		end
+		local flag = {}
+		if env_obj["flag"] == "24" then
+			flag["static"] = true
+		end
+		API["flag"](flag)
 	end
+
+	for env_obj_joint_num, env_obj_joint in TBM["env_obj_joint"] do
+		API["objectjoint"](env_obj_joint_num)
+		API["shape"](API["SHAPE_SPHERE"])
+		API["radius"] {env_obj_joint["radius"]}
+		if type(env_obj_joint["pos"]) == "string" then
+			 env_obj_joint["pos"] = env_obj_joint["pos"]:split(" ")
+		end
+		API["position"] {env_obj_joint["pos"][1], env_obj_joint["pos"][2], env_obj_joint["pos"][3]}
+		API["density"] {0.0025}
+		API["strength"] {env_obj_joint["strength"]}
+		if env_obj_joint["strength_alt"] then
+			API["strength_alt"] {env_obj_joint["strength_alt"]}
+		end
+		API["velocity"] {env_obj_joint["velocity"]}
+		if env_obj_joint["strength_alt"] then
+			API["velocity_alt"] {env_obj_joint["velocity_alt"]}
+		end
+		if type(env_obj_joint["axis"]) == "string" then
+			 env_obj_joint["axis"] = env_obj_joint["axis"]:split(" ")
+		end
+		API["axis"] {env_obj_joint["axis"][1], env_obj_joint["axis"][2], env_obj_joint["axis"][3]}
+		if env_obj_joint["axis_alt"] then
+			API["axis_alt"] {env_obj_joint["axis_alt"][1], env_obj_joint["axis_alt"][2], env_obj_joint["axis_alt"][3]}
+		end
+		if type(env_obj_joint["range"]) == "string" then
+			 env_obj_joint["range"] = env_obj_joint["range"]:split(" ")
+		end
+		if env_obj_joint["range"] then
+			API["range"] {env_obj_joint["range"][1], env_obj_joint["range"][2]}
+		else
+			API["range"] {0.00, 0.00}
+		end
+		if env_obj_joint["range_alt"] then
+			API["range_alt"] {env_obj_joint["range_alt"][1], env_obj_joint["range_alt"][2]}
+		end
+		if type(env_obj_joint["connections"]) == "string" then
+			env_obj_joint["connections"] = env_obj_joint["connections"]:split(" ")
+		end
+		API["connections"] {env_obj_joint["connections"][1], env_obj_joint["connections"][2]}
+		API["connection_type"](env_obj_joint["type"] or API["JOINT_HINGE"])
+	end
+
 	for player_name, p in TBM["player"] do
 		API["player"](ms["player_name"][player_name])
 		API["color"](ms["player_color"][player_name])
@@ -271,6 +416,7 @@ function ms.loadTBM(TBM)
 			end
 			API["connections"] {j["connections"][1], j["connections"][2]}
 			API["connection_type"](j["type"] or API["JOINT_HINGE"])
+			API["flag"] { composite = true }
 		end
 	end
 end
@@ -331,8 +477,9 @@ function ms.parseTBM(filename)
 		elseif line:match("env_obj_joint") then
 			context = "env_obj_joint"
 			data = line:gsub(".*env_obj_joint ", "")
-			-- 1 2 3
-			TBM[context][data] = {}
+			line = data:split(" ")
+			data = line[1]
+			TBM[context][line[1]] = {["connections"] = { line[2], line[3] }}
 		elseif line:match("body ") then
 			context = "body"
 			data = line:gsub(".*body ", "")
@@ -427,6 +574,13 @@ function ms.parseTBM(filename)
 			TBM["player"][player_name][context][data]["velocity"] = line 
 			else
 			TBM[context][data]["velocity"] = line 
+			end
+		elseif line:match("color ") then
+			line = line:gsub(".*color ", "")
+			if context == "body" or context == "joint" then
+			TBM["player"][player_name][context][data]["color"] = line:split(" ") 
+			else
+			TBM[context][data]["color"] = line:split(" ") 
 			end
 		elseif line:match("flag ") then
 			line = line:gsub(".*flag ", "")

@@ -82,6 +82,8 @@ struct Player
 	void SetOffset(raylib::Vector3 offset);
 	void SetOffset();
 
+	void SetOrigin();
+
 	raylib::Vector3 GetOffset();
 	raylib::Vector3 GetOffset(bool freeze);
 

@@ -43,6 +43,7 @@ Body::Body(BodyID id, const char* name)
 	m_select_color = WHITE;
 
 	m_static = false;
+	m_composite = false;
 	m_interactive = false;
 }
 
@@ -58,11 +59,14 @@ void Body::Create(dWorldID world, dSpaceID space)
 		CreateStatic();
 	} else {
 		CreateDynamic();
-		m_color = GREEN;
+		m_col_bits = 0b0001;
 	}
 
 	SetCatBits();
 	SetColBits();
+
+	m_data.active = false;	
+	dGeomSetData(dGeom, &m_data);
 }
 
 void Body::CreateBody()
@@ -85,7 +89,6 @@ void Body::CreateBody()
 		m_orientation.z,
 	});
 
-	dMassAdjust(&mass, 0.50);
 	dBodySetMass(dBody, &mass);
 }
 
@@ -129,6 +132,11 @@ void Body::CreateComposite(dBodyID b)
 	CreateGeom();
 	dGeomSetBody(dGeom, b);
 }
+
+/*void Body::SetPosition(Vector3 position)
+{
+	dGeomSetPosition(dGeom, position, position, position);
+}*/
 
 void Body::SetColor(Color color)
 {
@@ -485,23 +493,24 @@ void Joint::Create(dWorldID world, dSpaceID space, Body b1, Body b2)
 {
 	m_world = world;
 	m_space = space;
+	if (m_composite) {
+		m_offset = {
+			m_position.x - b1.m_position.x,
+			m_position.y - b1.m_position.y,
+			m_position.z - b1.m_position.z,
+		};
 
-	CreateComposite(b1.dBody);
-	dBody = b1.dBody;
+		CreateComposite(b1.dBody);
+		dBody = b1.dBody;
+
+		dGeomSetOffsetWorldPosition(dGeom, m_position.x, m_position.y, m_position.z);
+	}
 	
-	m_offset = {
-		m_position.x - b1.m_position.x,
-		m_position.y - b1.m_position.y,
-		m_position.z - b1.m_position.z,
-	};
-
-	dGeomSetOffsetWorldPosition(dGeom, m_position.x, m_position.y, m_position.z);
-
 	switch(type)
 	{
 	case HINGE: {
 		dJoint = dJointCreateHinge(world, 0);
-		dJointAttach(dJoint, dBody, b2.dBody);
+		dJointAttach(dJoint, b1.dBody, b2.dBody);
 		dJointSetHingeAnchor(
 			dJoint,
 			m_position.x,
@@ -524,7 +533,7 @@ void Joint::Create(dWorldID world, dSpaceID space, Body b1, Body b2)
 	} break;
 	case dSLIDER: {
 		dJoint = dJointCreateSlider(world, 0);
-		dJointAttach(dJoint, dBody, b2.dBody);
+		dJointAttach(dJoint, b1.dBody, b2.dBody);
 		dJointSetSliderAxis(
 			dJoint,
 			axis.x,
@@ -542,7 +551,7 @@ void Joint::Create(dWorldID world, dSpaceID space, Body b1, Body b2)
 	} break;
 	case UNIVERSAL: {
 		dJoint = dJointCreateUniversal(world, 0);
-		dJointAttach(dJoint, dBody, b2.dBody);
+		dJointAttach(dJoint, b1.dBody, b2.dBody);
 		dJointSetUniversalAnchor(
 			dJoint,
 			m_position.x,
@@ -588,7 +597,7 @@ void Joint::Create(dWorldID world, dSpaceID space, Body b1, Body b2)
 	} break;
 	case HINGE2: {
 		dJoint = dJointCreateHinge2(world, 0);
-		dJointAttach(dJoint, dBody, b2.dBody);
+		dJointAttach(dJoint, b1.dBody, b2.dBody);
 		dJointSetHinge2Anchor(
 			dJoint,
 			m_position.x,
@@ -635,12 +644,14 @@ void Joint::Create(dWorldID world, dSpaceID space, Body b1, Body b2)
 	} break;
 	default:
 		dJoint = dJointCreateFixed(world, 0);
-		dJointAttach(dJoint, dBody, b2.dBody);
+		dJointAttach(dJoint, b1.dBody, b2.dBody);
 		dJointSetFixed(dJoint);
 	}
 
-	SetCatBits();
-	SetColBits();
+	if (m_composite) {
+		SetCatBits();
+		SetColBits();
+	}
 }
 
 void Joint::Draw(Color color)
@@ -654,11 +665,13 @@ void Joint::Draw(Color color)
 	rlRotatef(RAD2DEG * angle, axis.x, axis.y, axis.z);
 
 	DrawObject(color);
+
 	rlPopMatrix();
 }
 
 void Joint::Draw(bool freeze)
 {
+	if (!m_composite) return;
 	if (freeze) {
 		DrawGhost();
 		DrawFreeze();

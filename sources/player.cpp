@@ -31,7 +31,9 @@ Player::Player(PlayerID id, std::string_view name)
 void Player::Create(dWorldID world, dSpaceID space)
 {
 	if (use_engagepos) {
-		SetOffset();
+		m_offset.x += engagepos.x;
+		m_offset.y += engagepos.y;
+		m_offset.z += engagepos.z;
 	}
 
 	m_b_color = WHITE;
@@ -39,15 +41,9 @@ void Player::Create(dWorldID world, dSpaceID space)
 	m_g_color = Fade(m_color, 0.10);
 
 	for (auto& b : body) {
-		if (use_engagepos) {
-			b.m_position.x += engagepos.x;
-			b.m_position.y += engagepos.y;
-			b.m_position.z += engagepos.z;
-		}
-		
-		//b.m_position.x -= m_offset.x;
-		//b.m_position.y -= m_offset.y;
-		//b.m_position.z -= m_offset.z;
+		b.m_position.x += m_offset.x;
+		b.m_position.y += m_offset.y;
+		b.m_position.z += m_offset.z;
 		
 		b.frame_position = b.m_position;
 		b.freeze_position = b.m_position;
@@ -68,15 +64,9 @@ void Player::Create(dWorldID world, dSpaceID space)
 	}
 
 	for (auto& j : joint) {
-		if (use_engagepos) {
-			j.m_position.x += engagepos.x;
-			j.m_position.y += engagepos.y;
-			j.m_position.z += engagepos.z;
-		}
-
-		//j.m_position.x -= m_offset.x;
-		//j.m_position.y -= m_offset.y;
-		//j.m_position.z -= m_offset.z;
+		j.m_position.x += m_offset.x;
+		j.m_position.y += m_offset.y;
+		j.m_position.z += m_offset.z;
 
 		j.frame_position = j.m_position;
 		j.freeze_position = j.m_position;
@@ -207,6 +197,11 @@ void Player::SetColors(Color b_color, Color j_color, Color g_color)
 	m_g_color = g_color;
 }
 
+void Player::SetOrigin()
+{
+	m_offset = {-m_offset.x, -m_offset.y, -m_offset.z};
+}
+
 void Player::SetOffset(Vector3 offset)
 {
 	m_offset = offset;
@@ -236,11 +231,13 @@ Vector3 Player::GetOffset(bool freeze)
 void Player::SetEngageheight(float offset)
 {
 	for (auto& b : body) {
-		b.m_position.z += offset;
+		b.m_offset.z += offset;
+		//b.SetOffset();
 	}
 
 	for (auto& j : joint) {
-		j.m_position.z += offset;
+		j.m_offset.z += offset;
+		//j.SetOffset();
 	}
 }
 
@@ -248,10 +245,10 @@ void Player::SetEngagedistance(float offset, float angle)
 {
 	Quaternion q = QuaternionFromMatrix(MatrixRotateZ(DEG2RAD * angle));
 	for (auto& b : body) {
-		Vector3 offsetv = {
-			b.m_position.x - m_offset.x,
-			b.m_position.y - m_offset.y + offset,
-			b.m_position.z - m_offset.z,
+		/*Vector3 offsetv = {
+			b.m_position.x,
+			b.m_position.y + offset,
+			b.m_position.z,
 		};
 
 		offsetv = Vector3RotateByQuaternion(offsetv, q);
@@ -267,14 +264,14 @@ void Player::SetEngagedistance(float offset, float angle)
 
 		b.m_orientation = QuaternionMultiply(q, b.m_orientation);
 		b.frame_orientation = b.m_orientation;
-		b.freeze_orientation = b.m_orientation;
+		b.freeze_orientation = b.m_orientation;*/
 	}
 
 	for (auto& j : joint) {
-		Vector3 offsetv = {
-			j.m_position.x - m_offset.x,
-			j.m_position.y - m_offset.y + offset,
-			j.m_position.z - m_offset.z,
+		/*Vector3 offsetv = {
+			j.m_position.x,
+			j.m_position.y + offset,
+			j.m_position.z,
 		};
 
 		offsetv = Vector3RotateByQuaternion(offsetv, q);
@@ -290,7 +287,7 @@ void Player::SetEngagedistance(float offset, float angle)
 
 		j.m_orientation = QuaternionMultiply(q, j.m_orientation);
 		j.frame_orientation = j.m_orientation;
-		j.freeze_orientation = j.m_orientation;
+		j.freeze_orientation = j.m_orientation;*/
 	}
 }
 

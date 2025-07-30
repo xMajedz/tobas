@@ -20,7 +20,7 @@ enum EventType
 
 struct Gamerules
 {
-	std::string_view mod;
+	std::string_view mod = "nomod";
 
 	int numplayers;
 	int turnframes;
@@ -81,6 +81,8 @@ namespace Game
 	static std::vector<Player> players;
 
 	static size_t o_count;
+	static size_t jo_count;
+
 	static size_t p_count;
 	
 	static dMass mass;
@@ -138,6 +140,9 @@ namespace Game
 	void NewGame();
 	void Reset();
 	void ToggleGhosts();
+
+	void TriggerPlayerJointState(PlayerID player_id, JointID joint_id, JointState state);
+	void TriggerPlayerJointStateAlt(PlayerID player_id, JointID joint_id, JointState state);
 
 	void TogglePlayerPassiveStatesAlt(PlayerID player_id);
 	void TogglePlayerPassiveStates(PlayerID player_id);

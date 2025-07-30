@@ -4,69 +4,163 @@
 
 using namespace raylib;
 
+void Replay::Destroy()
+{
+	for (auto& [frame, data] : frames) {
+		if (data.players != nullptr) {
+			for (int i = 0; i < data.p_count; i += 1) {
+				delete[] data.players[i].J;
+				delete[] data.players[i].B;
+				delete[] data.players[i].P;
+				delete[] data.players[i].Q;
+				delete[] data.players[i].L;
+				delete[] data.players[i].A;
+			}
+			delete[] data.players;
+			data.players = nullptr;
+		}
+	}
+}
+
+void Replay::WriteMetaData()
+{
+	auto mod = Game::GetMod();
+	auto p_count = Game::GetPlayerCount();
+	std::string meta = "M ";
+	std::string details = "";
+
+	meta.append(TextFormat("%s %d %d", mod.data(), Game::GetObjectCount(), p_count));
+	for (int i = 0; i < p_count; i += 1) {
+		details.append(TextFormat(" %d %d", Game::GetPlayerJointCount(i), Game::GetPlayerBodyCount(i)));
+	}
+	meta.append(TextFormat("%s", details.data()));
+
+	std::ofstream tempframefile("tempframefile.txt");
+	tempframefile << meta << std::endl;
+	tempframefile.close();
+
+	std::ofstream tempreplayfile("tempreplayfile.txt");
+	tempreplayfile << meta << std::endl;
+	tempreplayfile.close();
+
+	Destroy();
+}
+
+void Replay::WriteFrameData(std::string data)
+{
+	std::ofstream tempframefile("tempframefile.txt", std::ios::app);
+	tempframefile << data << std::endl;
+	tempframefile.close();
+}
+
+void Replay::WriteReplayData(std::string data)
+{
+	std::ofstream tempreplayfile("tempreplayfile.txt", std::ios::app);
+	tempreplayfile << data << std::endl;
+	tempreplayfile.close();
+}
+
 void Replay::RecordFrame(int game_frame)
 {
-	std::string tempframe = "F";
-	tempframe.append(TextFormat(" %d\n",game_frame));
-	for (auto&  p : Game::GetPlayers()) {
+	std::string tempframe = "F ";
+	tempframe.append(TextFormat("%d\n",game_frame));
+
+	auto p_count = Game::GetPlayerCount();
+	/*
+	 * UB: when p_count is 0
+	 */
+	auto players = new FramePlayer[p_count];
+
+	for (auto& p : Game::GetPlayers()) {
+		auto p_id = p.GetID();
+	
+		auto j_count = Game::GetPlayerJointCount(p_id);
+		auto b_count = Game::GetPlayerBodyCount(p_id);
+
+
+		players->j_count = j_count;
+		players->b_count = b_count;
+
+		players[p_id].J = new uint8_t[j_count];
+		players[p_id].B = new uint8_t[b_count];
+
+		players[p_id].Q = new float[4*b_count];
+		players[p_id].P = new float[3*b_count];
+		players[p_id].L = new float[3*b_count];
+		players[p_id].A = new float[3*b_count];
+
+
 		std::string J = "J";
+		std::string B = "B";
 		std::string P = "P";
 		std::string Q = "Q";
 		std::string L = "L";
 		std::string A = "A";
 
-		frames[game_frame].players.push_back(p);
-
 		for (auto& j : p.joint) {
-			J.append(TextFormat(" %d %d", j.state, j.state_alt));
+			auto j_id = j.GetID();
+			uint8_t state_byte = j.state + (j.state_alt << 2);
+			J.append(TextFormat(" %d", state_byte));
+			players[p_id].J[j_id] = state_byte;
 		}
-		tempframe.append(TextFormat("%s\n", J.c_str()));
 
 		for (auto& b : p.body) {
-			P.append(TextFormat(" %f %f %f",
-				b.freeze_position.x,
-				b.freeze_position.y,
-				b.freeze_position.z
-			));
-
+			auto b_id = b.GetID();
+			players[p_id].B[b_id] = (uint8_t)b.active;
+			B.append(TextFormat(" %d", b.active));
+			
+			players[p_id].Q[4 * b_id ] = b.frame_orientation.w;
+			players[p_id].Q[4 * b_id + 1] = b.frame_orientation.x;
+			players[p_id].Q[4 * b_id + 2] = b.frame_orientation.y;
+			players[p_id].Q[4 * b_id + 3] = b.frame_orientation.z;
 			Q.append(TextFormat(" %f %f %f %f",
-				b.freeze_orientation.w,
-				b.freeze_orientation.x,
-				b.freeze_orientation.y,
-				b.freeze_orientation.z
+				b.frame_orientation.w,
+				b.frame_orientation.x,
+				b.frame_orientation.y,
+				b.frame_orientation.z
 			));
 
+			players[p_id].P[3 * b_id] = b.frame_position.x;
+			players[p_id].P[3 * b_id + 1] = b.frame_position.y;
+			players[p_id].P[3 * b_id + 2] = b.frame_position.z;
+			P.append(TextFormat(" %f %f %f",
+				b.frame_position.x,
+				b.frame_position.y,
+				b.frame_position.z
+			));
+
+			players[p_id].L[3 * b_id] = b.frame_linear_vel.x;
+			players[p_id].L[3 * b_id + 1] = b.frame_linear_vel.y;
+			players[p_id].L[3 * b_id + 2] = b.frame_linear_vel.z;
 			L.append(TextFormat(" %f %f %f",
-				b.freeze_linear_vel.x,
-				b.freeze_linear_vel.y,
-				b.freeze_linear_vel.z
+				b.frame_linear_vel.x,
+				b.frame_linear_vel.y,
+				b.frame_linear_vel.z
 			));
 
+			players[p_id].A[3 * b_id] = b.frame_angular_vel.x;
+			players[p_id].A[3 * b_id + 1] = b.frame_angular_vel.y;
+			players[p_id].A[3 * b_id + 2] = b.frame_angular_vel.z;
 			A.append(TextFormat(" %f %f %f",
-				b.freeze_angular_vel.x,
-				b.freeze_angular_vel.y,
-				b.freeze_angular_vel.z
+				b.frame_angular_vel.x,
+				b.frame_angular_vel.y,
+				b.frame_angular_vel.z
 			));
 		}
+
+		tempframe.append(TextFormat("%s\n", J.c_str()));
+		tempframe.append(TextFormat("%s\n", B.c_str()));
 		tempframe.append(TextFormat("%s\n", P.c_str()));
 		tempframe.append(TextFormat("%s\n", Q.c_str()));
 		tempframe.append(TextFormat("%s\n", L.c_str()));
 		tempframe.append(TextFormat("%s\n", A.c_str()));
 	}
 
-	if (0 < game_frame) {
-		std::ofstream tempreplayfile("tempreplayfile.txt", std::ios::app);
-		tempreplayfile << tempframe;
-		tempreplayfile.close();
-	} else {
-		std::ofstream tempreplayfile("tempreplayfile.txt");
-		tempreplayfile << tempframe;
-		tempreplayfile.close();
-	}
+	frames[game_frame].p_count = p_count;
+	frames[game_frame].players = players;
 
-	std::ofstream tempframefile("tempframefile.txt");
-	tempframefile << tempframe << std::endl;
-	tempframefile.close();
+	WriteFrameData(tempframe);
+	WriteReplayData(tempframe);
 }
 
 void Replay::RecordFrame()
@@ -76,52 +170,31 @@ void Replay::RecordFrame()
 
 void Replay::Play(int game_frame)
 {
-	for (auto& p : frames[game_frame].players) {
-		for (auto& j : p.joint) {
-			switch(j.state) {
-			case RELAX: {
-				j.state = RELAX;
-				j.TriggerPassiveState(0.00);
-			} break;
-			case HOLD: {
-				j.state = HOLD;
-				j.TriggerPassiveState(j.strength);
-			} break;
-			case FORWARD: {
-				j.state = FORWARD;
-				j.TriggerActiveState(1.00);
-			} break; 
-			case BACKWARD: {
-				j.state = BACKWARD;
-				j.TriggerActiveState(-1.00);
-			} break;
-			}
-		
-			switch(j.state_alt) {
-			case RELAX: {
-				j.state_alt = RELAX;
-				j.TriggerPassiveStateAlt(0.00);
-			} break;
-			case HOLD: {
-				j.state_alt = HOLD;
-				j.TriggerPassiveStateAlt(j.strength_alt);
-			} break;
-			case FORWARD: {
-				j.state_alt = FORWARD;
-				j.TriggerActiveStateAlt(1.00);
-			} break;
-			case BACKWARD: {
-				j.state_alt = BACKWARD;
-				j.TriggerActiveStateAlt(-1.00);
-			} break;
-			}
+	auto& frame = frames[game_frame];
+	for (int p_id = 0; p_id < frame.p_count; p_id += 1) {
+		auto& p = frame.players[p_id];
+		for (int j_id = 0; j_id < p.j_count; j_id += 1) {
+			auto& J = p.J[j_id];
+			uint8_t state_alt = J >> 2;
+			uint8_t state = J - (state_alt << 2);
+
+			Game::TriggerPlayerJointState(p_id, j_id, (JointState)state);
+			Game::TriggerPlayerJointStateAlt(p_id, j_id, (JointState)state_alt);
+		}
+
+		for (int b_id = 0; b_id < p.b_count; b_id += 1) {
+			//Game::SetBodyState(p_id, b_id, p.B[b_id]);
+			//Game::SetBodyLinearVel(p_id, b_id, p.L[p_id*b_id], p.L[p_id * b_id + 1], p.L[p_id * b_id + 2]);
+			//Game::SetBodyAngularVel(p_id, b_id, p.A[p_id*b_id], p.A[p_id * (b_id + 1)], p.A[p_id * (b_id + 2)]);
+			//dBodySetLinearVel(b.dBody, b.frame_linear_vel.x, b.frame_linear_vel.y, b.frame_linear_vel.z);
+			//dBodySetAngularVel(b.dBody, b.frame_angular_vel.x, b.frame_angular_vel.y, b.frame_angular_vel.x);
 		}
 	}
 }
 
 void Replay::Save(std::string replay_name)
 {
-	std::ofstream savedreplayfile(replay_name.append(".txt"));
+	std::ofstream savedreplayfile(replay_name.append(".rpl2"));
 	/*for (auto const& [game_frame, frame] : RecordedFrames) {
 		savedreplayfile << "FRAME " << game_frame << "\n";
 		for (auto const& [player_name, p] : frame.player) {
