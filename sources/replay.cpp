@@ -7,6 +7,12 @@ using namespace raylib;
 void Replay::Init()
 {
 	storage = new Arena(6*1024*1024);
+
+	uintptr_t uptr = (uintptr_t)new int;
+
+	//*(int*)uptr = 9;
+
+	delete (int*)uptr;
 }
 
 void Replay::Close()
@@ -68,49 +74,10 @@ void Replay::RecordFrame(int game_frame)
 	std::string tempframe = "F ";
 	tempframe.append(TextFormat("%d\n", game_frame));
 
-
-	/*LOG(storage->offset())
-
-		s_players[0].J = storage->allocate<uint8_t>(20);
-	LOG(storage->offset())
-		s_players[0].J[0] = 5;
-
-		s_players[0].B = storage->allocate<uint8_t>(21);
-	LOG(storage->offset())
-		s_players[0].B[0] = 1;
-
-		s_players[0].Q = storage->allocate<float>(4*21);
-	LOG(storage->offset())
-		s_players[0].Q[0] = 0.001;
-
-		s_players[0].P = storage->allocate<float>(3*21);
-	LOG(storage->offset())
-		s_players[0].P[0] = 0.002;
-
-		s_players[0].L = storage->allocate<float>(3*21);
-	LOG(storage->offset())
-		s_players[0].L[0] = 0.003;
-
-		s_players[0].A = storage->allocate<float>(3*21);
-	LOG(storage->offset())
-		s_players[0].A[0] = 0.004;
-
-
-		delete storage;
-	}*/
-
-
-	/*
-	 * UB: when p_count is 0
-	 */
-
-	//auto players = new FramePlayer[p_count];
-	//auto s_players = storage->allocate<FramePlayer>(p_count);
-	
 	frames[game_frame].p_count = Game::GetPlayerCount();
 	
 	if (frames[game_frame].p_count > 0) {
-		frames[game_frame].players = storage->allocate<FramePlayer>(frames[game_frame].p_count);
+		frames[game_frame].players = (FramePlayer*)storage->allocate(sizeof(FramePlayer)*frames[game_frame].p_count);
 	} else {
 		return ;
 	}
@@ -123,13 +90,13 @@ void Replay::RecordFrame(int game_frame)
 		players->j_count = Game::GetPlayerJointCount(p_id);
 		players->b_count = Game::GetPlayerBodyCount(p_id);
 
-		players[p_id].J = storage->allocate<uint8_t>(players->j_count);
-		players[p_id].B = storage->allocate<uint8_t>(players->b_count);
+		players[p_id].J = (uint8_t*)storage->allocate(sizeof(uint8_t)*players->j_count);
+		players[p_id].B = (uint8_t*)storage->allocate(sizeof(uint8_t)*players->b_count);
 
-		players[p_id].Q = storage->allocate<float>(4*players->b_count);
-		players[p_id].P = storage->allocate<float>(3*players->b_count);
-		players[p_id].L = storage->allocate<float>(3*players->b_count);
-		players[p_id].A = storage->allocate<float>(3*players->b_count);
+		players[p_id].Q = (double*)storage->allocate(sizeof(double)*4*players->b_count);
+		players[p_id].P = (double*)storage->allocate(sizeof(double)*3*players->b_count);
+		players[p_id].L = (double*)storage->allocate(sizeof(double)*3*players->b_count);
+		players[p_id].A = (double*)storage->allocate(sizeof(double)*3*players->b_count);
 
 		std::string J = "J";
 		std::string B = "B";

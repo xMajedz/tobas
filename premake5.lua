@@ -33,6 +33,7 @@ workspace "tobas"
 	files {
 		"sources/luau.h", "sources/luau.cpp",
 
+
 		"sources/api.h", "sources/api.cpp",
 		"sources/api_net.cpp",
 		"sources/api_game.cpp",
@@ -46,6 +47,8 @@ workspace "tobas"
 		"sources/player.h", "sources/player.cpp",
 		"sources/joint.h", "sources/joint.cpp",
 		"sources/body.h", "sources/body.cpp",
+
+		"sources/mem.h", "sources/mem.cpp",
 	}
 
 	filter { "configurations:Debug" }

@@ -11,6 +11,21 @@
 #include <string>
 #include <string_view>
 
+struct vec3
+{
+	double x;
+	double y;
+	double z;
+};
+
+struct vec4
+{
+	double x;
+	double y;
+	double z;
+	double w;
+};
+
 #include <iostream>
 #define LOG_PREFIX "LOG: "
 #define LOG_SUFFIX ""

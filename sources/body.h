@@ -42,24 +42,24 @@ struct Body
 	dReal density;
 
 
-	raylib::Vector4 m_orientation;
-	raylib::Vector3 m_position;
-	raylib::Vector3 m_offset;
-	raylib::Vector3 m_sides;
+	vec4 m_orientation;
+	vec3 m_position;
+	vec3 m_offset;
+	vec3 m_sides;
 
-	raylib::Vector3 frame_linear_vel;
-	raylib::Vector3 frame_angular_vel;
+	vec3 frame_linear_vel;
+	vec3 frame_angular_vel;
 
-	raylib::Vector4 frame_orientation;
-	raylib::Vector3 frame_position;
-	raylib::Vector3 frame_offset;
+	vec4 frame_orientation;
+	vec3 frame_position;
+	vec3 frame_offset;
 
-	raylib::Vector3 freeze_linear_vel;
-	raylib::Vector3 freeze_angular_vel;
+	vec3 freeze_linear_vel;
+	vec3 freeze_angular_vel;
 
-	raylib::Vector4 freeze_orientation;
-	raylib::Vector3 freeze_position;
-	raylib::Vector3 freeze_offset;
+	vec4 freeze_orientation;
+	vec3 freeze_position;
+	vec3 freeze_offset;
 
 	raylib::Color m_color;
 	raylib::Color m_g_color;
@@ -82,7 +82,7 @@ struct Body
 	Body() {};
 	Body(BodyID id, const char* name);
 
-	void SetOffset(raylib::Vector3 offset);
+	void SetOffset(vec3 offset);
 	void SetColor(raylib::Color color);
 
 	void Create(dWorldID world, dSpaceID space);
@@ -155,8 +155,8 @@ struct Joint : public Body
 
 	BodyID connections[2];
 
-	raylib::Vector3 axis;
-	raylib::Vector3 axis_alt;
+	vec3 axis;
+	vec3 axis_alt;
 
 	dReal range[2];
 	dReal range_alt[2];

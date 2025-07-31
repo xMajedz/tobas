@@ -34,8 +34,8 @@ struct Player
 	raylib::Vector3 frame_offset;
 	raylib::Vector3 freeze_offset;
 
-	raylib::Vector3 engagepos;
-	raylib::Vector3 engagerot;
+	vec3 engagepos;
+	vec3 engagerot;
 
 	bool use_engagepos;
 	bool use_engagerot;

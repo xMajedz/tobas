@@ -11,22 +11,25 @@ struct FramePlayer
 	uint8_t* J = nullptr;
 	uint8_t* B = nullptr;
 
-	float* Q = nullptr;
-	float* P = nullptr;
-	float* L = nullptr;
-	float* A = nullptr;
+	double* Q = nullptr;
+	double* P = nullptr;
+	double* L = nullptr;
+	double* A = nullptr;
 };
 
 struct FrameData
 {
 	size_t p_count = 0;
 	FramePlayer* players = nullptr;
+	//FrameObjet* objects = nullptr;
 };
 
 namespace Replay 
 {
 	static Arena* storage = nullptr;
-
+	/*
+	 * map because frame gapes
+	 */
 	static std::map<int, FrameData> frames;
 
 	void Init();

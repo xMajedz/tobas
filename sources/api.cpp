@@ -313,7 +313,7 @@ static int API_engageheight(lua_State* L)
 
 static int API_engagepos(lua_State* L)
 {
-	Vector3 pos;
+	vec3 pos;
 	lua_rawgeti(L, -1, 1);
 	pos.x = lua_tonumber(L, -1);
 	lua_rawgeti(L, -2, 2);
@@ -347,8 +347,7 @@ static int API_engagepos(lua_State* L)
 
 static int API_engagerot(lua_State* L)
 {
-	Vector3 rot;
-
+	vec3 rot;
 	lua_rawgeti(L, -1, 1);
 	rot.x = lua_tonumber(L, -1);
 	lua_rawgeti(L, -2, 2);
@@ -418,7 +417,7 @@ static int API_color(lua_State* L)
 
 static int API_gravity(lua_State* L)
 {
-	Vector3 gravity;
+	vec3 gravity;
 	lua_rawgeti(L, -1, 1);
 	gravity.x = lua_tonumber(L, -1); 
 	lua_rawgeti(L, -2, 2);
@@ -554,7 +553,7 @@ static int API_shape(lua_State* L)
 
 static int API_position(lua_State* L)
 {
-	Vector3 position;
+	vec3 position;
 	lua_rawgeti(L, -1, 1);
 	position.x = lua_tonumber(L, -1); 
 	lua_rawgeti(L, -2, 2);
@@ -587,7 +586,7 @@ static int API_position(lua_State* L)
 
 static int API_orientation(lua_State* L)
 {
-	Vector4 orientation;
+	vec4 orientation;
 	lua_rawgeti(L, -1, 1);
 	orientation.w = lua_tonumber(L, -1); 
 	lua_rawgeti(L, -2, 2);
@@ -620,7 +619,7 @@ static int API_orientation(lua_State* L)
 
 static int API_sides(lua_State* L)
 {
-	Vector3 sides;
+	vec3 sides;
 	lua_rawgeti(L, -1, 1);
 	sides.x = lua_tonumber(L, -1); 
 	lua_rawgeti(L, -2, 2);
@@ -872,7 +871,7 @@ static int API_velocity_alt(lua_State* L)
 
 static int API_axis(lua_State* L)
 {
-	Vector3 axis;
+	vec3 axis;
 	lua_rawgeti(L, -1, 1);
 	axis.x = lua_tonumber(L, -1); 
 	lua_rawgeti(L, -2, 2);
@@ -896,7 +895,7 @@ static int API_axis(lua_State* L)
 
 static int API_axis_alt(lua_State* L)
 {
-	Vector3 axis_alt;
+	vec3 axis_alt;
 	lua_rawgeti(L, -1, 1);
 	axis_alt.x = lua_tonumber(L, -1); 
 	lua_rawgeti(L, -2, 2);

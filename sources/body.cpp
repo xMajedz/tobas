@@ -201,7 +201,8 @@ void Body::Freeze()
 
 	dQuaternion orientation = { 0 };
 	dGeomGetQuaternion(dGeom, orientation);
-	freeze_orientation = (Vector4){orientation[1], orientation[2], orientation[3], orientation[0]};
+	//freeze_orientation = (Vector4){orientation[1], orientation[2], orientation[3], orientation[0]};
+	freeze_orientation = {orientation[1], orientation[2], orientation[3], orientation[0]};
 
 	const dReal* position = dGeomGetPosition(dGeom);
 	freeze_position = {position[0], position[1], position[2]};
@@ -338,10 +339,17 @@ void Body::DrawObjectWires(Color color)
 
 void Body::Draw(Color color)
 {
+	Quaternion q = {
+		frame_orientation.x,
+		frame_orientation.y,
+		frame_orientation.z,
+		frame_orientation.w,
+	};
+
 	float angle;
 	Vector3 axis;
 
-	QuaternionToAxisAngle(frame_orientation, &axis, &angle);
+	QuaternionToAxisAngle(q, &axis, &angle);
 
 	rlPushMatrix();
 	rlTranslatef(frame_position.x, frame_position.y, frame_position.z);
@@ -656,9 +664,16 @@ void Joint::Create(dWorldID world, dSpaceID space, Body b1, Body b2)
 
 void Joint::Draw(Color color)
 {
+	Quaternion q = {
+		frame_orientation.x,
+		frame_orientation.y,
+		frame_orientation.z,
+		frame_orientation.w,
+	};
+
 	float angle;
 	Vector3 axis;
-	QuaternionToAxisAngle(frame_orientation, &axis, &angle);
+	QuaternionToAxisAngle(q, &axis, &angle);
 
 	rlPushMatrix();
 	rlTranslatef(frame_position.x, frame_position.y, frame_position.z);
@@ -687,7 +702,7 @@ void Joint::Draw(bool freeze)
 
 void Joint::DrawAxis(bool freeze)
 {
-	Vector3 v_axis = Vector3Normalize(axis);
+	Vector3 v_axis = Vector3Normalize((Vector3){axis.x, axis.y, axis.z});
 	if (freeze) {
 		Vector3 start = {
 			freeze_position.x + v_axis.x * 0.2,
@@ -721,7 +736,7 @@ void Joint::DrawAxis(bool freeze)
 
 void Joint::DrawRange(bool freeze)
 {
-	Vector3 v_axis = Vector3Normalize(axis);
+	Vector3 v_axis = Vector3Normalize((Vector3){axis.x, axis.y, axis.z});
 	Vector3 v = Vector3Perpendicular(v_axis);
 	if (freeze) {
 		Vector3 start = {

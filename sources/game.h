@@ -30,7 +30,7 @@ struct Gamerules
 	dReal engageheight;
 	dReal friction;
 
-	raylib::Vector3 gravity;
+	vec3 gravity;
 };
 
 struct Gamestate
