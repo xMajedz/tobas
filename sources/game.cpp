@@ -29,6 +29,8 @@ void Game::Init()
 	state.running = false;
 
 	SetExitKey(KEY_NULL);
+
+	Replay::Init();
 }
 
 void Game::NewGame()
@@ -134,7 +136,7 @@ void Game::Quit()
 		Window::Close();
 	}
 
-	Replay::Destroy();
+	Replay::Close();
 	API::Close();
 }
 

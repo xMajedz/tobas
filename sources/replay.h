@@ -1,6 +1,7 @@
 #pragma once
 #include "common.h"
 #include "game.h"
+#include "mem.h"
 
 struct FramePlayer
 {
@@ -24,7 +25,12 @@ struct FrameData
 
 namespace Replay 
 {
+	static Arena* storage = nullptr;
+
 	static std::map<int, FrameData> frames;
+
+	void Init();
+	void Close();
 	
 	void WriteMetaData();
 	void WriteFrameData(std::string data);
