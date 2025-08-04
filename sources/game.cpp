@@ -1,17 +1,13 @@
 #include "game.h"
 #include "camera.h"
-#include "replay.h"
 #include "luau.h"
 #include "api.h"
+
+#include <fstream>
 
 using namespace raylib;
 #include "raymath.h"
 #include "rlgl.h"
-
-bool Game::Running ()
-{
-	return state.running;
-}
 
 void Game::Init()
 {
@@ -25,35 +21,21 @@ void Game::Init()
 	API::Init();
 	API::loadscript("init");
 
+	Replay::Init();
+
 	state.time = GetTime();
 	state.running = false;
 
 	SetExitKey(KEY_NULL);
-
-	Replay::Init();
 }
 
 void Game::NewGame()
 {
-	if (space != nullptr) {
-		dSpaceDestroy(space);
-	}
-
-	if (contactgroup != nullptr) {
-		dJointGroupDestroy(contactgroup);
-	}
-
-	if (objects.size() > 0) {
-		objects.clear();
-	}
-
-	if (joint_objects.size() > 0) {
-		joint_objects.clear();
-	}
-
-	if (players.size() > 0) {
-		players.clear();
-	}
+	if (space != nullptr) dSpaceDestroy(space);
+	if (contactgroup != nullptr) dJointGroupDestroy(contactgroup);
+	if (objects.size() > 0) objects.clear();
+	if (joint_objects.size() > 0) joint_objects.clear();
+	if (players.size() > 0) players.clear();
 
 	rules = API::GetRules();
 	rules.max_contacts = 8;
@@ -85,20 +67,15 @@ void Game::NewGame()
 
 	space = dHashSpaceCreate(0);
   	contactgroup = dJointGroupCreate(0);
-	floor = dCreatePlane(space, 0, 0, 1, 0);
+	floor = dCreatePlane(space, 0.00, 0.00, 1.00, 0.10);
 
 	dGeomSetCategoryBits(floor, 0b0001);
 	dGeomSetCollideBits(floor, 0b0000);
 
   	dWorldSetGravity(world, rules.gravity.x, rules.gravity.y, rules.gravity.z);
 
-	for (auto& o : objects) {
-		o.Create(world, space);
-	}
-
-	for (auto& jo : joint_objects) {
-		jo.Create(world, space, objects[jo.connections[0]], objects[jo.connections[1]]);
-	}
+	for (auto& o : objects) o.Create(world, space);
+	for (auto& jo : joint_objects) jo.Create(world, space, objects[jo.connections[0]], objects[jo.connections[1]]);
 
 	int count = 1;
 	for (auto& p : players) {
@@ -135,16 +112,16 @@ void Game::Quit()
 		dCloseODE();
 	}
 
-	if (Window::Initialized()) {
-		Window::Close();
-	}
-
-	Replay::Close();
 	API::Close();
+	Replay::Close();
+
+	if (Window::Initialized()) Window::Close();
 }
 
-void Game::NearCallback(dGeomID o1, dGeomID o2)
+static void nearCallback(void*, dGeomID o1, dGeomID o2)
 {
+	using namespace Game;
+
 	if (o1 == nullptr || o2 == nullptr) return;
 
 	dBodyID b1 = dGeomGetBody(o1);
@@ -204,12 +181,6 @@ void Game::NearCallback(dGeomID o1, dGeomID o2)
 		dJointDestroy(data2->contact_joint);
 		data2->contact_joint = nullptr;
 	}
-
-}
-
-static void nearCallback(void*, dGeomID o1, dGeomID o2)
-{
-	Game::NearCallback(o1, o2);
 }
 
 void Game::Refreeze()
@@ -259,6 +230,7 @@ void Game::Freeze()
 
 	for (auto& o : objects) o.Freeze();
 	for (auto& p : players) p.Freeze();
+
 	for (int i = 0; i < rules.max_contacts; i += 1) m_freeze_contacts[i] = m_frame_contacts[i];
 }
 
@@ -308,11 +280,10 @@ void Game::UpdateState(dReal dt)
 			Replay::RecordFrame(state.game_frame);
 		} break;
 		case REPLAY_PLAY: {
-			auto& frames = Replay::Get();
-			dReal size = frames.size();
-			if (state.game_frame > size + 100) {
+			double count = Replay::GetFrameCount();
+			if (state.game_frame > count + 100) {
 				EnterMode(REPLAY_PLAY);
-			} else if (state.game_frame < size) {
+			} else if (state.game_frame < count) {
 				Replay::Play(state.game_frame);
 			}
 		} break;
@@ -855,50 +826,264 @@ float Window::GetHeight()
 }
 
 void Game::EnterMode(Gamemode mode)
-{
-	state.mode = mode;
-	
+{	
 	for (auto& p : players) {
 		p.RelaxAll();
 		p.RelaxAllAlt();
 	}
 
-	state.game_frame = 0;
+	if (mode != REPLAY_EDIT) {
+		state.game_frame = 0;
+		Restart();
+	}
+
 	state.reaction_count = 0;
 	state.freeze_count = 0;
 	state.step_count = 0;
 	
 	switch(mode)
 	{
-	case FREE_PLAY: {
-		state.freeze = true;
-
-		Restart();
-	
-		Freeze();
-	
-		Replay::RecordFrame();
-	} break;
-	case SELF_PLAY: {
-		state.freeze = true;
-
-		Restart();
-	
-		Freeze();
-	
-		Replay::RecordFrame();
-	} break;
 	case REPLAY_PLAY: {
+		state.mode = mode;
 		state.freeze = false;
-		
-		Restart();
 	} break;
 	case REPLAY_EDIT: {
-		state.freeze = true;
-
-		Restart();
-	
+		mode = FREE_PLAY;
+	};
+	case SELF_PLAY: {};
+	case FREE_PLAY: {
+		state.mode = mode;
 		Freeze();
+		Replay::Begin();
+		Replay::RecordFrame(state.game_frame);
 	} break;
 	}
+}
+
+bool Game::Running ()
+{
+	return state.running;
+}
+
+void Replay::Init()
+{
+	storage = new Arena(8*1024*1024);
+	frames = storage->allocate(sizeof(FrameData)*4096);
+}
+
+void Replay::Close()
+{
+	delete storage;
+}
+
+void Replay::Destroy()
+{
+	frame_count = 0;
+	storage->clear();
+}
+
+void Replay::WriteMetaData()
+{
+	auto mod = Game::GetMod();
+	auto p_count = Game::GetPlayerCount();
+	std::string meta = "M ";
+	std::string details = "";
+
+	meta.append(TextFormat("%s %d %d", mod.data(), Game::GetObjectCount(), p_count));
+	for (int i = 0; i < p_count; i += 1) {
+		details.append(TextFormat(" %d %d", Game::GetPlayerJointCount(i), Game::GetPlayerBodyCount(i)));
+	}
+	meta.append(TextFormat("%s", details.data()));
+
+	std::ofstream tempframefile("tempframefile.txt");
+	tempframefile << meta << std::endl;
+	tempframefile.close();
+
+	std::ofstream tempreplayfile("tempreplayfile.txt");
+	tempreplayfile << meta << std::endl;
+	tempreplayfile.close();
+
+	Destroy();
+}
+
+void Replay::WriteFrameData(std::string data)
+{
+	std::ofstream tempframefile("tempframefile.txt", std::ios::app);
+	tempframefile << data << std::endl;
+	tempframefile.close();
+}
+
+void Replay::WriteReplayData(std::string data)
+{
+	std::ofstream tempreplayfile("tempreplayfile.txt", std::ios::app);
+	tempreplayfile << data << std::endl;
+	tempreplayfile.close();
+}
+
+void Replay::RecordFrame(int game_frame)
+{
+	std::string tempframe = "F ";
+	tempframe.append(TextFormat("%d\n", game_frame));
+
+	auto p_count = Game::GetPlayerCount();
+	
+	if (p_count == 0) return ;
+
+	auto& frame = *((FrameData*)frames + game_frame);
+	frame.p_count = p_count;
+	frame.players = storage->allocate(sizeof(FramePlayer)*p_count);
+
+	auto& players = frame.players;
+
+	for (auto& p : Game::GetPlayers()) {
+		auto p_id = p.GetID();
+		auto& player = *((FramePlayer*)players + p_id);
+
+		player.j_count = Game::GetPlayerJointCount(p_id);
+		player.b_count = Game::GetPlayerBodyCount(p_id);
+
+		player.J = storage->allocate(sizeof(uint8_t)*(player.j_count));
+		player.B = storage->allocate(sizeof(uint8_t)*(player.b_count));
+		player.Q = storage->allocate(sizeof(double)*(player.b_count*4));
+		player.P = storage->allocate(sizeof(double)*(player.b_count*3));
+		player.L = storage->allocate(sizeof(double)*(player.b_count*3));
+		player.A = storage->allocate(sizeof(double)*(player.b_count*3));
+
+		std::string J = "J";
+		std::string B = "B";
+		std::string P = "P";
+		std::string Q = "Q";
+		std::string L = "L";
+		std::string A = "A";
+
+		for (auto& j : p.joint) {
+			auto j_id = j.GetID();
+			uint8_t state_byte = j.state + (j.state_alt << 2);
+			J.append(TextFormat(" %d", state_byte));
+
+			*((uint8_t*)player.J + j_id) = state_byte;
+		}
+
+		for (auto& b : p.body) {
+			auto b_id = b.GetID();
+			B.append(TextFormat(" %d", b.active));
+
+			*((uint8_t*)player.B + b_id) = (uint8_t)b.active;
+
+			Q.append(TextFormat(" %f %f %f %f",
+				b.frame_orientation.w,
+				b.frame_orientation.x,
+				b.frame_orientation.y,
+				b.frame_orientation.z
+			));
+
+			*((double*)player.Q + (4*b_id + 0)) = b.frame_orientation.w;
+			*((double*)player.Q + (4*b_id + 1)) = b.frame_orientation.x;
+			*((double*)player.Q + (4*b_id + 2)) = b.frame_orientation.y;
+			*((double*)player.Q + (4*b_id + 3)) = b.frame_orientation.z;
+
+			P.append(TextFormat(" %f %f %f",
+				b.frame_position.x,
+				b.frame_position.y,
+				b.frame_position.z
+			));
+
+			*((double*)player.P + (3*b_id + 0)) = b.frame_position.x;
+			*((double*)player.P + (3*b_id + 1)) = b.frame_position.y;
+			*((double*)player.P + (3*b_id + 2)) = b.frame_position.z;
+
+			L.append(TextFormat(" %f %f %f",
+				b.frame_linear_vel.x,
+				b.frame_linear_vel.y,
+				b.frame_linear_vel.z
+			));
+
+			*((double*)player.L + (3*b_id + 0)) = b.frame_linear_vel.x;
+			*((double*)player.L + (3*b_id + 1)) = b.frame_linear_vel.y;
+			*((double*)player.L + (3*b_id + 2)) = b.frame_linear_vel.z;
+
+			A.append(TextFormat(" %f %f %f",
+				b.frame_angular_vel.x,
+				b.frame_angular_vel.y,
+				b.frame_angular_vel.z
+			));
+
+			*((double*)player.A + (3*b_id + 0)) = b.frame_angular_vel.x;
+			*((double*)player.A + (3*b_id + 1)) = b.frame_angular_vel.y;
+			*((double*)player.A + (3*b_id + 2)) = b.frame_angular_vel.z;
+		}
+
+		tempframe.append(TextFormat("%s\n", J.c_str()));
+		tempframe.append(TextFormat("%s\n", B.c_str()));
+		tempframe.append(TextFormat("%s\n", P.c_str()));
+		tempframe.append(TextFormat("%s\n", Q.c_str()));
+		tempframe.append(TextFormat("%s\n", L.c_str()));
+		tempframe.append(TextFormat("%s\n", A.c_str()));
+	}
+
+	WriteFrameData(tempframe);
+	WriteReplayData(tempframe);
+
+	frame_count += 1;
+}
+
+void Replay::RecordFrame()
+{
+	RecordFrame(0);
+}
+
+void Replay::Begin()
+{
+	frame_count = 0;
+}
+
+void Replay::Play(int game_frame)
+{
+	auto& frame = *((FrameData*)frames + game_frame);
+
+	for (int p_id = 0; p_id < frame.p_count; p_id += 1) {
+		auto& p = *((FramePlayer*)frame.players + p_id);
+
+		for (int j_id = 0; j_id < p.j_count; j_id += 1) {
+			auto& J = *((uint8_t*)p.J + j_id);
+			uint8_t state_alt = J >> 2;
+			uint8_t state = J - (state_alt << 2);
+
+			Game::TriggerPlayerJointState(p_id, j_id, (JointState)state);
+			Game::TriggerPlayerJointStateAlt(p_id, j_id, (JointState)state_alt);
+		}
+
+		for (int b_id = 0; b_id < p.b_count; b_id += 1) {
+			//Game::SetBodyState(p_id, b_id, p.B[b_id]);
+			//Game::SetBodyLinearVel(p_id, b_id, p.L[p_id*b_id], p.L[p_id * b_id + 1], p.L[p_id * b_id + 2]);
+			//Game::SetBodyAngularVel(p_id, b_id, p.A[p_id*b_id], p.A[p_id * (b_id + 1)], p.A[p_id * (b_id + 2)]);
+			//dBodySetLinearVel(b.dBody, b.frame_linear_vel.x, b.frame_linear_vel.y, b.frame_linear_vel.z);
+			//dBodySetAngularVel(b.dBody, b.frame_angular_vel.x, b.frame_angular_vel.y, b.frame_angular_vel.x);
+		}
+	}
+}
+
+void Replay::Save(std::string replay_name)
+{
+	std::ofstream savedreplayfile(replay_name.append(".rpl"));
+	/*for (auto const& [game_frame, frame] : RecordedFrames) {
+		savedreplayfile << "FRAME " << game_frame << "\n";
+		for (auto const& [player_name, p] : frame.player) {
+			savedreplayfile << "PLAYER " << player_name << "\n";
+			for (auto const& [joint_name, j] : p.joint) {
+				savedreplayfile << j.name << " " << j.state << " " << j.state_alt << "\n";
+			}
+		}
+	}*/
+	savedreplayfile.close();
+}
+
+void Replay::Save()
+{
+	Save("untitiledreplay");
+}
+
+uint32_t Replay::GetFrameCount()
+{
+	return frame_count;
 }

@@ -1,6 +1,8 @@
 #include "api.h"
 #include "game.h"
 
+typedef auto (*c)(lua_State) -> int;
+
 static int Game_NewGame(lua_State* L)
 {
 	Game::NewGame();
@@ -344,6 +346,8 @@ int luaopen_api_game(lua_State* L)
 	lua_setfield(L, -2, "MODE_FREEPLAY");
 	lua_pushinteger(L, Gamemode::SELF_PLAY);
 	lua_setfield(L, -2, "MODE_SELFPLAY");
+	lua_pushinteger(L, Gamemode::REPLAY_EDIT);
+	lua_setfield(L, -2, "MODE_REPLAY_EDIT");
 	lua_pushinteger(L, Gamemode::REPLAY_PLAY);
 	lua_setfield(L, -2, "MODE_REPLAY");
 	lua_pop(L, 1);

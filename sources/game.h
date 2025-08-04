@@ -1,6 +1,7 @@
 #pragma once
 #include "common.h"
 #include "player.h"
+#include "mem.h"
 
 enum Gamemode
 {
@@ -216,3 +217,61 @@ namespace Window
 	float GetWidth ();
 	float GetHeight();
 };
+
+struct FrameObject
+{
+	uintptr_t Q = 0;
+	uintptr_t P = 0;
+	uintptr_t L = 0;
+	uintptr_t A = 0;
+};
+
+struct FramePlayer
+{
+	size_t j_count = 0;
+	size_t b_count = 0;
+
+	uintptr_t J = 0;
+	uintptr_t B = 0;
+	uintptr_t Q = 0;
+	uintptr_t P = 0;
+	uintptr_t L = 0;
+	uintptr_t A = 0;
+};
+
+struct FrameData
+{
+	size_t o_count = 0;
+	size_t p_count = 0;
+
+	uintptr_t objects = 0;
+	uintptr_t players = 0;
+};
+
+namespace Replay 
+{
+	static Arena* storage = nullptr;
+	static size_t frame_count = 0;
+	static uintptr_t frames;
+
+
+	void Init();
+	void Close();
+	
+	void Begin();
+
+	void WriteMetaData();
+	void WriteFrameData(std::string data);
+	void WriteReplayData(std::string data);
+	
+	void RecordFrame(int game_frame);
+	void RecordFrame();
+	void Play(int game_frame);
+
+	void Save(std::string replay_name);
+	void Save();
+
+	void Destroy();
+
+	uint32_t GetFrameCount();
+}
