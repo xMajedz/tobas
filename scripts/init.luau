@@ -9,6 +9,7 @@ local showScripts = false
 local showSettings = false
 
 local showConsole = false
+local showConsoleMessages = false
 
 local screenWidth, screenHeight = API.GetWindowSize()
 
@@ -36,8 +37,10 @@ function commands.clear()
 end
 
 function commands.whisper(arg) 
+if Net then
 	local arg = arg:split(" ")
 	Net.ClientWhisper(tonumber(arg[1]), arg[2])
+end
 end
 
 commands["ls"] = commands["loadscript"]
@@ -75,14 +78,16 @@ function API.Update.init(dt)
 		end
 
 		showConsole = showConsole == false
+		showConsoleMessages = showConsole and showConsoleMessages == false
 	end
 
 	if not showConsole and RAYLIB.IsKeyPressed(RAYLIB["KEY_SLASH"]) then
 		showConsole = showConsole == false
+		showConsoleMessages = showConsoleMessages == false
 	end
 	
-	if Net then
-	else
+if Net then
+else
 
 	if RAYLIB.IsKeyPressed(RAYLIB["KEY_R"]) then
 		Game.EnterMode(Game["MODE_REPLAY"])
@@ -101,20 +106,16 @@ function API.Update.init(dt)
 	end
 
 	if Game.IsFreeze() and not Game.IsMode(Game["MODE_REPLAY"]) and RAYLIB.IsKeyPressed(RAYLIB["KEY_SPACE"]) then
-		if RAYLIB.IsKeyDown(RAYLIB["KEY_LEFT_SHIFT"]) then
-			Game.Step(1)
-		else
-			Game.Step(rules.turnframes)
-		end
+		--Game.Step((RAYLIB.IsKeyDown(RAYLIB["KEY_LEFT_SHIFT"]) and 1) or Game.Step(rules.turnframes))
+		Game.Step((RAYLIB.IsKeyDown(RAYLIB["KEY_LEFT_SHIFT"]) and 1) or Game.Step(rules.turnframes))
 	end
 
 	if Game.IsMode(Game["MODE_REPLAY"]) and RAYLIB.IsKeyPressed(RAYLIB["KEY_SPACE"]) then
 		Game.EnterMode(Game["MODE_FREEPLAY"])
 	end
 
-	if Game.IsFreeze() and Game.IsMode(Game["MODE_REPLAY"]) and RAYLIB.IsKeyPressed(RAYLIB["KEY_E"]) then
-		--kinda useless because all you need is switch to FREEPLAY at a given frame
-		--Game.EnterMode(Game["MODE_REPLAY_EDIT"])
+	if Game.IsMode(Game["MODE_REPLAY"]) and RAYLIB.IsKeyPressed(RAYLIB["KEY_E"]) then
+		Game.EnterMode(Game["MODE_REPLAY_EDIT"])
 	end
 
 	if Game.IsFreeze() and Game.IsMode(Game["MODE_FREEPLAY"]) and Game.IsSelectedJointValid() then
@@ -149,7 +150,8 @@ function API.Update.init(dt)
 
 	if Game.IsFreeze() and Game.IsMode(Game["MODE_FREEPLAY"]) and Game.IsSelectedPlayerValid() then
 		if RAYLIB.IsKeyDown(RAYLIB["KEY_LEFT_CONTROL"]) and RAYLIB.IsKeyPressed(RAYLIB["KEY_Z"]) then
-			--Replay.PlayFrame(Game.GetGameFrame())
+			Game.Refreeze()
+			Game.UndoSelectedPlayerMove()
 		end
 
 		if RAYLIB.IsKeyPressed(RAYLIB["KEY_C"]) then
@@ -157,8 +159,13 @@ function API.Update.init(dt)
 			Game.ToggleSelectedPlayerPassiveStatesAlt()
 			Game.ToggleSelectedPlayerPassiveStates()
 		end
+
+		if RAYLIB.IsKeyPressed(RAYLIB["KEY_V"]) then
+			Game.Refreeze()
+			Game.ToggleSelectedPlayerBodyStates()
+		end
 	end
-	end
+end
 end
 
 function API.Draw.init()
@@ -217,7 +224,7 @@ function API.Draw.init()
 				end
 				if mod:match("^[%w%-_]+%.tbm") then
 					API.Reset();
-					ms.loadmodTBM(mod:match("^[%w%-_]+"))
+					ms.loadmodTBM2(mod:match("^[%w%-_]+"))
 					Game.NewGame()
 				end
 			end
@@ -250,8 +257,10 @@ function API.Draw.init()
 
 	if showConsole then
 		RAYGUI.GuiTextBox(10, screenHeight-30, screenWidth-20, 20, true)
-		for i = 1, #messages do
-			--RAYGUI.GuiLabel(10, screenHeight-(30+20*(#messages-i+1)), screenWidth-20, 20, messages[i])
+	end
+	
+	if showConsoleMessages then
+		for i in messages do
 			RAYLIB.DrawText(messages[i], 10, screenHeight-(30+20*(#messages-i+1)), 20, RAYLIB["BLACK"])
 		end
 	end
@@ -263,7 +272,7 @@ function API.Console.init(msg)
 		cmd = commands[cmd:match("^%w+")]
 		cmd = cmd and cmd(msg:gsub("^/%w+%s*", ""))
 	else
-		print(msg)
 		table.insert(messages, msg)
+		showConsoleMessages = true
 	end
 end

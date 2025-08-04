@@ -25,6 +25,30 @@ static int Game_ToggleGhosts(lua_State* L)
 	return 1;
 }
 
+static int Game_UndoSelectedPlayerMove(lua_State* L)
+{
+	Game::UndoSelectedPlayerMove();
+	return 1;
+}
+
+static int Game_ToggleBodyState(lua_State* L)
+{
+	Game::ToggleBodyState(lua_tointeger(L, -1));
+	return 1;
+}
+
+static int Game_ToggleSelectedBodyState(lua_State* L)
+{
+	Game::ToggleSelectedBodyState();
+	return 1;
+}
+
+static int Game_ToggleSelectedPlayerBodyStates(lua_State* L)
+{
+	Game::ToggleSelectedPlayerBodyStates();
+	return 1;
+}
+
 static int Game_TogglePause(lua_State* L)
 {
 	Game::TogglePause();
@@ -279,6 +303,11 @@ static const luaL_Reg api_game[]
 	{"CycleSelectedJointStateAlt", Game_CycleSelectedJointStateAlt},
 	{"CycleSelectedJointState", Game_CycleSelectedJointState},
 
+	{"ToggleBodyState", Game_ToggleBodyState},
+	{"ToggleSelectedBodyState", Game_ToggleSelectedBodyState},
+
+	{"ToggleSelectedPlayerBodyStates", Game_ToggleSelectedPlayerBodyStates},
+
 	{"Refreeze", Game_Refreeze},
 
 	{"IsPause", Game_GetPause},
@@ -301,6 +330,8 @@ static const luaL_Reg api_game[]
 
 	{"GetSelectedPlayerID", Game_GetSelectedPlayerID},
 	{"GetSelectedJointID", Game_GetSelectedJointID},
+
+	{"UndoSelectedPlayerMove", Game_UndoSelectedPlayerMove},
 
 	{NULL, NULL},
 };

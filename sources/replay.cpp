@@ -28,6 +28,7 @@ void Replay::Destroy()
 			player.~FramePlayer();
 		}
 	}
+
 	storage->clear();
 }
 

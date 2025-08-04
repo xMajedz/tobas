@@ -64,9 +64,13 @@ void Body::Create(dWorldID world, dSpaceID space)
 
 	SetCatBits();
 	SetColBits();
-
-	m_data.active = false;	
-	dGeomSetData(dGeom, &m_data);
+	
+	if (!m_interactive) {
+		dGeomSetData(dGeom, nullptr);
+	} else {
+		m_data.active = false;
+		dGeomSetData(dGeom, &m_data);
+	}
 }
 
 void Body::CreateBody()
@@ -359,7 +363,7 @@ void Body::Draw(Color color)
 	rlPopMatrix();
 }
 
-void Body::DrawFreeze()
+void Body::DrawFreeze(Color color)
 {
 	Quaternion q = {
 		freeze_orientation.x,
@@ -380,20 +384,27 @@ void Body::DrawFreeze()
 	);
 
 	rlRotatef(RAD2DEG * angle, axis.x, axis.y, axis.z);
-	
-	if (select) {
-		DrawObject(m_select_color);
-	}
 
+	DrawObject(color);
+
+	rlPopMatrix();
+}
+
+void Body::DrawFreeze()
+{
 	if (active) {
-		DrawObject(m_active_color);
+		DrawFreeze(m_active_color);
 	}
 
 	if (!select && !active) {
-		DrawObject(m_color);
+		DrawFreeze(m_color);
 	}
+}
 
-	rlPopMatrix();
+
+void Body::DrawSelect()
+{
+	DrawFreeze(m_select_color);
 }
 
 void Body::DrawGhost()
@@ -416,6 +427,11 @@ void Body::Draw(bool freeze)
 void Body::ToggleGhost()
 {
 	ghost = ghost == false;
+}
+
+void Body::ToggleState()
+{
+	m_data.active = m_data.active == false;
 }
 
 std::string Body::GetName()
@@ -523,21 +539,33 @@ void Joint::Create(dWorldID world, dSpaceID space, Body b1, Body b2)
 			dJoint,
 			m_position.x,
 			m_position.y,
-			m_position.z);
+			m_position.z
+		);
+
 		dJointSetHingeAxis(
 			dJoint,
 			axis.x,
 			axis.y,
-			axis.z);
+			axis.z
+		);
 
 		dJointSetHingeParam(
 			dJoint,
 			dParamHiStop,
-			range[0]);
+			range[0]
+		);
+
 		dJointSetHingeParam(
 			dJoint,
 			dParamLoStop,
-			range[1]);
+			range[1]
+		);
+
+		dJointSetHingeParam(
+			dJoint,
+			dParamFudgeFactor,
+			0.50
+		);
 	} break;
 	case dSLIDER: {
 		dJoint = dJointCreateSlider(world, 0);
@@ -564,44 +592,52 @@ void Joint::Create(dWorldID world, dSpaceID space, Body b1, Body b2)
 			dJoint,
 			m_position.x,
 			m_position.y,
-			m_position.z);
-
-		dJointSetUniversalAnchor(
-			dJoint,
-			m_position.x,
-			m_position.y,
-			m_position.z);
+			m_position.z
+		);
 
 		dJointSetUniversalAxis1(
 			dJoint,
 			axis.x,
 			axis.y,
-			axis.z);
+			axis.z
+		);
+
 		dJointSetUniversalAxis2(
 			dJoint,
 			axis_alt.x,
 			axis_alt.y,
-			axis_alt.z);
+			axis_alt.z
+		);
 
 		dJointSetUniversalParam(
 			dJoint,
 			dParamHiStop,
-			range[0]);
+			range[0]
+		);
 
 		dJointSetUniversalParam(
 			dJoint,
 			dParamHiStop2,
-			range_alt[0]);
+			range_alt[0]
+		);
 
 		dJointSetUniversalParam(
 			dJoint,
 			dParamLoStop,
-			range[1]);
+			range[1]
+		);
 
 		dJointSetUniversalParam(
 			dJoint,
 			dParamLoStop2,
-			range_alt[1]);
+			range_alt[1]
+		);
+
+		dJointSetUniversalParam(
+			dJoint,
+			dParamFudgeFactor,
+			0.50
+		);
 	} break;
 	case HINGE2: {
 		dJoint = dJointCreateHinge2(world, 0);
@@ -610,13 +646,8 @@ void Joint::Create(dWorldID world, dSpaceID space, Body b1, Body b2)
 			dJoint,
 			m_position.x,
 			m_position.y,
-			m_position.z);
-
-		dJointSetHinge2Anchor(
-			dJoint,
-			m_position.x,
-			m_position.y,
-			m_position.z);
+			m_position.z
+		);
 	
 		dJointSetHinge2Axes(dJoint,
 			(dVector3){
@@ -633,22 +664,32 @@ void Joint::Create(dWorldID world, dSpaceID space, Body b1, Body b2)
 		dJointSetHinge2Param(
 			dJoint,
 			dParamHiStop,
-			range[0]);
+			range[0]
+		);
 
 		dJointSetHinge2Param(
 			dJoint,
 			dParamHiStop2,
-			range_alt[0]);
+			range_alt[0]
+		);
 
 		dJointSetHinge2Param(
 			dJoint,
 			dParamLoStop,
-			range[1]);
+			range[1]
+		);
 
 		dJointSetHinge2Param(
 			dJoint,
 			dParamLoStop2,
-			range_alt[1]);
+			range_alt[1]
+		);
+
+		dJointSetHinge2Param(
+			dJoint,
+			dParamFudgeFactor,
+			0.50
+		);
 	} break;
 	default:
 		dJoint = dJointCreateFixed(world, 0);

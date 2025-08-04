@@ -24,7 +24,7 @@ uintptr_t Arena::allocate(size_t sz)
 
 void Arena::clear()
 {
-	m_offset -= m_offset;
+	m_offset = 0;
 }
 
 size_t Arena::offset()

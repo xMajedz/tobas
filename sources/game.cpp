@@ -17,8 +17,8 @@ void Game::Init()
 {
 	dInitODE();
 	world = dWorldCreate();
-	dWorldSetERP(world, 0.25);
-	dWorldSetCFM(world, 10E-5);
+	dWorldSetERP(world, 0.45);
+	dWorldSetCFM(world, 10E-4);
 
 	step = 1.0E-2;
 
@@ -116,8 +116,11 @@ void Game::NewGame()
 
 
 	state.running = true;
-
+	
 	Replay::WriteMetaData();
+
+	Replay::Destroy();
+	
 	Replay::RecordFrame();
 
 	API::NewGameCallback();
@@ -142,15 +145,19 @@ void Game::Quit()
 
 void Game::NearCallback(dGeomID o1, dGeomID o2)
 {
+	if (o1 == nullptr || o2 == nullptr) return;
+
+	dBodyID b1 = dGeomGetBody(o1);
+	dBodyID b2 = dGeomGetBody(o2);
+
+	if (dAreConnected(b1, b2)) return;
+	
 	uint32_t cat1 = dGeomGetCategoryBits(o1);
 	uint32_t col1 = dGeomGetCollideBits(o1);
 	uint32_t cat2 = dGeomGetCategoryBits(o2);
 	uint32_t col2 = dGeomGetCollideBits(o2);
 
 	if (!(cat1 & col2 || cat2 & col1)) return;
-
-	dBodyID b1 = dGeomGetBody(o1);
-	dBodyID b2 = dGeomGetBody(o2);
 
 	dContact contacts[rules.max_contacts];
 
@@ -173,35 +180,27 @@ void Game::NearCallback(dGeomID o1, dGeomID o2)
 
 	numcollisions += 1;
 
-	BodyUserData* data1 = nullptr;
-	BodyUserData* data2 = nullptr; 
-
-	if (o1 != nullptr) {
-		data1 = (BodyUserData*)dGeomGetData(o1);
-	}
-
-	if (o2 != nullptr) {
-		data2 = (BodyUserData*)dGeomGetData(o2);
-	}
-
-	if (!state.freeze && data1 != nullptr && data1->contact_joint == nullptr && data1->active) {
+	BodyUserData* data1 = (BodyUserData*)dGeomGetData(o1);
+	BodyUserData* data2 = (BodyUserData*)dGeomGetData(o2); 
+	
+	if (data1 != nullptr && data1->contact_joint == nullptr && data1->active) {
 		data1->contact_joint = dJointCreateFixed(world, 0);
 		dJointAttach(data1->contact_joint, b1, b2);
 		dJointSetFixed(data1->contact_joint);
 	}
 
-	if (!state.freeze && data1 != nullptr && data1->contact_joint != nullptr && !data1->active) {
+	if (data1 != nullptr && data1->contact_joint != nullptr && !data1->active) {
 		dJointDestroy(data1->contact_joint);
 		data1->contact_joint = nullptr;
 	}
 
-	if (!state.freeze && data2 != nullptr && data2->contact_joint == nullptr && data2->active) {
+	if (data2 != nullptr && data2->contact_joint == nullptr && data2->active) {
 		data2->contact_joint = dJointCreateFixed(world, 0);
 		dJointAttach(data2->contact_joint, b1, b2);
 		dJointSetFixed(data2->contact_joint);
 	}
 
-	if (!state.freeze && data2 != nullptr && data2->contact_joint != nullptr && !data2->active) {
+	if (data2 != nullptr && data2->contact_joint != nullptr && !data2->active) {
 		dJointDestroy(data2->contact_joint);
 		data2->contact_joint = nullptr;
 	}
@@ -216,25 +215,14 @@ static void nearCallback(void*, dGeomID o1, dGeomID o2)
 void Game::Refreeze()
 {
 	state.freeze_count = 0;
-
-	for (auto& o : objects) {
-		o.Refreeze();
-	}
-
-	for (auto& p : players) {
-		p.Refreeze();
-	}
+	for (auto& o : objects) o.Refreeze();
+	for (auto& p : players) p.Refreeze();
 }
 
 void Game::Restart()
 {
-	for (auto& o : objects) {
-		o.Reset();
-	}
-	
-	for (auto& p : players) {
-		p.Reset();
-	}
+	for (auto& o : objects) o.Reset();
+	for (auto& p : players) p.Reset();
 }
 
 void Game::Reset()
@@ -255,35 +243,24 @@ void Game::EnterEvent(EventType event)
 	switch(event)
 	{
 	case STEP: {
-		state.freeze = false;
-
-		Refreeze();
+		for (auto& o : objects) o.Step();
+		for (auto& p : players) p.Step();
 	} break;
 	case FREEZE: {
-		state.freeze = true;
-		state.freeze_time = GetTime();
-		state.step_count = 0;
-
-		for (auto& o : objects) {
-			o.Freeze();
-		}
-	
-		for (auto& p : players) {
-			p.Freeze();
-		}
-	
-		for (int i = 0; i < rules.max_contacts; i += 1) {
-			m_freeze_contacts[i] = m_frame_contacts[i];
-		}
 	} break;
 	}
 }
 
 void Game::Freeze()
 {
-	EnterEvent(FREEZE);	
-}
+	state.freeze = true;
+	state.freeze_time = GetTime();
+	state.step_count = 0;
 
+	for (auto& o : objects) o.Freeze();
+	for (auto& p : players) p.Freeze();
+	for (int i = 0; i < rules.max_contacts; i += 1) m_freeze_contacts[i] = m_frame_contacts[i];
+}
 
 void Game::Step(int frame_count)
 {
@@ -292,9 +269,7 @@ void Game::Step(int frame_count)
 	case SELF_PLAY: {
 		bool ready = true;
 
-		if (state.selected_player != -1) {
-			players[state.selected_player].Ready();
-		}
+		if (state.selected_player != -1) players[state.selected_player].Ready();
 
 		for (auto& p : players) {
 			if (!p.IsReady()) {
@@ -308,6 +283,8 @@ void Game::Step(int frame_count)
 	};
 	case FREE_PLAY: {
 		state.step_frames = frame_count;
+		state.freeze = false;
+		Refreeze();
 		EnterEvent(STEP);
 	} break;
 	}
@@ -326,9 +303,7 @@ void Game::UpdateState(dReal dt)
 		case SELF_PLAY: {};
 		case FREE_PLAY: {
 			state.step_count += 1;
-			if (state.step_count >= state.step_frames) {
-				Freeze();
-			}
+			if (state.step_count >= state.step_frames) Freeze();
 
 			Replay::RecordFrame(state.game_frame);
 		} break;
@@ -347,15 +322,11 @@ void Game::UpdateState(dReal dt)
 		case SELF_PLAY: {};
 		case FREE_PLAY: {
 			state.freeze_count += 1;
-			if (state.freeze_count >= state.freeze_frames) {
-				Refreeze();
-			}
+			if (state.freeze_count >= state.freeze_frames) Refreeze();
 
 			if (0 < rules.reaction_time) {
 				state.reaction_count = GetTime() - state.freeze_time;
-				if (state.reaction_count >= rules.reaction_time) {
-					Step(rules.turnframes);
-				}
+				if (state.reaction_count >= rules.reaction_time) Step(rules.turnframes);
 			}
 		} break;
 		}
@@ -364,26 +335,18 @@ void Game::UpdateState(dReal dt)
 
 void Game::Update(dReal dt)
 {
-	if (!state.running) {
-		NewGame();
-	}
-
-	if (!state.pause) {
-		UpdateState(dt);
-
+	if (!state.running) NewGame();
+	if (!state.pause)
+	{
 		numcollisions = 0;
 
 		dSpaceCollide(space, 0, nearCallback);
 		dWorldStep(world, step);
 		dJointGroupEmpty(contactgroup);
 
-		for (auto& o : objects) {
-			o.Step();
-		}
-	
-		for (auto& p : players) {
-			p.Step();
-		}
+		EnterEvent(STEP);
+
+		UpdateState(dt);
 	}
 
 	API::UpdateCallback(dt);
@@ -426,6 +389,10 @@ void Game::Draw()
 
 	for (auto& p : players) {
 		p.Draw(state.freeze);
+	}
+
+	if (state.selected_player != -1 && state.selected_joint != -1) {
+		players[state.selected_player].joint[state.selected_joint].DrawSelect();
 	}
 
 	Game::DrawFloor();
@@ -569,12 +536,7 @@ void Game::TogglePause()
 
 void Game::ToggleGhosts()
 {
-	for (auto& p : players) {
-		if (p.GetID() != state.selected_player && 0 > state.selected_player) {
-			p.ToggleGhost();
-		}
-	}
-
+	for (auto& p : players) if (p.GetID() != state.selected_player && 0 > state.selected_player) p.ToggleGhost();
 	Refreeze();
 }
 
@@ -634,6 +596,30 @@ void Game::TriggerPlayerJointStateAlt(PlayerID player_id, JointID joint_id, Join
 	case BACKWARD: {
 		players[player_id].joint[joint_id].TriggerActiveStateAlt(-1.00);
 	} break;
+	}
+}
+
+void Game::UndoSelectedPlayerMove()
+{
+	Replay::Play(state.game_frame);
+}
+
+void Game::ToggleBodyState(BodyID body_id)
+{
+	players[state.selected_player].body[body_id].ToggleState();
+}
+
+void Game::ToggleSelectedBodyState()
+{
+	players[state.selected_player].body[state.selected_body].ToggleState();
+}
+
+void Game::ToggleSelectedPlayerBodyStates()
+{
+	for (auto& b : players[state.selected_player].body) {
+		if (b.m_interactive) {
+			b.ToggleState();
+		}
 	}
 }
 
@@ -726,101 +712,57 @@ void Window::Init()
 static Ray MouseRay = { 0 };
 static RayCollision MouseCollision = { 0 };
 
-static void gSelector(Camera3D camera)
-{
-}
+static int selected_object = -1;
+static int selected_player = -1;
+static int selected_joint = -1;
+static int selected_body = -1;
 
-static void SelectPlayer(Camera3D camera)
+static void gSelector(Camera3D camera)
 {
 	using namespace Game;
 	RayCollision collision = { 0 };
 	MouseRay = GetMouseRay(GetMousePosition(), camera);
-
-	bool hit = false;
 	
 	for (auto& o : objects) {
 		collision = o.collide_mouse_ray(MouseRay, collision);
 		if (collision.hit) {
-			SetSelectedPlayer();
+			selected_object = o.GetID();
 			break;
 		}
 	}
 
-	for (auto& p : players) {
-		for (auto& b : p.body) {
-			collision = b.collide_mouse_ray(MouseRay, collision);
-			if (collision.hit) {
-				SetSelectedPlayer(p.GetID());
-				hit = true;
-				break;
-			}
-		}
+	bool hit = false;
 
+	for (auto& p : players) {
 		for (auto& j : p.joint) {
 			collision = j.collide_mouse_ray(MouseRay, collision);
 			if (collision.hit) {
-				SetSelectedPlayer(p.GetID());
+				selected_player = p.GetID();
+				selected_joint = j.GetID();
 				hit = true;
 				break;
 			}
 		}
 
 		if (hit) break;
-	}
 
-	if (!hit) SetSelectedPlayer();
-}
+		selected_player = -1;
+		selected_joint = -1;
 
-static void SelectBody(Camera3D camera)
-{
-	using namespace Game;
-	RayCollision collision = { 0 };
-	MouseRay = GetMouseRay(GetMousePosition(), camera);
-
-	for (auto& b : players[state.selected_player].body) {
-		collision = b.collide_mouse_ray(MouseRay, collision);
-		if (collision.hit) {
-			if (b.m_interactive) {
-				b.active = b.active == false;
-
-				BodyUserData* data = (BodyUserData*)dGeomGetData(b.dGeom);
-				data->active = b.active;
+		for (auto& b : p.body) {
+			collision = b.collide_mouse_ray(MouseRay, collision);
+			if (collision.hit) {
+				selected_player = p.GetID();
+				selected_body = b.GetID();
+				hit = true;
 				break;
 			}
 		}
-	}
-}
 
-static void SelectJoint(Camera3D camera)
-{
-	using namespace Game;
-	RayCollision collision = { 0 };
-	MouseRay = GetMouseRay(GetMousePosition(), camera);
+		if (hit) break;
 
-	bool hit = false;
-
-	for (auto& j : players[state.selected_player].joint) {
-		collision = j.collide_mouse_ray(MouseRay, collision);
-
-		if (!collision.hit) {
-			MouseCollision = collision;
-			j.select = false;
-		} else if (!MouseCollision.hit && collision.hit) {
-			MouseCollision = collision;
-			SetSelectedJoint(j.GetID());
-			hit = true;
-		} else if (MouseCollision.hit && collision.hit && collision.distance < MouseCollision.distance) {
-			SetSelectedJoint(j.GetID());
-			hit = true;
-		} else if (MouseCollision.hit && collision.hit && collision.distance >= MouseCollision.distance) {
-			j.select = false;
-		}
-	}
-
-	if (hit) {
-		players[state.selected_player].joint[state.selected_joint].select = true;
-	} else  {
-		SetSelectedJoint();
+		selected_player = -1;
+		selected_body = -1;
 	}
 }
 
@@ -830,16 +772,14 @@ void Window::Update()
 
 	const auto& camera = Gamecam::Get();
 
-	if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && Game::GetSelectedPlayerID() != -1) {
-		SelectBody(camera);
+	gSelector(camera);
+
+	if (Game::GetSelectedPlayerID() != -1) {
+		Game::SetSelectedJoint(selected_joint);
 	}
 
 	if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-		SelectPlayer(camera);
-	}
-
-	if (Game::GetSelectedPlayerID() != -1) {
-		SelectJoint(camera);
+		Game::SetSelectedPlayer(selected_player);
 	}
 
 	if (0 > Game::GetSelectedPlayerID()) {
@@ -937,7 +877,7 @@ void Game::EnterMode(Gamemode mode)
 	
 		Freeze();
 	
-		//Replay::RecordFrame();
+		Replay::RecordFrame();
 	} break;
 	case SELF_PLAY: {
 		state.freeze = true;
@@ -946,7 +886,7 @@ void Game::EnterMode(Gamemode mode)
 	
 		Freeze();
 	
-		//Replay::RecordFrame();
+		Replay::RecordFrame();
 	} break;
 	case REPLAY_PLAY: {
 		state.freeze = false;

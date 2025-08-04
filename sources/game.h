@@ -52,8 +52,11 @@ struct Gamestate
 	int step_frames = 0;
 	int step_count = 0;
 
+	BodyID  selected_object  = -1;
+
 	PlayerID selected_player = -1;
 	JointID  selected_joint  = -1;
+	BodyID  selected_body  = -1;
 
 	bool running = false;
 	bool freeze = false;
@@ -161,8 +164,14 @@ namespace Game
 	void ToggleSelectedJointPassiveStateAlt();
 	void ToggleSelectedJointPassiveState();
 
+	void ToggleBodyState(BodyID body_id);
+	void ToggleSelectedBodyState();
+	void ToggleSelectedPlayerBodyStates();
+
 	void CycleSelectedJointStateAlt();
 	void CycleSelectedJointState();
+
+	void UndoSelectedPlayerMove();
 
 	void UpdateState(dReal dt);
 	void Update(dReal dt);

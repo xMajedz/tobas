@@ -42,13 +42,13 @@ end
 TBM["player"][1]["joint"]["l_shoulder"]["type"] = API["JOINT_UNIVERSAL"]
 TBM["player"][1]["joint"]["l_shoulder"]["strength_alt"] = TBM["player"][1]["joint"]["l_shoulder"]["strength"]
 TBM["player"][1]["joint"]["l_shoulder"]["velocity_alt"] = TBM["player"][1]["joint"]["l_shoulder"]["velocity"]
-TBM["player"][1]["joint"]["l_shoulder"]["range_alt"] = TBM["player"][1]["joint"]["l_shoulder"]["range"]
+TBM["player"][1]["joint"]["l_shoulder"]["range_alt"] = {1.00, 0.00}
 TBM["player"][1]["joint"]["l_shoulder"]["axis_alt"] = {1.00, 0.00, 0.00}
 
 TBM["player"][1]["joint"]["r_shoulder"]["type"] = API["JOINT_UNIVERSAL"]
 TBM["player"][1]["joint"]["r_shoulder"]["strength_alt"] = TBM["player"][1]["joint"]["r_shoulder"]["strength"]
 TBM["player"][1]["joint"]["r_shoulder"]["velocity_alt"] = TBM["player"][1]["joint"]["r_shoulder"]["velocity"]
-TBM["player"][1]["joint"]["r_shoulder"]["range_alt"] = TBM["player"][1]["joint"]["r_shoulder"]["range"]
+TBM["player"][1]["joint"]["r_shoulder"]["range_alt"] = {1.00, 0.50}
 TBM["player"][1]["joint"]["r_shoulder"]["axis_alt"] = {1.00, 0.00, 0.00}
 
 TBM["player"][1]["joint"]["l_hip"]["type"] = API["JOINT_UNIVERSAL"]

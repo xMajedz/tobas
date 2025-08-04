@@ -111,10 +111,14 @@ struct Body
 
 	void Draw(raylib::Color color);
 	void Draw(bool freeze);
+
+	void DrawFreeze(raylib::Color color);
 	void DrawFreeze();
+	void DrawSelect();
 	void DrawGhost();
 
 	void ToggleGhost();
+	void ToggleState();
 
 	BodyID GetID();
 	std::string GetName();

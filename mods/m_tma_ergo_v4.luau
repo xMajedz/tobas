@@ -30,7 +30,8 @@ ms.rotateY_joint_axis(TBM["player"][1], "r_ankle", 180)
 ms.rotateY_joint_axis(TBM["player"][1], "r_pecs", 180)
 
 ms.rotateY_joint_axis(TBM["player"][1], "r_elbow", 180)
-ms.rotateZ_joint_axis(TBM["player"][1], "r_elbow", 180)
+
+ms.rotateY_joint_axis(TBM["player"][1], "r_wrist", 180)
 
 ms.rotateZ_joint_axis(TBM["player"][1], "r_glute", 180)
 
