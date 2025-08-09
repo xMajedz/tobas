@@ -82,8 +82,9 @@ int Luau::dofile(lua_State* L, std::string_view filepath)
 
 int Luau::require(lua_State* L, std::string_view filename)
 {
-	const char* _requirepaths = "scripts/?.luau;scripts/?/?.luau";
-	const char* requirepaths[] = {"scripts/%s", "scripts/%s/%s"};
+	const char* _requirepaths = "./scripts/?.luau;./scripts/?/?.luau";
+	const char* requirepaths[] = {"./scripts/%s", "./scripts/%s/%s"};
+
 	int status = 1;
 	for (const auto& path : requirepaths) { 
 		status = dofile(

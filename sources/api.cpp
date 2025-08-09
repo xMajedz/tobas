@@ -148,7 +148,7 @@ int API::loadmod(std::string_view modpath)
 {
 	return Luau::dofile(
 		L,
-		TextFormat("mods/%s", modpath.data()),
+		TextFormat("./mods/%s", modpath.data()),
 		TextFormat("%s:%s", "loadmod", modpath.data())
 	);
 }
@@ -157,7 +157,7 @@ int API::loadscript(std::string_view scriptpath)
 {
 	return Luau::dofile(
 		L,
-		TextFormat("scripts/%s", scriptpath.data()),
+		TextFormat("./scripts/%s", scriptpath.data()),
 		TextFormat("%s:%s", "loadscript", scriptpath.data())
 	);
 }

@@ -43,9 +43,7 @@ workspace "tobas"
 
 		"sources/game.h", "sources/game.cpp",
 		"sources/camera.h", "sources/camera.cpp",
-		"sources/replay.h", "sources/replay.cpp",
 		"sources/player.h", "sources/player.cpp",
-		"sources/joint.h", "sources/joint.cpp",
 		"sources/body.h", "sources/body.cpp",
 
 		"sources/mem.h", "sources/mem.cpp",

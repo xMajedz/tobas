@@ -664,8 +664,8 @@ void rl_log(int level, const char* msg, va_list)
 
 void Window::Init()
 {
-	SetTraceLogLevel(LOG_ERROR);
-	SetTraceLogCallback(rl_log);
+	//SetTraceLogLevel(LOG_ERROR);
+	//SetTraceLogCallback(rl_log);
 
 	InitWindow(width, height, "TOBAS");
 	SetTargetFPS(60);
