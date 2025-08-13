@@ -215,7 +215,7 @@ function API.Draw.init()
 		RAYGUI.GuiGroupBox(screenWidth-220, 20, 200, 400, "Mods")
 		local mods = RAYLIB.LoadDirectoryFiles("mods");
 		for i = 1, #mods do
-			local mod = mods[i]:gsub("mods/", "")
+			local mod = mods[i]:gsub("mods[/\\]", "")
 			if RAYGUI.GuiButton(screenWidth-220, 20 * (i + 1), 200, 20, mod) then
 				if mod:match("^[%w%-_]+%.luau") then
 					API.Reset();

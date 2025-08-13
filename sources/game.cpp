@@ -97,8 +97,6 @@ void Game::NewGame()
 	Replay::WriteMetaData();
 
 	Replay::Destroy();
-	
-	Replay::RecordFrame();
 
 	API::NewGameCallback();
 }
@@ -354,19 +352,13 @@ void Game::DrawFloor()
 
 void Game::Draw()
 {
-	for (auto& o : objects) {
-		o.Draw(state.freeze);
-	}
+	for (auto& o : objects) o.Draw(state.freeze);
+	for (auto& p : players) p.Draw(state.freeze);
 
-	for (auto& p : players) {
-		p.Draw(state.freeze);
-	}
-
-	if (state.selected_player != -1 && state.selected_joint != -1) {
+	if (state.freeze && state.selected_player != -1 && state.selected_joint != -1)
 		players[state.selected_player].joint[state.selected_joint].DrawSelect();
-	}
 
-	Game::DrawFloor();
+	DrawFloor();
 	DrawContacts(state.freeze);
 }
 
@@ -664,8 +656,8 @@ void rl_log(int level, const char* msg, va_list)
 
 void Window::Init()
 {
-	//SetTraceLogLevel(LOG_ERROR);
-	//SetTraceLogCallback(rl_log);
+	SetTraceLogLevel(LOG_ERROR);
+	SetTraceLogCallback(rl_log);
 
 	InitWindow(width, height, "TOBAS");
 	SetTargetFPS(60);
@@ -695,7 +687,7 @@ static void gSelector(Camera3D camera)
 	MouseRay = GetMouseRay(GetMousePosition(), camera);
 	
 	for (auto& o : objects) {
-		collision = o.collide_mouse_ray(MouseRay, collision);
+		collision = o.CollideMouseRay(MouseRay, collision);
 		if (collision.hit) {
 			selected_object = o.GetID();
 			break;
@@ -706,7 +698,7 @@ static void gSelector(Camera3D camera)
 
 	for (auto& p : players) {
 		for (auto& j : p.joint) {
-			collision = j.collide_mouse_ray(MouseRay, collision);
+			collision = j.CollideMouseRay(MouseRay, collision);
 			if (collision.hit) {
 				selected_player = p.GetID();
 				selected_joint = j.GetID();
@@ -721,7 +713,7 @@ static void gSelector(Camera3D camera)
 		selected_joint = -1;
 
 		for (auto& b : p.body) {
-			collision = b.collide_mouse_ray(MouseRay, collision);
+			collision = b.CollideMouseRay(MouseRay, collision);
 			if (collision.hit) {
 				selected_player = p.GetID();
 				selected_body = b.GetID();
@@ -745,13 +737,8 @@ void Window::Update()
 
 	gSelector(camera);
 
-	if (Game::GetSelectedPlayerID() != -1) {
-		Game::SetSelectedJoint(selected_joint);
-	}
-
-	if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-		Game::SetSelectedPlayer(selected_player);
-	}
+	if (Game::GetSelectedPlayerID() != -1) Game::SetSelectedJoint(selected_joint);
+	if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) Game::SetSelectedPlayer(selected_player);
 
 	if (0 > Game::GetSelectedPlayerID()) {
 		Gamecam::UpdateSpectatorcam(Game::GetFreeze(), Game::GetPlayers());

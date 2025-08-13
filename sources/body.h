@@ -123,7 +123,7 @@ struct Body
 	BodyID GetID();
 	std::string GetName();
 
-	raylib::RayCollision collide_mouse_ray(raylib::Ray ray, raylib::RayCollision collision);
+	raylib::RayCollision CollideMouseRay(raylib::Ray ray, raylib::RayCollision collision);
 };
 
 typedef int JointID;
@@ -175,6 +175,9 @@ struct Joint : public Body
 
 	void Draw(raylib::Color color);
 	void Draw(bool freeze);
+
+	void DrawSelect();
+
 	void DrawAxis(bool freeze);
 	void DrawRange(bool freeze);
 

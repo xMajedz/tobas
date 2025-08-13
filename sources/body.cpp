@@ -250,8 +250,8 @@ void Body::Reset()
 		dBodySetLinearVel(dBody, 0.00, 0.00, 0.00);
 		dBodySetAngularVel(dBody, 0.00, 0.00, 0.00);
 
-		freeze_linear_vel = { 0 };
-		freeze_angular_vel = { 0 };
+		freeze_linear_vel = { 0.00, 0.00, 0.00 };
+		freeze_angular_vel = { 0.00, 0.00, 0.00 };
 	}
 
 	dGeomSetPosition(
@@ -392,13 +392,8 @@ void Body::DrawFreeze(Color color)
 
 void Body::DrawFreeze()
 {
-	if (active) {
-		DrawFreeze(m_active_color);
-	}
-
-	if (!select && !active) {
-		DrawFreeze(m_color);
-	}
+	if (active) DrawFreeze(m_active_color);
+	if (!select && !active) DrawFreeze(m_color);
 }
 
 
@@ -409,9 +404,7 @@ void Body::DrawSelect()
 
 void Body::DrawGhost()
 {
-	if (ghost) {
-		Draw(m_g_color);
-	}
+	if (ghost) Draw(m_g_color);
 }
 
 void Body::Draw(bool freeze)
@@ -439,7 +432,7 @@ std::string Body::GetName()
 	return m_name;
 }
 
-RayCollision Body::collide_mouse_ray(Ray ray, RayCollision collision)
+RayCollision Body::CollideMouseRay(Ray ray, RayCollision collision)
 {
 	switch(shape) {
 	case BOX: {
@@ -728,17 +721,20 @@ void Joint::Draw(Color color)
 void Joint::Draw(bool freeze)
 {
 	if (!m_composite) return;
-	if (freeze) {
-		DrawGhost();
-		DrawFreeze();
-	} else {
-		Draw(m_color);
-	}
 
-	if (select) {
-		DrawAxis(freeze);
-		DrawRange(freeze);
+	if (!freeze) {
+		Draw(m_color);
+	} else {
+		DrawFreeze();
+		DrawGhost();
 	}
+}
+
+void Joint::DrawSelect()
+{
+	DrawFreeze(m_select_color);
+	DrawAxis(true);
+	DrawRange(true);
 }
 
 void Joint::DrawAxis(bool freeze)
