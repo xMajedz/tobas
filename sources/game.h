@@ -199,8 +199,8 @@ namespace Window
 {
 	static bool initialized = false; 
 
-	static float  width = 800;
-	static float height = 450;
+	static float  width = 1600;
+	static float height = 900;
 
 	static raylib::RenderTexture background;
 	static raylib::RenderTexture foreground;

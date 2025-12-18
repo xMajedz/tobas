@@ -31,11 +31,16 @@ void Game::Init()
 
 void Game::NewGame()
 {
-	if (space != nullptr) dSpaceDestroy(space);
-	if (contactgroup != nullptr) dJointGroupDestroy(contactgroup);
-	if (objects.size() > 0) objects.clear();
-	if (joint_objects.size() > 0) joint_objects.clear();
-	if (players.size() > 0) players.clear();
+	if (space != nullptr)
+		dSpaceDestroy(space);
+	if (contactgroup != nullptr)
+		dJointGroupDestroy(contactgroup);
+	if (objects.size() > 0)
+		objects.clear();
+	if (joint_objects.size() > 0)
+		joint_objects.clear();
+	if (players.size() > 0)
+		players.clear();
 
 	rules = API::GetRules();
 	rules.max_contacts = 8;
@@ -74,11 +79,14 @@ void Game::NewGame()
 
   	dWorldSetGravity(world, rules.gravity.x, rules.gravity.y, rules.gravity.z);
 
-	for (auto& o : objects) o.Create(world, space);
-	for (auto& jo : joint_objects) jo.Create(world, space, objects[jo.connections[0]], objects[jo.connections[1]]);
+	for (auto& o : objects)
+		o.Create(world, space);
+	for (auto& jo : joint_objects)
+		jo.Create(world, space, objects[jo.connections[0]], objects[jo.connections[1]]);
 
 	int count = 1;
-	for (auto& p : players) {
+	for (auto& p : players)
+	{
 		p.b_count = p.body.size();
 		p.j_count = p.joint.size();
 		p.SetCatBits(2<<count, 2<<count);
@@ -88,9 +96,10 @@ void Game::NewGame()
 
 		p.SetEngagedistance(rules.engagedistance, p.GetID() * (360/rules.numplayers));
 		p.SetEngageheight(rules.engageheight);
+		p.SetOffset();
+
 		count += 1;
 	}
-
 
 	state.running = true;
 	
@@ -211,12 +220,12 @@ void Game::EnterEvent(EventType event)
 
 	switch(event)
 	{
-	case STEP: {
+	case STEP:
 		for (auto& o : objects) o.Step();
 		for (auto& p : players) p.Step();
-	} break;
-	case FREEZE: {
-	} break;
+		break;
+	case FREEZE:
+		break;
 	}
 }
 
@@ -236,27 +245,32 @@ void Game::Step(int frame_count)
 {
 	switch(state.mode)
 	{
-	case SELF_PLAY: {
+	case SELF_PLAY:
+	{
 		bool ready = true;
 
-		if (state.selected_player != -1) players[state.selected_player].Ready();
+		if (state.selected_player != -1)
+			players[state.selected_player].Ready();
 
-		for (auto& p : players) {
-			if (!p.IsReady()) {
+		for (auto& p : players)
+		{
+			if (!p.IsReady())
+			{
 				state.selected_player = p.GetID();
 				ready = false;
 				break;
 			}
 		}
 		
-		if (!ready) break;
-	};
-	case FREE_PLAY: {
+		if (!ready)
+			break;
+	}
+	case FREE_PLAY:
 		state.step_frames = frame_count;
 		state.freeze = false;
 		Refreeze();
 		EnterEvent(STEP);
-	} break;
+		break;
 	}
 }
 
@@ -269,51 +283,59 @@ void Game::UpdateState(dReal dt)
 {
 	if (!state.freeze) {
 		state.game_frame += 1;
-		switch (state.mode) {
-		case SELF_PLAY: {};
-		case FREE_PLAY: {
+		switch (state.mode)
+		{
+		case SELF_PLAY: case FREE_PLAY:
 			state.step_count += 1;
+
 			if (state.step_count >= state.step_frames) Freeze();
 
 			Replay::RecordFrame(state.game_frame);
-		} break;
-		case REPLAY_PLAY: {
-			double count = Replay::GetFrameCount();
+
+			break;
+		case REPLAY_PLAY:
+			double count = Replay::GetFrameCount() - 1;
+
 			if (state.game_frame > count + 100) {
 				EnterMode(REPLAY_PLAY);
 			} else if (state.game_frame < count) {
 				Replay::Play(state.game_frame);
 			}
-		} break;
+			
+			break;
 		}
 	} else {
-		switch (state.mode) {
-		case SELF_PLAY: {};
-		case FREE_PLAY: {
-			state.freeze_count += 1;
+		switch (state.mode)
+		{
+		case SELF_PLAY: case FREE_PLAY:
 			if (state.freeze_count >= state.freeze_frames) Refreeze();
 
 			if (0 < rules.reaction_time) {
 				state.reaction_count = GetTime() - state.freeze_time;
 				if (state.reaction_count >= rules.reaction_time) Step(rules.turnframes);
 			}
-		} break;
+
+			break;
 		}
+
+		state.freeze_count += 1;
 	}
 }
 
 void Game::Update(dReal dt)
 {
-	if (!state.running) NewGame();
+	if (!state.running)
+		NewGame();
+
 	if (!state.pause)
 	{
 		numcollisions = 0;
 
+		EnterEvent(STEP);
+		
 		dSpaceCollide(space, 0, nearCallback);
 		dWorldStep(world, step);
 		dJointGroupEmpty(contactgroup);
-
-		EnterEvent(STEP);
 
 		UpdateState(dt);
 	}
@@ -528,18 +550,18 @@ void Game::TriggerPlayerJointState(PlayerID player_id, JointID joint_id, JointSt
 {
 	switch((JointState)state)
 	{
-	case RELAX: {
+	case RELAX:
 		players[player_id].joint[joint_id].TriggerPassiveState(0.00);
-	} break;
-	case HOLD: {
+		break;
+	case HOLD:
 		players[player_id].joint[joint_id].TriggerPassiveState(players[player_id].joint[joint_id].strength);
-	} break;
-	case FORWARD: {
+		break;
+	case FORWARD:
 		players[player_id].joint[joint_id].TriggerActiveState(1.00);
-	} break; 
-	case BACKWARD: {
+		break; 
+	case BACKWARD:
 		players[player_id].joint[joint_id].TriggerActiveState(-1.00);
-	} break;
+		break;
 	}
 }
 
@@ -547,18 +569,18 @@ void Game::TriggerPlayerJointStateAlt(PlayerID player_id, JointID joint_id, Join
 {
 	switch((JointState)state)
 	{
-	case RELAX: {
+	case RELAX:
 		players[player_id].joint[joint_id].TriggerPassiveStateAlt(0.00);
-	} break;
-	case HOLD: {
+		break;
+	case HOLD:
 		players[player_id].joint[joint_id].TriggerPassiveStateAlt(players[player_id].joint[joint_id].strength_alt);
-	} break;
-	case FORWARD: {
+		break;
+	case FORWARD:
 		players[player_id].joint[joint_id].TriggerActiveStateAlt(1.00);
-	} break; 
-	case BACKWARD: {
+		break; 
+	case BACKWARD:
 		players[player_id].joint[joint_id].TriggerActiveStateAlt(-1.00);
-	} break;
+		break;
 	}
 }
 
@@ -579,10 +601,10 @@ void Game::ToggleSelectedBodyState()
 
 void Game::ToggleSelectedPlayerBodyStates()
 {
-	for (auto& b : players[state.selected_player].body) {
-		if (b.m_interactive) {
+	for (auto& b : players[state.selected_player].body)
+	{
+		if (b.m_interactive)
 			b.ToggleState();
-		}
 	}
 }
 
@@ -737,8 +759,10 @@ void Window::Update()
 
 	gSelector(camera);
 
-	if (Game::GetSelectedPlayerID() != -1) Game::SetSelectedJoint(selected_joint);
-	if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) Game::SetSelectedPlayer(selected_player);
+	if (Game::GetSelectedPlayerID() != -1)
+		Game::SetSelectedJoint(selected_joint);
+	if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+		Game::SetSelectedPlayer(selected_player);
 
 	if (0 > Game::GetSelectedPlayerID()) {
 		Gamecam::UpdateSpectatorcam(Game::GetFreeze(), Game::GetPlayers());
@@ -830,20 +854,20 @@ void Game::EnterMode(Gamemode mode)
 	
 	switch(mode)
 	{
-	case REPLAY_PLAY: {
+	case REPLAY_PLAY:
 		state.mode = mode;
 		state.freeze = false;
-	} break;
-	case REPLAY_EDIT: {
+		break;
+	case REPLAY_EDIT:
 		mode = FREE_PLAY;
-	};
-	case SELF_PLAY: {};
-	case FREE_PLAY: {
+	case SELF_PLAY: case FREE_PLAY:
 		state.mode = mode;
+
 		Freeze();
+
 		Replay::Begin();
 		Replay::RecordFrame(state.game_frame);
-	} break;
+		break;
 	}
 }
 

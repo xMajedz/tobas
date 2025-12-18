@@ -18,6 +18,12 @@ local mod, o_count, p_count, p_details, frame, reaction_count, rules, gravity, c
 local messages = {}
 local commands = {}
 
+for k,v in require("intro") do
+	table.insert(messages, k .. ": " .. v)
+end
+
+showConsoleMessages = true
+
 RAYGUI.GuiSetStyle(0, 16, 20)
 
 function commands.loadscript(script_path) 
