@@ -105,8 +105,6 @@ void Game::NewGame()
 	
 	Replay::WriteMetaData();
 
-	Replay::Destroy();
-
 	API::NewGameCallback();
 }
 

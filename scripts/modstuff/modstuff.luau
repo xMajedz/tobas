@@ -393,7 +393,11 @@ function ms.loadTBM(TBM)
 		if type(env_obj_joint["axis"]) == "string" then
 			 env_obj_joint["axis"] = env_obj_joint["axis"]:split(" ")
 		end
-		API["axis"] {env_obj_joint["axis"][1], env_obj_joint["axis"][2], env_obj_joint["axis"][3]}
+		if env_obj_joint["axis"] then
+			API["axis"] {env_obj_joint["axis"][1], env_obj_joint["axis"][2], env_obj_joint["axis"][3]}
+		else
+			API["axis"] {1.00, 0.00, 0.00}
+		end
 		if env_obj_joint["axis_alt"] then
 			API["axis_alt"] {env_obj_joint["axis_alt"][1], env_obj_joint["axis_alt"][2], env_obj_joint["axis_alt"][3]}
 		end
