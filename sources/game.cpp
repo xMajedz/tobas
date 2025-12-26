@@ -104,6 +104,7 @@ void Game::NewGame()
 	state.running = true;
 	
 	Replay::WriteMetaData();
+	Replay::RecordFrame();
 
 	API::NewGameCallback();
 }
@@ -244,101 +245,148 @@ void Game::Step(int frame_count)
 	switch(state.mode)
 	{
 	case SELF_PLAY:
-	{
+		{
 		bool ready = true;
 
-		if (state.selected_player != -1)
+		if (state.selected_player != -1) {
 			players[state.selected_player].Ready();
+		}
 
-		for (auto& p : players)
-		{
-			if (!p.IsReady())
-			{
+		for (auto& p : players) {
+			if (!p.IsReady()) {
 				state.selected_player = p.GetID();
 				ready = false;
 				break;
 			}
 		}
 		
-		if (!ready)
+		if (!ready) {
 			break;
-	}
+		}
+		}
 	case FREE_PLAY:
 		state.step_frames = frame_count;
 		state.freeze = false;
 		Refreeze();
-		EnterEvent(STEP);
 		break;
 	}
 }
 
 void Game::Step()
 {
-	Game::Step(1);
+	Step(1);
 }
 
 void Game::UpdateState(dReal dt)
 {
-	if (!state.freeze) {
-		state.game_frame += 1;
-		switch (state.mode)
-		{
-		case SELF_PLAY: case FREE_PLAY:
-			state.step_count += 1;
-
-			if (state.step_count >= state.step_frames) Freeze();
-
-			Replay::RecordFrame(state.game_frame);
-
-			break;
-		case REPLAY_PLAY:
-			double count = Replay::GetFrameCount() - 1;
-
-			if (state.game_frame > count + 100) {
-				EnterMode(REPLAY_PLAY);
-			} else if (state.game_frame < count) {
-				Replay::Play(state.game_frame);
-			}
-			
-			break;
-		}
-	} else {
-		switch (state.mode)
-		{
-		case SELF_PLAY: case FREE_PLAY:
-			if (state.freeze_count >= state.freeze_frames) Refreeze();
-
-			if (0 < rules.reaction_time) {
-				state.reaction_count = GetTime() - state.freeze_time;
-				if (state.reaction_count >= rules.reaction_time) Step(rules.turnframes);
-			}
-
-			break;
-		}
-
-		state.freeze_count += 1;
-	}
 }
 
 void Game::Update(dReal dt)
 {
-	if (!state.running)
+	if (!state.running) {
 		NewGame();
+	}
 
 	if (!state.pause)
 	{
 		numcollisions = 0;
 
+		API::UpdateCallback(dt);
+
+		/*
+		 * Pre-Step
+		 */
+
+		if (!state.freeze) {
+			switch (state.mode)
+			{
+			case SELF_PLAY: case FREE_PLAY:
+				//Replay::RecordFrame(state.game_frame);
+	
+				//if (state.step_count > state.step_frames) {
+				//	Freeze();
+				//}
+	
+				//state.step_count += 1;
+	
+				//break;
+			case REPLAY_PLAY:
+				double frame_count = Replay::GetFrameCount();
+				
+				if (state.game_frame > frame_count + 100) {
+					EnterMode(REPLAY_PLAY);
+				}
+	
+				if (state.game_frame < frame_count) {
+					Replay::Play(state.game_frame);
+				}
+	
+				break;
+			}	
+		} else {
+			switch (state.mode)
+			{
+			case SELF_PLAY: case FREE_PLAY:
+				if (state.freeze_count >= state.freeze_frames) {
+					Refreeze();
+				}
+	
+				if (0 < rules.reaction_time) {
+					state.reaction_count = GetTime() - state.freeze_time;
+					if (state.reaction_count >= rules.reaction_time) Step(rules.turnframes);
+				}
+	
+				break;
+			}
+	
+			state.freeze_count += 1;
+		}
+
 		EnterEvent(STEP);
-		
+
 		dSpaceCollide(space, 0, nearCallback);
 		dWorldStep(world, step);
 		dJointGroupEmpty(contactgroup);
 
-		UpdateState(dt);
-	}
+		/*
+		 * Post-Step
+		 */
 
-	API::UpdateCallback(dt);
+		if (!state.freeze) {
+			state.game_frame += 1;
+
+			switch (state.mode)
+			{
+			case SELF_PLAY: case FREE_PLAY:
+				Replay::RecordFrame(state.game_frame);
+
+				if (state.step_count > state.step_frames) {
+					Freeze();
+				}
+
+				state.step_count += 1;
+	
+				break;
+			}
+		} else {
+			/*switch (state.mode)
+			{
+			case SELF_PLAY: case FREE_PLAY:
+				if (state.freeze_count >= state.freeze_frames) {
+					Refreeze();
+				}
+	
+				if (0 < rules.reaction_time) {
+					state.reaction_count = GetTime() - state.freeze_time;
+					if (state.reaction_count >= rules.reaction_time) Step(rules.turnframes);
+				}
+	
+				break;
+			}
+	
+			state.freeze_count += 1;*/
+		}
+	}
 }
 
 void Game::DrawContacts(bool freeze)
@@ -512,6 +560,11 @@ void Game::SetSelectedPlayer(PlayerID player_id)
 	state.selected_player = player_id;
 }
 
+void Game::SetBodyState(PlayerID player_id, BodyID body_id, bool state)
+{
+	players[player_id].body[body_id].m_data.active = state;
+}
+
 void Game::TogglePause()
 {
 	state.pause = state.pause == false;
@@ -680,16 +733,17 @@ void Window::Init()
 	SetTraceLogCallback(rl_log);
 
 	InitWindow(width, height, "TOBAS");
-	SetTargetFPS(60);
 
-	shader = LoadShader(0, "resources/shader/tobas.fs");
+	Gamecam::Init();
+
+	shader = LoadShader(NULL, "resources/shader/tobas.fs");
 
 	background = LoadRenderTexture(width, height);
 	foreground = LoadRenderTexture(width, height);
 
 	initialized = true;
 
-	Gamecam::Init();
+	SetTargetFPS(60);
 }
 
 static Ray MouseRay = { 0 };
@@ -715,7 +769,6 @@ static void gSelector(Camera3D camera)
 	}
 
 	bool hit = false;
-
 	for (auto& p : players) {
 		for (auto& j : p.joint) {
 			collision = j.CollideMouseRay(MouseRay, collision);
@@ -799,15 +852,24 @@ void Window::Draw()
 {
 	const auto& camera = Gamecam::Get();
 
-	RenderBackground(camera);
-	RenderForeground(camera);
+	//RenderBackground(camera);
+	//RenderForeground(camera);
+
 	BeginDrawing();
+
 	ClearBackground(RAYWHITE);
+
 	BeginShaderMode(shader);
+
 	DrawTextureRec(background.texture, {0, 0, width, -height}, {0, 0}, WHITE);
 	DrawTextureRec(foreground.texture, {0, 0, width, -height}, {0, 0}, WHITE);	
+	
+	RenderBackground(camera);
+	RenderForeground(camera);
+
 	EndShaderMode();
 	API::DrawCallback();
+
 	EndDrawing();
 }
 
@@ -836,14 +898,18 @@ float Window::GetHeight()
 
 void Game::EnterMode(Gamemode mode)
 {	
+	auto prev_mode = FREE_PLAY;
+
+	if (mode == REPLAY_EDIT) {
+		prev_mode = mode;
+	} else {
+		state.game_frame = 0;
+		Restart();
+	}
+
 	for (auto& p : players) {
 		p.RelaxAll();
 		p.RelaxAllAlt();
-	}
-
-	if (mode != REPLAY_EDIT) {
-		state.game_frame = 0;
-		Restart();
 	}
 
 	state.reaction_count = 0;
@@ -856,14 +922,17 @@ void Game::EnterMode(Gamemode mode)
 		state.mode = mode;
 		state.freeze = false;
 		break;
-	case REPLAY_EDIT:
-		mode = FREE_PLAY;
-	case SELF_PLAY: case FREE_PLAY:
+	case REPLAY_EDIT: case SELF_PLAY: case FREE_PLAY:
+		if (mode == REPLAY_EDIT) {
+			mode = prev_mode;
+		}
+
 		state.mode = mode;
 
 		Freeze();
 
 		Replay::Begin();
+
 		Replay::RecordFrame(state.game_frame);
 		break;
 	}
@@ -877,7 +946,6 @@ bool Game::Running ()
 void Replay::Init()
 {
 	storage = new Arena(8*1024*1024);
-	frames = storage->allocate(sizeof(FrameData)*4096);
 }
 
 void Replay::Close()
@@ -889,6 +957,8 @@ void Replay::Destroy()
 {
 	frame_count = 0;
 	storage->clear();
+
+	frames = storage->allocate(sizeof(FrameData)*4096);
 }
 
 void Replay::WriteMetaData()
@@ -936,9 +1006,10 @@ void Replay::RecordFrame(int game_frame)
 
 	auto p_count = Game::GetPlayerCount();
 	
-	if (p_count == 0) return ;
+	if (p_count < 1) return;
 
 	auto& frame = *((FrameData*)frames + game_frame);
+
 	frame.p_count = p_count;
 	frame.players = storage->allocate(sizeof(FramePlayer)*p_count);
 
@@ -947,7 +1018,7 @@ void Replay::RecordFrame(int game_frame)
 	for (auto& p : Game::GetPlayers()) {
 		auto p_id = p.GetID();
 		auto& player = *((FramePlayer*)players + p_id);
-
+		
 		player.j_count = Game::GetPlayerJointCount(p_id);
 		player.b_count = Game::GetPlayerBodyCount(p_id);
 
@@ -975,9 +1046,9 @@ void Replay::RecordFrame(int game_frame)
 
 		for (auto& b : p.body) {
 			auto b_id = b.GetID();
-			B.append(TextFormat(" %d", b.active));
-
-			*((uint8_t*)player.B + b_id) = (uint8_t)b.active;
+			
+			B.append(TextFormat(" %d", b.m_data.active));
+			*((uint8_t*)player.B + b_id) = (uint8_t)b.m_data.active;
 
 			Q.append(TextFormat(" %f %f %f %f",
 				b.frame_orientation.w,
@@ -1050,9 +1121,11 @@ void Replay::Play(int game_frame)
 {
 	auto& frame = *((FrameData*)frames + game_frame);
 
+	if (game_frame > frame_count) return;
+
 	for (int p_id = 0; p_id < frame.p_count; p_id += 1) {
 		auto& p = *((FramePlayer*)frame.players + p_id);
-
+	
 		for (int j_id = 0; j_id < p.j_count; j_id += 1) {
 			auto& J = *((uint8_t*)p.J + j_id);
 			uint8_t state_alt = J >> 2;
@@ -1063,7 +1136,26 @@ void Replay::Play(int game_frame)
 		}
 
 		for (int b_id = 0; b_id < p.b_count; b_id += 1) {
-			//Game::SetBodyState(p_id, b_id, p.B[b_id]);
+			auto& B = *((uint8_t*)p.B + b_id);
+			Game::SetBodyState(p_id, b_id, (bool)B);
+
+			auto& Qw = *((double*)p.Q + b_id * 4 + 0);
+			auto& Qx = *((double*)p.Q + b_id * 4 + 1);
+			auto& Qy = *((double*)p.Q + b_id * 4 + 2);
+			auto& Qz = *((double*)p.Q + b_id * 4 + 3);
+
+			auto& Px = *((double*)p.P + b_id * 3 + 0);
+			auto& Py = *((double*)p.P + b_id * 3 + 1);
+			auto& Pz = *((double*)p.P + b_id * 3 + 2);
+
+			auto& Lx = *((double*)p.L + b_id * 3 + 0);
+			auto& Ly = *((double*)p.L + b_id * 3 + 1);
+			auto& Lz = *((double*)p.L + b_id * 3 + 2);
+
+			auto& Ax = *((double*)p.A + b_id * 3 + 0);
+			auto& Ay = *((double*)p.A + b_id * 3 + 1);
+			auto& Az = *((double*)p.A + b_id * 3 + 2);
+
 			//Game::SetBodyLinearVel(p_id, b_id, p.L[p_id*b_id], p.L[p_id * b_id + 1], p.L[p_id * b_id + 2]);
 			//Game::SetBodyAngularVel(p_id, b_id, p.A[p_id*b_id], p.A[p_id * (b_id + 1)], p.A[p_id * (b_id + 2)]);
 			//dBodySetLinearVel(b.dBody, b.frame_linear_vel.x, b.frame_linear_vel.y, b.frame_linear_vel.z);

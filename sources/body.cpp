@@ -250,9 +250,10 @@ void Body::Reset()
 		dBodySetLinearVel(dBody, 0.00, 0.00, 0.00);
 		dBodySetAngularVel(dBody, 0.00, 0.00, 0.00);
 
-		freeze_linear_vel = { 0.00, 0.00, 0.00 };
-		freeze_angular_vel = { 0.00, 0.00, 0.00 };
 	}
+
+	freeze_linear_vel = { 0.00, 0.00, 0.00 };
+	freeze_angular_vel = { 0.00, 0.00, 0.00 };
 
 	dGeomSetPosition(
 		dGeom,

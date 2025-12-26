@@ -121,6 +121,9 @@ namespace Game
 	Joint& GetSelectedJoint();
 	Joint& GetJoint(PlayerID player_id, JointID joint_id);
 
+	
+	void SetBodyState(PlayerID player_id, BodyID body_id, bool state);
+
 	Gamemode GetGamemode();
 	Gamerules& GetGamerules();
 
@@ -251,6 +254,7 @@ struct FrameData
 namespace Replay 
 {
 	static Arena* storage = nullptr;
+
 	static size_t frame_count = 0;
 	static uintptr_t frames;
 

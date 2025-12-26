@@ -112,7 +112,6 @@ else
 	end
 
 	if Game.IsFreeze() and not Game.IsMode(Game["MODE_REPLAY"]) and RAYLIB.IsKeyPressed(RAYLIB["KEY_SPACE"]) then
-		--Game.Step((RAYLIB.IsKeyDown(RAYLIB["KEY_LEFT_SHIFT"]) and 1) or Game.Step(rules.turnframes))
 		Game.Step((RAYLIB.IsKeyDown(RAYLIB["KEY_LEFT_SHIFT"]) and 1) or Game.Step(rules.turnframes))
 	end
 
@@ -220,20 +219,26 @@ function API.Draw.init()
 	if showMods then 
 		RAYGUI.GuiGroupBox(screenWidth-220, 20, 200, 400, "Mods")
 		local mods = RAYLIB.LoadDirectoryFiles("mods");
-		for i = 1, #mods do
+		local i = 1
+		local j = 1
+		while i < #mods do
 			local mod = mods[i]:gsub("mods[/\\]", "")
-			if RAYGUI.GuiButton(screenWidth-220, 20 * (i + 1), 200, 20, mod) then
-				if mod:match("^[%w%-_]+%.luau") then
-					API.Reset();
-					API.loadmod(mod:match("^[%w%-_]+"))
-					Game.NewGame()
+			if not mod:match("modscache.txt") then
+				if RAYGUI.GuiButton(screenWidth-220, 20 * (j + 1), 200, 20, mod) then
+					if mod:match("^[%w%-_]+%.luau") then
+						API.Reset();
+						API.loadmod(mod:match("^[%w%-_]+"))
+						Game.NewGame()
+					end
+					if mod:match("^[%w%-_]+%.tbm") then
+						API.Reset();
+						ms.loadmodTBM2(mod:match("^[%w%-_]+"))
+						Game.NewGame()
+					end
 				end
-				if mod:match("^[%w%-_]+%.tbm") then
-					API.Reset();
-					ms.loadmodTBM2(mod:match("^[%w%-_]+"))
-					Game.NewGame()
-				end
+				j = j + 1
 			end
+			i = i + 1
 		end
 	end
 
