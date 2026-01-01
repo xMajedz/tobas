@@ -974,11 +974,11 @@ void Replay::WriteMetaData()
 	}
 	meta.append(TextFormat("%s", details.data()));
 
-	std::ofstream tempframefile("tempframefile.txt");
+	std::ofstream tempframefile("replays/tempframefile.txt");
 	tempframefile << meta << std::endl;
 	tempframefile.close();
 
-	std::ofstream tempreplayfile("tempreplayfile.txt");
+	std::ofstream tempreplayfile("replays/tempreplayfile.txt");
 	tempreplayfile << meta << std::endl;
 	tempreplayfile.close();
 
@@ -987,14 +987,14 @@ void Replay::WriteMetaData()
 
 void Replay::WriteFrameData(std::string data)
 {
-	std::ofstream tempframefile("tempframefile.txt", std::ios::app);
+	std::ofstream tempframefile("replays/tempframefile.txt", std::ios::app);
 	tempframefile << data << std::endl;
 	tempframefile.close();
 }
 
 void Replay::WriteReplayData(std::string data)
 {
-	std::ofstream tempreplayfile("tempreplayfile.txt", std::ios::app);
+	std::ofstream tempreplayfile("replays/tempreplayfile.txt", std::ios::app);
 	tempreplayfile << data << std::endl;
 	tempreplayfile.close();
 }
@@ -1164,24 +1164,53 @@ void Replay::Play(int game_frame)
 	}
 }
 
-void Replay::Save(std::string replay_name)
+void Replay::Load(std::string replay_name)
 {
-	std::ofstream savedreplayfile(replay_name.append(".rpl"));
-	/*for (auto const& [game_frame, frame] : RecordedFrames) {
-		savedreplayfile << "FRAME " << game_frame << "\n";
-		for (auto const& [player_name, p] : frame.player) {
-			savedreplayfile << "PLAYER " << player_name << "\n";
-			for (auto const& [joint_name, j] : p.joint) {
-				savedreplayfile << j.name << " " << j.state << " " << j.state_alt << "\n";
-			}
-		}
-	}*/
+	std::string replay = "replays/";
+	replay.append(replay_name);
+	std::ifstream savedreplayfile(replay);
+	
+	char c;
+	int* offset;
+
+	savedreplayfile.get(c);
+	*((char*)offset + 0) = c;
+
+	savedreplayfile.get(c);
+	*((char*)offset + 1) = c;
+
+	savedreplayfile.get(c);
+	*((char*)offset + 2) = c;
+
+	savedreplayfile.get(c);
+	*((char*)offset + 3) = c;
+
+	std::cout << *offset << std::endl;
+
+	int i = 0;
+
+	while (savedreplayfile.get(c)) {
+		*((uint8_t*)storage + i) = (uint8_t)c;
+	}
+
 	savedreplayfile.close();
 }
 
-void Replay::Save()
+void Replay::Save(std::string replay_name)
 {
-	Save("untitiledreplay");
+	std::string replay = "replays/";
+	replay.append(replay_name);
+	std::ofstream savedreplayfile(replay.append(".rpl"));
+
+	std::cout << storage->offset() << std::endl;
+
+	savedreplayfile << *((int*)storage + storage->offset());
+
+	for (int i = 4; i < storage->offset(); i += 1) {
+		savedreplayfile << *((uint8_t*)storage + i);
+	}
+
+	savedreplayfile.close();
 }
 
 uint32_t Replay::GetFrameCount()

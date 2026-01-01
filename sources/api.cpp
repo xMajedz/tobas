@@ -31,6 +31,7 @@ void API::Init()
 	luaopen_api_main(L);
 	luaopen_api_game(L);
 	luaopen_api_net(L);
+	luaopen_api_replay(L);
 	luaopen_api_raylib(L);
 	luaopen_api_raygui(L);
 	luaopen_api_raymath(L);

@@ -4,7 +4,10 @@ local ms = require("modstuff")
 local showMenu = false
 local showRules = false
 local showMods = false
+
 local showReplays = false
+local showReplaysSaving = false
+
 local showScripts = false
 local showSettings = false
 
@@ -90,6 +93,15 @@ function API.Update.init(dt)
 	if not showConsole and RAYLIB.IsKeyPressed(RAYLIB["KEY_SLASH"]) then
 		showConsole = showConsole == false
 		showConsoleMessages = showConsoleMessages == false
+	end
+
+	if RAYLIB.IsKeyPressed(RAYLIB["KEY_TAB"]) then
+		API.log("TAB")
+	end
+
+	if RAYLIB.IsKeyPressed(RAYLIB["KEY_F"]) then
+		showReplaysSaving = true
+		Replay.Save("tempreplayfile.bin")
 	end
 	
 if Net then
@@ -177,23 +189,23 @@ function API.Draw.init()
 	if showMenu then
 		local offset = 10
 		local button_size = 120
-		local gape = (screenWidth - offset)/5 - button_size
+		local gape = (screenWidth - button_size)/5
 		if RAYGUI.GuiButton(offset, 10, button_size, 25, "Rules") then
 			showRules = showRules == false
 		end
-		offset = offset + button_size + gape
+		offset = offset + gape + button_size
 		if RAYGUI.GuiButton(offset, 10, button_size, 25, "Mods") then
 			showMods = showMods == false
 		end
-		offset = offset + button_size + gape
+		offset = offset + gape + button_size
 		if RAYGUI.GuiButton(offset, 10, button_size, 25, "Replays") then
 			showReplays = showReplays == false
 		end
-		offset = offset + button_size + gape
+		offset = offset + gape + button_size
 		if RAYGUI.GuiButton(offset, 10, button_size, 25, "Scripts") then
 			showScripts = showScripts == false
 		end
-		offset = offset + button_size + gape
+		offset = offset + gape + button_size
 		if RAYGUI.GuiButton(offset, 10, button_size, 25, "Settings") then
 			showSettings = showSettings == false
 		end
@@ -235,6 +247,8 @@ function API.Draw.init()
 						ms.loadmodTBM2(mod:match("^[%w%-_]+"))
 						Game.NewGame()
 					end
+
+					showMods = false
 				end
 				j = j + 1
 			end
@@ -246,8 +260,13 @@ function API.Draw.init()
 		RAYGUI.GuiGroupBox(screenWidth-220, 20, 200, 400, "Replays")
 		local replays = RAYLIB.LoadDirectoryFiles("replays")
 		for i = 1, #replays do
-			if RAYGUI.GuiButton(screenWidth-220, 20 * (i + 1), 200, 20, replays[i]) then
+			local replay = replays[i]:gsub("replays[/\\]", "")
+			if RAYGUI.GuiButton(screenWidth-220, 20 * (i + 1), 200, 20, replay) then
+				if replay:match("^[%.%w%-_]+%.rpl") then
+					Replay.Load(replay)
+				end
 
+				showReplays = false
 			end
 		end
 	end
@@ -274,6 +293,22 @@ function API.Draw.init()
 		for i in messages do
 			RAYLIB.DrawText(messages[i], 10, screenHeight-(30+20*(#messages-i+1)), 20, RAYLIB["BLACK"])
 		end
+	end
+
+	if showReplaysSaving then
+		if (RAYGUI.GuiButton(10, 80 , 200, 20, "Save")) then
+			showReplaysSaving = false
+
+			if RAYGUI["_VAR"]["GuiTextBox"] ~= "" then
+				Replay.Save(RAYGUI["_VAR"]["GuiTextBox"] .. ".bin")
+			else
+				Replay.Save("utitiledreplayfile.bin")
+			end
+
+			RAYGUI["_VAR"]["GuiTextBox"] = ""
+		end
+
+		RAYGUI.GuiTextBox(10, 40, 200, 20, true)
 	end
 end
 

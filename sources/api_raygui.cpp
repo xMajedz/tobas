@@ -140,7 +140,7 @@ static int RAYGUI_GuiTextInputBox(lua_State* L)
 	bool secretViewActive = lua_toboolean(L, -1);
 	auto textMaxSize = lua_tointeger(L, -2);
 
-	char* text;
+	//char* text;
 
 	auto buttons = lua_tostring(L, -3);
 	auto message = lua_tostring(L, -4);
@@ -155,7 +155,7 @@ static int RAYGUI_GuiTextInputBox(lua_State* L)
 		title,
 		message,
 		buttons,
-		text,
+		RAYGUI_GuiTextBoxContent,
 		textMaxSize,
 		&secretViewActive
 	);

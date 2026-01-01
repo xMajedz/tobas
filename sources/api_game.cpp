@@ -338,6 +338,32 @@ static const luaL_Reg api_game[]
 	{NULL, NULL},
 };
 
+static int Replay_Load(lua_State* L)
+{
+	Replay::Load(lua_tostring(L, -1));
+	return 1;
+}
+
+static int Replay_Save(lua_State* L)
+{
+	Replay::Save(lua_tostring(L, -1));
+	return 1;
+}
+
+static const luaL_Reg api_replay[]
+{
+	{"Load", Replay_Load},
+	{"Save", Replay_Save},
+
+	{NULL, NULL},
+};
+
+int luaopen_api_replay(lua_State* L)
+{
+	luaL_register(L, "Replay", api_replay);
+	return 1;
+}
+
 int luaopen_api_game(lua_State* L)
 {
 	luaL_register(L, "Game", api_game);

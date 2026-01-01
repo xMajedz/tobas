@@ -96,6 +96,8 @@ int luaopen_api_game(lua_State* L);
 
 int luaopen_api_net(lua_State* L);
 
+int luaopen_api_replay(lua_State* L);
+
 int luaopen_api_raylib(lua_State* L);
 
 int luaopen_api_raygui(lua_State* L);

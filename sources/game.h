@@ -272,8 +272,8 @@ namespace Replay
 	void RecordFrame();
 	void Play(int game_frame);
 
+	void Load(std::string replay_name);
 	void Save(std::string replay_name);
-	void Save();
 
 	void Destroy();
 
