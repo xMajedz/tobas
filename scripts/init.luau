@@ -52,6 +52,17 @@ if Net then
 end
 end
 
+function commands.mods(mod_path) 
+	local mods = RAYLIB.LoadDirectoryFiles("mods");
+	table.insert(messages, #mods .. " mod")
+
+	for i = 1, #mods do
+		local mod = mods[i]:gsub("mods[/\\]", "")
+		table.insert(messages, mod)
+		showConsoleMessages = true
+	end
+end
+
 commands["ls"] = commands["loadscript"]
 commands["lm"] = commands["loadmod"]
 commands["rt"] = commands["restart"]
@@ -83,16 +94,22 @@ function API.Update.init(dt)
 			else
 				API.log(RAYGUI["_VAR"]["GuiTextBox"])
 			end
+
 			RAYGUI["_VAR"]["GuiTextBox"] = ""
 		end
 
-		showConsole = showConsole == false
-		showConsoleMessages = showConsole and showConsoleMessages == false
+		if showConsole then
+			showConsoleMessages = false
+			showConsole = false
+		else
+			showConsoleMessages = true
+			showConsole = true
+		end
 	end
 
 	if not showConsole and RAYLIB.IsKeyPressed(RAYLIB["KEY_SLASH"]) then
-		showConsole = showConsole == false
-		showConsoleMessages = showConsoleMessages == false
+		showConsoleMessages = true 
+		showConsole = true
 	end
 
 	if RAYLIB.IsKeyPressed(RAYLIB["KEY_TAB"]) then
@@ -188,24 +205,24 @@ end
 function API.Draw.init()
 	if showMenu then
 		local offset = 10
-		local button_size = 120
-		local gape = (screenWidth - button_size)/5
+		local button_size = 100
+		local gape = (screenWidth - button_size - 2 * offset)/4
 		if RAYGUI.GuiButton(offset, 10, button_size, 25, "Rules") then
 			showRules = showRules == false
 		end
-		offset = offset + gape + button_size
+		offset = offset + gape 
 		if RAYGUI.GuiButton(offset, 10, button_size, 25, "Mods") then
 			showMods = showMods == false
 		end
-		offset = offset + gape + button_size
+		offset = offset + gape
 		if RAYGUI.GuiButton(offset, 10, button_size, 25, "Replays") then
 			showReplays = showReplays == false
 		end
-		offset = offset + gape + button_size
+		offset = offset + gape
 		if RAYGUI.GuiButton(offset, 10, button_size, 25, "Scripts") then
 			showScripts = showScripts == false
 		end
-		offset = offset + gape + button_size
+		offset = offset + gape
 		if RAYGUI.GuiButton(offset, 10, button_size, 25, "Settings") then
 			showSettings = showSettings == false
 		end
@@ -229,39 +246,42 @@ function API.Draw.init()
 	end
 
 	if showMods then 
-		RAYGUI.GuiGroupBox(screenWidth-220, 20, 200, 400, "Mods")
+		RAYGUI.GuiGroupBox(15, 50, 200, 400, "Mods")
 		local mods = RAYLIB.LoadDirectoryFiles("mods");
 		local i = 1
 		local j = 1
-		while i < #mods do
+		while i <= #mods do
 			local mod = mods[i]:gsub("mods[/\\]", "")
-			if not mod:match("modscache.txt") then
-				if RAYGUI.GuiButton(screenWidth-220, 20 * (j + 1), 200, 20, mod) then
-					if mod:match("^[%w%-_]+%.luau") then
-						API.Reset();
+			if not mod:match(".+%.txt") then
+				if RAYGUI.GuiButton(15, 30 + 20 * (j + 1), 200, 20, mod) then
+					if mod:match("^[%.%w%-_]+%.luau") then
+						API.Reset()
 						API.loadmod(mod:match("^[%w%-_]+"))
 						Game.NewGame()
 					end
-					if mod:match("^[%w%-_]+%.tbm") then
-						API.Reset();
+					if mod:match("^[%.%w%-_]+%.tbm") then
+						API.Reset()
 						ms.loadmodTBM2(mod:match("^[%w%-_]+"))
 						Game.NewGame()
 					end
-
+	
 					showMods = false
+	
 				end
+
 				j = j + 1
 			end
+
 			i = i + 1
 		end
 	end
 
 	if showReplays then
-		RAYGUI.GuiGroupBox(screenWidth-220, 20, 200, 400, "Replays")
+		RAYGUI.GuiGroupBox(15, 50, 200, 400, "Replays")
 		local replays = RAYLIB.LoadDirectoryFiles("replays")
 		for i = 1, #replays do
 			local replay = replays[i]:gsub("replays[/\\]", "")
-			if RAYGUI.GuiButton(screenWidth-220, 20 * (i + 1), 200, 20, replay) then
+			if RAYGUI.GuiButton(15, 30 + 20 * (i + 1), 200, 20, replay) then
 				if replay:match("^[%.%w%-_]+%.rpl") then
 					Replay.Load(replay)
 				end
@@ -272,17 +292,19 @@ function API.Draw.init()
 	end
 
 	if showScripts then
-		RAYGUI.GuiGroupBox(screenWidth-220, 20, 200, 400, "Scripts")
+		RAYGUI.GuiGroupBox(15, 50, 200, 400, "Scripts")
 		local scripts = RAYLIB.LoadDirectoryFiles("scripts")
 		for i = 1, #scripts do
-			if (RAYGUI.GuiButton(screenWidth-220, 20 * (i + 1), 200, 20, scripts[i])) then
+			local script = scripts[i]:gsub("scripts[/\\]", "")
+			if (RAYGUI.GuiButton(15, 30 + 20 * (i + 1), 200, 20, script)) then
 
 			end
 		end
 	end
 
 	if showSettings then
-		RAYGUI.GuiWindowBox(screenWidth-220, 20, 200, 400, "Settings")
+		RAYGUI.GuiGroupBox(15, 50, 200, 400, "Settings")
+		--RAYGUI.GuiWindowBox(screenWidth-220, 20, 200, 400, "Settings")
 	end
 
 	if showConsole then
@@ -313,7 +335,7 @@ function API.Draw.init()
 end
 
 function API.Console.init(msg)
-	if msg:match("^/.+") then
+	if msg:match("^/.*") then
 		local cmd = msg:gsub("^/", "")
 		cmd = commands[cmd:match("^%w+")]
 		cmd = cmd and cmd(msg:gsub("^/%w+%s*", ""))
