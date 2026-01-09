@@ -14,7 +14,7 @@ void Game::Init()
 	dInitODE();
 	world = dWorldCreate();
 	dWorldSetERP(world, 0.45);
-	dWorldSetCFM(world, 10E-4);
+	dWorldSetCFM(world, 10E-2);
 
 	step = 1.0E-2;
 
@@ -298,18 +298,20 @@ void Game::Update(dReal dt)
 		 */
 
 		if (!state.freeze) {
+			state.game_frame += 1;
+
 			switch (state.mode)
 			{
 			case SELF_PLAY: case FREE_PLAY:
 				//Replay::RecordFrame(state.game_frame);
 	
-				//if (state.step_count > state.step_frames) {
-				//	Freeze();
-				//}
+				if (state.step_count > state.step_frames) {
+					Freeze();
+				}
 	
-				//state.step_count += 1;
+				state.step_count += 1;
 	
-				//break;
+				break;
 			case REPLAY_PLAY:
 				double frame_count = Replay::GetFrameCount();
 				
@@ -322,7 +324,7 @@ void Game::Update(dReal dt)
 				}
 	
 				break;
-			}	
+			}
 		} else {
 			switch (state.mode)
 			{
@@ -353,38 +355,36 @@ void Game::Update(dReal dt)
 		 */
 
 		if (!state.freeze) {
-			state.game_frame += 1;
-
 			switch (state.mode)
 			{
 			case SELF_PLAY: case FREE_PLAY:
 				Replay::RecordFrame(state.game_frame);
 
-				if (state.step_count > state.step_frames) {
-					Freeze();
-				}
+				//if (state.step_count > state.step_frames) {
+				//	Freeze();
+				//}
 
-				state.step_count += 1;
+				//state.step_count += 1;
 	
 				break;
 			}
 		} else {
-			/*switch (state.mode)
+			switch (state.mode)
 			{
 			case SELF_PLAY: case FREE_PLAY:
-				if (state.freeze_count >= state.freeze_frames) {
+				/*if (state.freeze_count >= state.freeze_frames) {
 					Refreeze();
 				}
 	
 				if (0 < rules.reaction_time) {
 					state.reaction_count = GetTime() - state.freeze_time;
 					if (state.reaction_count >= rules.reaction_time) Step(rules.turnframes);
-				}
+				}*/
 	
 				break;
 			}
 	
-			state.freeze_count += 1;*/
+			//state.freeze_count += 1;
 		}
 	}
 }
@@ -1168,28 +1168,13 @@ void Replay::Load(std::string replay_name)
 {
 	std::string replay = "replays/";
 	replay.append(replay_name);
-	std::ifstream savedreplayfile(replay);
-	
+
+	std::ifstream savedreplayfile(replay, std::ios::binary);
+
 	char c;
-	int* offset;
+	int i;
 
-	savedreplayfile.get(c);
-	*((char*)offset + 0) = c;
-
-	savedreplayfile.get(c);
-	*((char*)offset + 1) = c;
-
-	savedreplayfile.get(c);
-	*((char*)offset + 2) = c;
-
-	savedreplayfile.get(c);
-	*((char*)offset + 3) = c;
-
-	std::cout << *offset << std::endl;
-
-	int i = 0;
-
-	while (savedreplayfile.get(c)) {
+	for (i = 0; savedreplayfile.get(c); i += 1) {
 		*((uint8_t*)storage + i) = (uint8_t)c;
 	}
 
@@ -1200,13 +1185,12 @@ void Replay::Save(std::string replay_name)
 {
 	std::string replay = "replays/";
 	replay.append(replay_name);
-	std::ofstream savedreplayfile(replay.append(".rpl"));
 
-	std::cout << storage->offset() << std::endl;
+	std::ofstream savedreplayfile(replay.append(".rpl"), std::ios::binary);
 
-	savedreplayfile << *((int*)storage + storage->offset());
+	// FIXME: Don't Save Pointers Dumbass.
 
-	for (int i = 4; i < storage->offset(); i += 1) {
+	for (int i = 0; i < storage->offset(); i += 1) {
 		savedreplayfile << *((uint8_t*)storage + i);
 	}
 
