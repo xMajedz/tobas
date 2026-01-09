@@ -379,3 +379,33 @@ int luaopen_api_game(lua_State* L)
 	lua_pop(L, 1);
 	return 1;
 }
+
+static int Expermental_ToggleSelectedJointActiveStateAlt(lua_State* L)
+{
+	Game::ToggleSelectedJointActiveStateAlt(lua_tonumber(L, -1));
+	return 1;
+}
+
+static int Expermental_ToggleSelectedJointActiveState(lua_State* L)
+{
+	Game::ToggleSelectedJointActiveState(lua_tonumber(L, -1));
+	return 1;
+}
+
+static const luaL_Reg api_expermental[]
+{
+	{"ToggleSelectedJointActiveStateAlt", Expermental_ToggleSelectedJointActiveStateAlt},
+	{"ToggleSelectedJointActiveState", Expermental_ToggleSelectedJointActiveState},
+
+	{NULL, NULL},
+};
+
+int luaopen_api_expermental(lua_State* L)
+{
+	luaL_register(L, "Expermental", api_expermental);
+	lua_getglobal(L, "Expermental");
+	lua_pushboolean(L, false);
+	lua_setfield(L, -2, "variable_joint_vel");
+	return 1;
+}
+

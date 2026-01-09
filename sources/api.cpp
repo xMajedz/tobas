@@ -35,6 +35,7 @@ void API::Init()
 	luaopen_api_raylib(L);
 	luaopen_api_raygui(L);
 	luaopen_api_raymath(L);
+	luaopen_api_expermental(L);
 	luaL_openlibs(L);
 	luaL_sandbox(L);
 

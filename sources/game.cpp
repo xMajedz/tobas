@@ -608,10 +608,10 @@ void Game::TriggerPlayerJointState(PlayerID player_id, JointID joint_id, JointSt
 		players[player_id].joint[joint_id].TriggerPassiveState(players[player_id].joint[joint_id].strength);
 		break;
 	case FORWARD:
-		players[player_id].joint[joint_id].TriggerActiveState(1.00);
+		players[player_id].joint[joint_id].TriggerActiveState(1.00, players[player_id].joint[joint_id].velocity);
 		break; 
 	case BACKWARD:
-		players[player_id].joint[joint_id].TriggerActiveState(-1.00);
+		players[player_id].joint[joint_id].TriggerActiveState(-1.00, players[player_id].joint[joint_id].velocity);
 		break;
 	}
 }
@@ -627,10 +627,10 @@ void Game::TriggerPlayerJointStateAlt(PlayerID player_id, JointID joint_id, Join
 		players[player_id].joint[joint_id].TriggerPassiveStateAlt(players[player_id].joint[joint_id].strength_alt);
 		break;
 	case FORWARD:
-		players[player_id].joint[joint_id].TriggerActiveStateAlt(1.00);
+		players[player_id].joint[joint_id].TriggerActiveStateAlt(1.00, players[player_id].joint[joint_id].velocity_alt);
 		break; 
 	case BACKWARD:
-		players[player_id].joint[joint_id].TriggerActiveStateAlt(-1.00);
+		players[player_id].joint[joint_id].TriggerActiveStateAlt(-1.00, players[player_id].joint[joint_id].velocity_alt);
 		break;
 	}
 }
@@ -687,6 +687,16 @@ void Game::CycleJointStateAlt(JointID joint_id)
 void Game::CycleJointState(JointID joint_id)
 {
 	players[state.selected_player].joint[joint_id].CycleState();
+}
+
+void Game::ToggleSelectedJointActiveStateAlt(dReal vel)
+{
+	players[state.selected_player].joint[state.selected_joint].ToggleActiveStateAlt(vel);
+}
+
+void Game::ToggleSelectedJointActiveState(dReal vel)
+{
+	players[state.selected_player].joint[state.selected_joint].ToggleActiveState(vel);
 }
 
 void Game::ToggleSelectedJointActiveStateAlt()

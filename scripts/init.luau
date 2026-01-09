@@ -155,15 +155,26 @@ else
 	if Game.IsFreeze() and Game.IsMode(Game["MODE_FREEPLAY"]) and Game.IsSelectedJointValid() then
 		if not RAYLIB.IsKeyDown(RAYLIB["KEY_LEFT_CONTROL"]) and RAYLIB.IsKeyPressed(RAYLIB["KEY_Z"]) then
 			Game.Refreeze()
-			if RAYLIB.IsKeyDown(RAYLIB["KEY_LEFT_SHIFT"]) then
-				Game.ToggleSelectedJointActiveStateAlt()
+			if Expermental["variable_joint_vel"] then
+				if RAYLIB.IsKeyDown(RAYLIB["KEY_LEFT_SHIFT"]) then
+					Expermental.ToggleSelectedJointActiveStateAlt(1.00)
+				else
+					Expermental.ToggleSelectedJointActiveState(1.00)
+				end
+	
 			else
-				Game.ToggleSelectedJointActiveState()
+				if RAYLIB.IsKeyDown(RAYLIB["KEY_LEFT_SHIFT"]) then
+					Game.ToggleSelectedJointActiveStateAlt()
+				else
+					Game.ToggleSelectedJointActiveState()
+				end
 			end
+
 		end
 
 		if RAYLIB.IsKeyPressed(RAYLIB["KEY_X"]) then
 			Game.Refreeze()
+
 			if RAYLIB.IsKeyDown(RAYLIB["KEY_LEFT_SHIFT"]) then
 				Game.ToggleSelectedJointPassiveStateAlt()
 			else

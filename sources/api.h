@@ -103,3 +103,5 @@ int luaopen_api_raylib(lua_State* L);
 int luaopen_api_raygui(lua_State* L);
 
 int luaopen_api_raymath(lua_State* L);
+
+int luaopen_api_expermental(lua_State* L);

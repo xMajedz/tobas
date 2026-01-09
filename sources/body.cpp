@@ -807,18 +807,18 @@ void Joint::DrawRange(bool freeze)
 	}
 }
 
-void Joint::TriggerActiveStateAlt(dReal direction)
+void Joint::TriggerActiveStateAlt(dReal dir, dReal vel)
 {
 	switch(type)
 	{
-	case UNIVERSAL: {
+	case UNIVERSAL:
 		dJointSetUniversalParam(dJoint, dParamFMax2, strength_alt);
-		dJointSetUniversalParam(dJoint, dParamVel2, direction * velocity_alt);
-	} break;
-	case HINGE2: {
+		dJointSetUniversalParam(dJoint, dParamVel2, dir * vel);
+		break;
+	case HINGE2:
 		dJointSetHinge2Param(dJoint, dParamFMax2, strength_alt);
-		dJointSetHinge2Param(dJoint, dParamVel2, direction * velocity_alt);
-	} break;
+		dJointSetHinge2Param(dJoint, dParamVel2, dir * vel);
+		break;
 	}
 }
 
@@ -836,25 +836,25 @@ void Joint::TriggerPassiveStateAlt(dReal strength)
 	}
 }
 
-void Joint::TriggerActiveState(dReal direction)
+void Joint::TriggerActiveState(dReal dir, dReal vel)
 {
 	switch(type)
 	{
 	case HINGE: {
 		dJointSetHingeParam(dJoint, dParamFMax, strength);
-		dJointSetHingeParam(dJoint, dParamVel, direction * velocity);
+		dJointSetHingeParam(dJoint, dParamVel, dir * vel);
 	} break;
 	case dSLIDER: {
 		dJointSetSliderParam(dJoint, dParamFMax, strength);
-		dJointSetSliderParam(dJoint, dParamVel, direction * velocity);
+		dJointSetSliderParam(dJoint, dParamVel, dir * vel);
 	} break;
 	case UNIVERSAL: {
 		dJointSetUniversalParam(dJoint, dParamFMax, strength);
-		dJointSetUniversalParam(dJoint, dParamVel, direction * velocity);
+		dJointSetUniversalParam(dJoint, dParamVel, dir * vel);
 	} break;
 	case HINGE2: {
 		dJointSetHinge2Param(dJoint, dParamFMax, strength);
-		dJointSetHinge2Param(dJoint, dParamVel, direction * velocity);
+		dJointSetHinge2Param(dJoint, dParamVel, dir * vel);
 	} break;
 	}
 }
@@ -904,14 +904,36 @@ void Joint::TogglePassiveStateAlt()
 	}
 }
 
+void Joint::ToggleActiveState(dReal vel)
+{
+	if (state == FORWARD) {
+		state = BACKWARD;
+		TriggerActiveState(-1.00, vel);
+	} else {
+		state = FORWARD;
+		TriggerActiveState(1.00, vel);
+	}
+}
+
+void Joint::ToggleActiveStateAlt(dReal vel)
+{
+	if (state_alt == FORWARD) {
+		state_alt = BACKWARD;
+		TriggerActiveStateAlt(-1.00, vel);
+	} else {
+		state_alt = FORWARD;
+		TriggerActiveStateAlt(1.00, vel);
+	}
+}
+
 void Joint::ToggleActiveState()
 {
 	if (state == FORWARD) {
 		state = BACKWARD;
-		TriggerActiveState(-1.00);
+		TriggerActiveState(-1.00, velocity);
 	} else {
 		state = FORWARD;
-		TriggerActiveState(1.00);
+		TriggerActiveState(1.00, velocity);
 	}
 }
 
@@ -919,10 +941,10 @@ void Joint::ToggleActiveStateAlt()
 {
 	if (state_alt == FORWARD) {
 		state_alt = BACKWARD;
-		TriggerActiveStateAlt(-1.00);
+		TriggerActiveStateAlt(-1.00, velocity_alt);
 	} else {
 		state_alt = FORWARD;
-		TriggerActiveStateAlt(1.00);
+		TriggerActiveStateAlt(1.00, velocity_alt);
 	}
 }
 
@@ -932,7 +954,7 @@ void Joint::CycleState()
 	{
 	case FORWARD: {
 		state = BACKWARD;
-		TriggerActiveState(-1.00);
+		TriggerActiveState(-1.00, velocity);
 	} break;
 	case BACKWARD: {
 		state = HOLD;
@@ -944,7 +966,7 @@ void Joint::CycleState()
 	} break;
 	default:
 		state = FORWARD;
-		TriggerActiveState(1.00);
+		TriggerActiveState(1.00, velocity);
 	}
 }
 
@@ -954,7 +976,7 @@ void Joint::CycleStateAlt()
 	{
 	case FORWARD: {
 		state_alt = BACKWARD;
-		TriggerActiveStateAlt(-1.00);
+		TriggerActiveStateAlt(-1.00, velocity_alt);
 	} break;
 	case BACKWARD: {
 		state_alt = HOLD;
@@ -966,6 +988,6 @@ void Joint::CycleStateAlt()
 	} break;
 	default:
 		state_alt = FORWARD;
-		TriggerActiveStateAlt(1.00);
+		TriggerActiveStateAlt(1.00, velocity_alt);
 	}
 }

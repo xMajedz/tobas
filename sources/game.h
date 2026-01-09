@@ -163,7 +163,9 @@ namespace Game
 	void CycleJointStateAlt(JointID selected_joint_id);
 	void CycleJointState(JointID selected_joint_id);
 
+	void ToggleSelectedJointActiveStateAlt(dReal vel);
 	void ToggleSelectedJointActiveStateAlt();
+	void ToggleSelectedJointActiveState(dReal vel);
 	void ToggleSelectedJointActiveState();
 	void ToggleSelectedJointPassiveStateAlt();
 	void ToggleSelectedJointPassiveState();
