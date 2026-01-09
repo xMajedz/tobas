@@ -161,6 +161,18 @@ static int Game_GetSelectedJointID(lua_State* L)
 	return 1;
 }
 
+static int Game_GetSelectedJointVelocity(lua_State* L)
+{
+	lua_pushnumber(L, Game::GetSelectedJointVelocity());
+	return 1;
+}
+
+static int Game_GetSelectedJointVelocityAlt(lua_State* L)
+{
+	lua_pushnumber(L, Game::GetSelectedJointVelocityAlt());
+	return 1;
+}
+
 static int Game_IsSelectedJointValid(lua_State* L)
 {
 	lua_pushboolean(L, Game::GetSelectedJointID() != -1);
@@ -332,6 +344,9 @@ static const luaL_Reg api_game[]
 
 	{"GetSelectedPlayerID", Game_GetSelectedPlayerID},
 	{"GetSelectedJointID", Game_GetSelectedJointID},
+
+	{"GetSelectedJointVelocity", Game_GetSelectedJointVelocity},
+	{"GetSelectedJointVelocityAlt", Game_GetSelectedJointVelocityAlt},
 
 	{"UndoSelectedPlayerMove", Game_UndoSelectedPlayerMove},
 

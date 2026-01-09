@@ -525,6 +525,16 @@ JointID Game::GetSelectedJointID()
 	return state.selected_joint;
 }
 
+dReal Game::GetSelectedJointVelocity()
+{
+	return players[state.selected_player].joint[state.selected_joint].velocity;
+}
+
+dReal Game::GetSelectedJointVelocityAlt()
+{
+	return players[state.selected_player].joint[state.selected_joint].velocity_alt;
+}
+
 std::vector<Player> Game::GetPlayers()
 {
 	return players;
@@ -608,10 +618,10 @@ void Game::TriggerPlayerJointState(PlayerID player_id, JointID joint_id, JointSt
 		players[player_id].joint[joint_id].TriggerPassiveState(players[player_id].joint[joint_id].strength);
 		break;
 	case FORWARD:
-		players[player_id].joint[joint_id].TriggerActiveState(1.00, players[player_id].joint[joint_id].velocity);
+		players[player_id].joint[joint_id].TriggerActiveState(1.00 * players[player_id].joint[joint_id].velocity);
 		break; 
 	case BACKWARD:
-		players[player_id].joint[joint_id].TriggerActiveState(-1.00, players[player_id].joint[joint_id].velocity);
+		players[player_id].joint[joint_id].TriggerActiveState(-1.00 * players[player_id].joint[joint_id].velocity);
 		break;
 	}
 }
@@ -627,10 +637,10 @@ void Game::TriggerPlayerJointStateAlt(PlayerID player_id, JointID joint_id, Join
 		players[player_id].joint[joint_id].TriggerPassiveStateAlt(players[player_id].joint[joint_id].strength_alt);
 		break;
 	case FORWARD:
-		players[player_id].joint[joint_id].TriggerActiveStateAlt(1.00, players[player_id].joint[joint_id].velocity_alt);
+		players[player_id].joint[joint_id].TriggerActiveStateAlt(1.00 * players[player_id].joint[joint_id].velocity_alt);
 		break; 
 	case BACKWARD:
-		players[player_id].joint[joint_id].TriggerActiveStateAlt(-1.00, players[player_id].joint[joint_id].velocity_alt);
+		players[player_id].joint[joint_id].TriggerActiveStateAlt(-1.00 * players[player_id].joint[joint_id].velocity_alt);
 		break;
 	}
 }

@@ -14,6 +14,8 @@ local showSettings = false
 local showConsole = false
 local showConsoleMessages = false
 
+local showSlider = true
+
 local screenWidth, screenHeight = API.GetWindowSize()
 
 local mod, o_count, p_count, p_details, frame, reaction_count, rules, gravity, console_message
@@ -155,11 +157,14 @@ else
 	if Game.IsFreeze() and Game.IsMode(Game["MODE_FREEPLAY"]) and Game.IsSelectedJointValid() then
 		if not RAYLIB.IsKeyDown(RAYLIB["KEY_LEFT_CONTROL"]) and RAYLIB.IsKeyPressed(RAYLIB["KEY_Z"]) then
 			Game.Refreeze()
-			if Expermental["variable_joint_vel"] then
+
+			if Expermental then
 				if RAYLIB.IsKeyDown(RAYLIB["KEY_LEFT_SHIFT"]) then
-					Expermental.ToggleSelectedJointActiveStateAlt(1.00)
+					local vel = Game.GetSelectedJointVelocityAlt() * RAYGUI["_VAR"]["GuiSlider"]
+					Expermental.ToggleSelectedJointActiveStateAlt(vel)
 				else
-					Expermental.ToggleSelectedJointActiveState(1.00)
+					local vel = Game.GetSelectedJointVelocity() * RAYGUI["_VAR"]["GuiSlider"]
+					Expermental.ToggleSelectedJointActiveState(vel)
 				end
 	
 			else
@@ -342,6 +347,12 @@ function API.Draw.init()
 		end
 
 		RAYGUI.GuiTextBox(10, 40, 200, 20, true)
+	end
+
+	if showSlider then
+		if RAYGUI.GuiSlider((screenWidth-200)/2, screenHeight-80, screenWidth/4, 20, "Min", "Max", 0.00, 1.00) then
+			Game.Refreeze()
+		end
 	end
 end
 

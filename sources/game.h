@@ -111,14 +111,19 @@ namespace Game
 	void SetSelectedPlayer();
 	void SetSelectedPlayer(PlayerID);
 
-	PlayerID GetSelectedPlayerID();
-	Player& GetSelectedPlayer();
 	Player& GetPlayer(PlayerID player_id);
+	Player& GetSelectedPlayer();
+	PlayerID GetSelectedPlayerID();
 
 	void SetSelectedJoint();
 	void SetSelectedJoint(JointID joint_id);
-	JointID GetSelectedJointID();
+
 	Joint& GetSelectedJoint();
+	JointID GetSelectedJointID();
+
+	dReal GetSelectedJointVelocity();
+	dReal GetSelectedJointVelocityAlt();
+
 	Joint& GetJoint(PlayerID player_id, JointID joint_id);
 
 	

@@ -163,6 +163,64 @@ static int RAYGUI_GuiTextInputBox(lua_State* L)
 	return 1;
 }
 
+static float RAYGUI_GuiSliderVal = 1.00;
+
+static int RAYGUI_GuiSlider(lua_State* L)
+{
+	lua_getglobal(L, "RAYGUI");
+	lua_getfield(L, -1, "_VAR");
+
+	lua_pushnumber(L, RAYGUI_GuiSliderVal);
+	lua_setfield(L, -2, "GuiSlider");
+	
+
+	float max = lua_tonumber(L, -3);
+	float min = lua_tonumber(L, -4);
+
+	auto textL = lua_tostring(L, -5);
+	auto textR = lua_tostring(L, -6);
+
+	float h = lua_tonumber(L, -7);
+	float w = lua_tonumber(L, -8);
+	float y = lua_tonumber(L, -9);
+	float x = lua_tonumber(L, -10);
+
+	int status  = GuiSlider(
+		(Rectangle){x, y, w, h},
+		textR,
+		textL,
+		&RAYGUI_GuiSliderVal,
+		min,
+		max
+	);
+
+	lua_pushboolean(L, status);
+
+	return 1;
+}
+
+static int RAYGUI_GuiSliderBar(lua_State* L)
+{
+
+	float h = lua_tonumber(L, -1);
+	float w = lua_tonumber(L, -2);
+	float y = lua_tonumber(L, -3);
+	float x = lua_tonumber(L, -4);
+
+	int status  = GuiSliderBar(
+		(Rectangle){x, y, w, h},
+		"Min",
+		"Max",
+		&RAYGUI_GuiSliderVal,
+		0.00,
+		1.00
+	);
+
+	lua_pushboolean(L, status);
+
+	return 1;
+}
+
 static const luaL_Reg api_raygui[] {
 	{"GuiSetStyle", RAYGUI_GuiSetStyle},
 	{"GuiGetStyle", RAYGUI_GuiGetStyle},
@@ -176,6 +234,9 @@ static const luaL_Reg api_raygui[] {
 
 	{"GuiTextBox", RAYGUI_GuiTextBox},
 	{"GuiTextInputBox", RAYGUI_GuiTextInputBox},
+
+	{"GuiSlider", RAYGUI_GuiSlider},
+	{"GuiSliderBar", RAYGUI_GuiSliderBar},
 
 	{NULL, NULL},
 };

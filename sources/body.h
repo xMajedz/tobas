@@ -181,9 +181,9 @@ struct Joint : public Body
 	void DrawAxis(bool freeze);
 	void DrawRange(bool freeze);
 
-	void TriggerActiveStateAlt(dReal dir, dReal vel);	
+	void TriggerActiveStateAlt(dReal vel);	
 	void TriggerPassiveStateAlt(dReal strength);	
-	void TriggerActiveState(dReal dir, dReal vel);
+	void TriggerActiveState(dReal vel);
 	void TriggerPassiveState(dReal strength);	
 
 	void TogglePassiveState();	
