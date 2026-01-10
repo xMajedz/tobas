@@ -609,7 +609,7 @@ void Game::ToggleSelectedPlayerPassiveStates()
 
 void Game::TriggerPlayerJointState(PlayerID player_id, JointID joint_id, JointState state)
 {
-	switch((JointState)state)
+	switch(state)
 	{
 	case RELAX:
 		players[player_id].joint[joint_id].TriggerPassiveState(0.00);
@@ -628,7 +628,7 @@ void Game::TriggerPlayerJointState(PlayerID player_id, JointID joint_id, JointSt
 
 void Game::TriggerPlayerJointStateAlt(PlayerID player_id, JointID joint_id, JointState state)
 {
-	switch((JointState)state)
+	switch(state)
 	{
 	case RELAX:
 		players[player_id].joint[joint_id].TriggerPassiveStateAlt(0.00);
@@ -641,6 +641,38 @@ void Game::TriggerPlayerJointStateAlt(PlayerID player_id, JointID joint_id, Join
 		break; 
 	case BACKWARD:
 		players[player_id].joint[joint_id].TriggerActiveStateAlt(-1.00 * players[player_id].joint[joint_id].velocity_alt);
+		break;
+	}
+}
+
+void Game::TriggerPlayerJoint(PlayerID player_id, JointID joint_id, JointState state, dReal vel)
+{
+	switch(state)
+	{
+	case RELAX:
+		players[player_id].joint[joint_id].TriggerPassiveState(0.00);
+		break;
+	case HOLD:
+		players[player_id].joint[joint_id].TriggerPassiveState(players[player_id].joint[joint_id].strength);
+		break;
+	case FORWARD: case BACKWARD:
+		players[player_id].joint[joint_id].TriggerActiveState(vel);
+		break;
+	}
+}
+
+void Game::TriggerPlayerJointAlt(PlayerID player_id, JointID joint_id, JointState state, dReal vel)
+{
+	switch(state)
+	{
+	case RELAX:
+		players[player_id].joint[joint_id].TriggerPassiveStateAlt(0.00);
+		break;
+	case HOLD:
+		players[player_id].joint[joint_id].TriggerPassiveStateAlt(players[player_id].joint[joint_id].strength_alt);
+		break;
+	case FORWARD: case BACKWARD:
+		players[player_id].joint[joint_id].TriggerActiveStateAlt(vel);
 		break;
 	}
 }
@@ -697,6 +729,16 @@ void Game::CycleJointStateAlt(JointID joint_id)
 void Game::CycleJointState(JointID joint_id)
 {
 	players[state.selected_player].joint[joint_id].CycleState();
+}
+
+void Game::TriggerSelectedJointActiveStateAlt(dReal vel)
+{
+	players[state.selected_player].joint[state.selected_joint].TriggerActiveStateAlt(vel);
+}
+
+void Game::TriggerSelectedJointActiveState(dReal vel)
+{
+	players[state.selected_player].joint[state.selected_joint].TriggerActiveState(vel);
 }
 
 void Game::ToggleSelectedJointActiveStateAlt(dReal vel)
@@ -1042,14 +1084,20 @@ void Replay::RecordFrame(int game_frame)
 		player.j_count = Game::GetPlayerJointCount(p_id);
 		player.b_count = Game::GetPlayerBodyCount(p_id);
 
-		player.J = storage->allocate(sizeof(uint8_t)*(player.j_count));
+		//player.J = storage->allocate(sizeof(uint8_t)*(player.j_count));
+		player.Js = storage->allocate(sizeof(uint8_t)*(player.j_count));
+		player.Jv = storage->allocate(sizeof(double)*(player.j_count*2));
+
 		player.B = storage->allocate(sizeof(uint8_t)*(player.b_count));
+
 		player.Q = storage->allocate(sizeof(double)*(player.b_count*4));
 		player.P = storage->allocate(sizeof(double)*(player.b_count*3));
 		player.L = storage->allocate(sizeof(double)*(player.b_count*3));
 		player.A = storage->allocate(sizeof(double)*(player.b_count*3));
 
-		std::string J = "J";
+		std::string Js = "Js";
+		std::string Jv = "Jv";
+
 		std::string B = "B";
 		std::string P = "P";
 		std::string Q = "Q";
@@ -1058,10 +1106,16 @@ void Replay::RecordFrame(int game_frame)
 
 		for (auto& j : p.joint) {
 			auto j_id = j.GetID();
+			
 			uint8_t state_byte = j.state + (j.state_alt << 2);
-			J.append(TextFormat(" %d", state_byte));
+			Js.append(TextFormat(" %d", state_byte));
 
-			*((uint8_t*)player.J + j_id) = state_byte;
+			*((uint8_t*)player.Js + j_id) = state_byte;
+
+			Jv.append(TextFormat(" %f %f", j.frame_vel, j.frame_vel_alt));
+
+			*((double*)player.Jv + (2*j_id + 0)) = j.frame_vel;
+			*((double*)player.Jv + (2*j_id + 1)) = j.frame_vel_alt;
 		}
 
 		for (auto& b : p.body) {
@@ -1113,7 +1167,9 @@ void Replay::RecordFrame(int game_frame)
 			*((double*)player.A + (3*b_id + 2)) = b.frame_angular_vel.z;
 		}
 
-		tempframe.append(TextFormat("%s\n", J.c_str()));
+		tempframe.append(TextFormat("%s\n", Js.c_str()));
+		tempframe.append(TextFormat("%s\n", Jv.c_str()));
+
 		tempframe.append(TextFormat("%s\n", B.c_str()));
 		tempframe.append(TextFormat("%s\n", P.c_str()));
 		tempframe.append(TextFormat("%s\n", Q.c_str()));
@@ -1147,12 +1203,13 @@ void Replay::Play(int game_frame)
 		auto& p = *((FramePlayer*)frame.players + p_id);
 	
 		for (int j_id = 0; j_id < p.j_count; j_id += 1) {
-			auto& J = *((uint8_t*)p.J + j_id);
-			uint8_t state_alt = J >> 2;
-			uint8_t state = J - (state_alt << 2);
+			auto& Js = *((uint8_t*)p.Js + j_id);
 
-			Game::TriggerPlayerJointState(p_id, j_id, (JointState)state);
-			Game::TriggerPlayerJointStateAlt(p_id, j_id, (JointState)state_alt);
+			uint8_t state_alt = Js >> 2;
+			uint8_t state = Js - (state_alt << 2);
+
+			Game::TriggerPlayerJoint(p_id, j_id, (JointState)state, *((double*)p.Jv + j_id * 2 + 0));
+			Game::TriggerPlayerJointAlt(p_id, j_id, (JointState)state_alt, *((double*)p.Jv + j_id * 2 + 1));
 		}
 
 		for (int b_id = 0; b_id < p.b_count; b_id += 1) {

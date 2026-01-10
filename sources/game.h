@@ -156,6 +156,9 @@ namespace Game
 	void TriggerPlayerJointState(PlayerID player_id, JointID joint_id, JointState state);
 	void TriggerPlayerJointStateAlt(PlayerID player_id, JointID joint_id, JointState state);
 
+	void TriggerPlayerJoint(PlayerID player_id, JointID joint_id, JointState state, dReal vel);
+	void TriggerPlayerJointAlt(PlayerID player_id, JointID joint_id, JointState state, dReal vel);
+
 	void TogglePlayerPassiveStatesAlt(PlayerID player_id);
 	void TogglePlayerPassiveStates(PlayerID player_id);
 	void ToggleSelectedPlayerPassiveStatesAlt();
@@ -167,6 +170,9 @@ namespace Game
 	void ToggleJointPassiveState(JointID selected_joint_id);
 	void CycleJointStateAlt(JointID selected_joint_id);
 	void CycleJointState(JointID selected_joint_id);
+
+	void TriggerSelectedJointActiveStateAlt(dReal vel);
+	void TriggerSelectedJointActiveState(dReal vel);
 
 	void ToggleSelectedJointActiveStateAlt(dReal vel);
 	void ToggleSelectedJointActiveStateAlt();
@@ -241,7 +247,9 @@ struct FramePlayer
 	size_t j_count = 0;
 	size_t b_count = 0;
 
-	uintptr_t J = 0;
+	uintptr_t Js = 0;
+	uintptr_t Jv = 0;
+
 	uintptr_t B = 0;
 	uintptr_t Q = 0;
 	uintptr_t P = 0;

@@ -152,6 +152,39 @@ BodyID Body::GetID()
 	return m_id;
 }
 
+void Joint::Step()
+{
+	if (dJoint != nullptr) {
+		switch(type)
+		{
+		case HINGE: {
+			frame_vel = dJointGetHingeParam(dJoint, dParamVel);
+		}	break;
+		case dSLIDER: {
+			frame_vel = dJointGetSliderParam(dJoint, dParamVel);
+		}	break;
+		case UNIVERSAL: {
+			frame_vel = dJointGetUniversalParam(dJoint, dParamVel);
+			frame_vel_alt = dJointGetUniversalParam(dJoint, dParamVel2);
+		}	break;
+		case HINGE2: {
+			frame_vel = dJointGetHinge2Param(dJoint, dParamVel);
+			frame_vel_alt = dJointGetHinge2Param(dJoint, dParamVel2);
+		}	break;
+		}
+	}
+
+	dQuaternion orientation = { 0 };
+	dGeomGetQuaternion(dGeom, orientation);
+	frame_orientation = { orientation[1], orientation[2], orientation[3], orientation[0] };
+
+	const dReal* position = dGeomGetPosition(dGeom);
+	frame_position = { position[0], position[1], position[2] };
+
+	const dReal* offset = dGeomGetOffsetPosition(dGeom); 
+	frame_offset = { offset[0], offset[1], offset[2] };
+}
+
 void Body::Step()
 {
 	if (!m_static && dBody != nullptr) {

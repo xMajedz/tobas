@@ -169,21 +169,20 @@ static int RAYGUI_GuiSlider(lua_State* L)
 {
 	lua_getglobal(L, "RAYGUI");
 	lua_getfield(L, -1, "_VAR");
+	lua_getfield(L, -1, "GuiSlider");
 
-	lua_pushnumber(L, RAYGUI_GuiSliderVal);
-	lua_setfield(L, -2, "GuiSlider");
-	
+	RAYGUI_GuiSliderVal = lua_tonumber(L, -1);
 
-	float max = lua_tonumber(L, -3);
-	float min = lua_tonumber(L, -4);
+	float max = lua_tonumber(L, -4);
+	float min = lua_tonumber(L, -5);
 
-	auto textL = lua_tostring(L, -5);
-	auto textR = lua_tostring(L, -6);
+	auto textL = lua_tostring(L, -6);
+	auto textR = lua_tostring(L, -7);
 
-	float h = lua_tonumber(L, -7);
-	float w = lua_tonumber(L, -8);
-	float y = lua_tonumber(L, -9);
-	float x = lua_tonumber(L, -10);
+	float h = lua_tonumber(L, -8);
+	float w = lua_tonumber(L, -9);
+	float y = lua_tonumber(L, -10);
+	float x = lua_tonumber(L, -11);
 
 	int status  = GuiSlider(
 		(Rectangle){x, y, w, h},

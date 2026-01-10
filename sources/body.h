@@ -169,6 +169,9 @@ struct Joint : public Body
 	dReal velocity;
 	dReal velocity_alt;
 
+	dReal frame_vel;
+	dReal frame_vel_alt;
+
 	Joint(JointID id, const char* name);
 
 	void Create(dWorldID world, dSpaceID space, Body b1, Body b2);
@@ -195,4 +198,5 @@ struct Joint : public Body
 	void ToggleActiveStateAlt();	
 	void CycleState();	
 	void CycleStateAlt();
+	void Step();
 };
