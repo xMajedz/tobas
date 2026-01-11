@@ -76,8 +76,10 @@ function API.Update.JVJ(dt)
 end
 
 function API.Draw.VJV()
-	if RAYGUI.GuiSlider((screenWidth-200)/2, screenHeight-80, screenWidth/4, 20, "Min", "Max", 0.00, 1.00) then
-		Game.Refreeze()
+	if not Game.IsMode(Game["MODE_REPLAY"]) then
+		if RAYGUI.GuiSlider((screenWidth-200)/2, screenHeight-80, screenWidth/4, 20, "Min", "Max", 0.00, 1.00) then
+			Game.Refreeze()
+		end
 	end
 end
 

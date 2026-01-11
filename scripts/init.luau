@@ -16,7 +16,7 @@ local showConsoleMessages = false
 
 local screenWidth, screenHeight = API.GetWindowSize()
 
-local mod, o_count, p_count, p_details, frame, reaction_count, rules, gravity, console_message
+local mod, o_count, p_count, p_details, frame, reaction_time, reaction_count, rules, gravity, console_message
 
 local messages = {}
 local commands = {}
@@ -83,11 +83,12 @@ function API.NewGame.init()
 	end
 	rules = Game.GetGamerules()
 	gravity = `{rules.gravity.x}, {rules.gravity.y}, {rules.gravity.z}`
+	reaction_time = Game.GetReactionTime()
 end
 
 function API.Update.init(dt)
 	frame = Game.GetGameFrame()
-	reaction_count = math.round(Game.GetReactionTime() - Game.GetReactionCount())
+	reaction_count = math.round(reaction_time - Game.GetReactionCount())
 
 	if RAYLIB.IsKeyPressed(RAYLIB["KEY_ENTER"]) then
 		if showConsole and RAYGUI["_VAR"]["GuiTextBox"] ~= "" then
@@ -179,6 +180,7 @@ else
 
 		if RAYLIB.IsMouseButtonPressed(RAYLIB["MOUSE_BUTTON_LEFT"]) then
 			Game.Refreeze()
+
 			if RAYLIB.IsKeyDown(RAYLIB["KEY_LEFT_SHIFT"]) then
 				Game.CycleSelectedJointStateAlt()
 			else
@@ -191,17 +193,20 @@ else
 	if Game.IsFreeze() and Game.IsMode(Game["MODE_FREEPLAY"]) and Game.IsSelectedPlayerValid() then
 		if RAYLIB.IsKeyDown(RAYLIB["KEY_LEFT_CONTROL"]) and RAYLIB.IsKeyPressed(RAYLIB["KEY_Z"]) then
 			Game.Refreeze()
+
 			Game.UndoSelectedPlayerMove()
 		end
 
 		if RAYLIB.IsKeyPressed(RAYLIB["KEY_C"]) then
 			Game.Refreeze()
+
 			Game.ToggleSelectedPlayerPassiveStatesAlt()
 			Game.ToggleSelectedPlayerPassiveStates()
 		end
 
 		if RAYLIB.IsKeyPressed(RAYLIB["KEY_V"]) then
 			Game.Refreeze()
+
 			Game.ToggleSelectedPlayerBodyStates()
 		end
 	end
@@ -233,9 +238,14 @@ function API.Draw.init()
 			showSettings = showSettings == false
 		end
 	else
-		RAYGUI.GuiLabel(10, 10, screenWidth-10, 10, `{mod}: o:{o_count} p:{p_count} {p_details}`)
-		RAYGUI.GuiLabel(10, 30, screenWidth-10, 10, `{frame}`)
-		RAYGUI.GuiLabel(10, 50, screenWidth-10, 10, `{reaction_count}`)
+		local offset = 10
+		RAYGUI.GuiLabel(10, offset, screenWidth-10, 10, `{mod}: o:{o_count} p:{p_count} {p_details}`)
+		offset = offset + 20
+		RAYGUI.GuiLabel(10, offset, screenWidth-10, 10, `{frame}`)
+		offset = offset + 20
+		if reaction_time > 0 then
+			RAYGUI.GuiLabel(10, offset, screenWidth-10, 10, `{reaction_count}`)
+		end
 	end
 
 	if showRules then
@@ -341,6 +351,12 @@ function API.Draw.init()
 		end
 
 		RAYGUI.GuiTextBox(10, 40, 200, 20, true)
+	end
+
+	if Game.IsMode(Game["MODE_REPLAY"])then
+		local frame_count = Replay.GetFrameCount()
+		RAYGUI["_VAR"]["GuiSliderBar"] = frame/frame_count
+		RAYGUI.GuiSliderBar(10, screenHeight-80, screenWidth-20, 20, "", "", 0.00, 1.00)
 	end
 end
 

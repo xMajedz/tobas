@@ -13,7 +13,8 @@ Player::Player(PlayerID id, std::string_view name)
 	m_j_color = BLACK;
 	m_g_color = Fade(BLACK, 0.10);
 
-	m_b_active_color = Fade(BLACK, 0.10);
+	//m_b_active_color = Fade(BLACK, 0.10);
+	m_b_active_color = BLACK;
 	m_j_select_color = WHITE;
 
 	m_offset = { 0 };
@@ -59,7 +60,7 @@ void Player::Create(dWorldID world, dSpaceID space)
 		b.ghost = true;
 		b.m_static = false;
 
-		b.m_active_color = m_g_color;
+		b.m_active_color = m_j_color;
 
 	}
 

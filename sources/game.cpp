@@ -81,10 +81,12 @@ void Game::NewGame()
 
 	for (auto& o : objects)
 		o.Create(world, space);
+
 	for (auto& jo : joint_objects)
 		jo.Create(world, space, objects[jo.connections[0]], objects[jo.connections[1]]);
 
 	int count = 1;
+
 	for (auto& p : players)
 	{
 		p.b_count = p.body.size();
@@ -104,7 +106,7 @@ void Game::NewGame()
 	state.running = true;
 	
 	Replay::WriteMetaData();
-	Replay::RecordFrame();
+	//Replay::RecordFrame();
 
 	API::NewGameCallback();
 }
@@ -298,12 +300,10 @@ void Game::Update(dReal dt)
 		 */
 
 		if (!state.freeze) {
-			state.game_frame += 1;
-
 			switch (state.mode)
 			{
 			case SELF_PLAY: case FREE_PLAY:
-				//Replay::RecordFrame(state.game_frame);
+				Replay::RecordFrame(state.game_frame);
 	
 				if (state.step_count > state.step_frames) {
 					Freeze();
@@ -325,6 +325,8 @@ void Game::Update(dReal dt)
 	
 				break;
 			}
+
+			state.game_frame += 1;
 		} else {
 			switch (state.mode)
 			{
@@ -358,7 +360,7 @@ void Game::Update(dReal dt)
 			switch (state.mode)
 			{
 			case SELF_PLAY: case FREE_PLAY:
-				Replay::RecordFrame(state.game_frame);
+				//Replay::RecordFrame(state.game_frame);
 
 				//if (state.step_count > state.step_frames) {
 				//	Freeze();
@@ -993,9 +995,9 @@ void Game::EnterMode(Gamemode mode)
 
 		Freeze();
 
-		Replay::Begin();
+		//Replay::Begin();
 
-		Replay::RecordFrame(state.game_frame);
+		//Replay::RecordFrame(state.game_frame);
 		break;
 	}
 }
@@ -1121,8 +1123,8 @@ void Replay::RecordFrame(int game_frame)
 		for (auto& b : p.body) {
 			auto b_id = b.GetID();
 			
-			B.append(TextFormat(" %d", b.m_data.active));
-			*((uint8_t*)player.B + b_id) = (uint8_t)b.m_data.active;
+			B.append(TextFormat(" %d", b.active));
+			*((uint8_t*)player.B + b_id) = (uint8_t)b.active;
 
 			Q.append(TextFormat(" %f %f %f %f",
 				b.frame_orientation.w,

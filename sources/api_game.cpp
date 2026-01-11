@@ -365,10 +365,18 @@ static int Replay_Save(lua_State* L)
 	return 1;
 }
 
+static int Replay_GetFrameCount(lua_State* L)
+{
+	lua_pushinteger(L, Replay::GetFrameCount());
+	return 1;
+}
+
 static const luaL_Reg api_replay[]
 {
 	{"Load", Replay_Load},
 	{"Save", Replay_Save},
+
+	{"GetFrameCount", Replay_GetFrameCount},
 
 	{NULL, NULL},
 };

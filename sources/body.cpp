@@ -139,7 +139,7 @@ void Body::CreateComposite(dBodyID b)
 
 /*void Body::SetPosition(Vector3 position)
 {
-	dGeomSetPosition(dGeom, position, position, position);
+	dGeomSetPosition(dGeom, position.x, position.y, position.z);
 }*/
 
 void Body::SetColor(Color color)
@@ -187,6 +187,10 @@ void Joint::Step()
 
 void Body::Step()
 {
+	if (m_interactive) {
+		active = m_data.active;
+	}
+
 	if (!m_static && dBody != nullptr) {
 		const dReal* linear_vel = dBodyGetLinearVel(dBody);
 		const dReal* angular_vel = dBodyGetAngularVel(dBody);
