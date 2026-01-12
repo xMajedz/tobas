@@ -188,7 +188,7 @@ void Joint::Step()
 void Body::Step()
 {
 	if (m_interactive) {
-		active = m_data.active;
+		m_data.active = active;
 	}
 
 	if (!m_static && dBody != nullptr) {
@@ -462,7 +462,7 @@ void Body::ToggleGhost()
 
 void Body::ToggleState()
 {
-	m_data.active = m_data.active == false;
+	active = active == false;
 }
 
 std::string Body::GetName()

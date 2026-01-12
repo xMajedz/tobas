@@ -324,21 +324,21 @@ function API.Draw.init()
 
 	if showSettings then
 		RAYGUI.GuiGroupBox(15, 50, 200, 400, "Settings")
-		--RAYGUI.GuiWindowBox(screenWidth-220, 20, 200, 400, "Settings")
 	end
 
-	if showConsole then
-		RAYGUI.GuiTextBox(10, screenHeight-30, screenWidth-20, 20, true)
-	end
-	
-	if showConsoleMessages then
-		for i in messages do
-			RAYLIB.DrawText(messages[i], 10, screenHeight-(30+20*(#messages-i+1)), 20, RAYLIB["BLACK"])
-		end
+	local offset = screenHeight-30
+
+	if Game.IsMode(Game["MODE_REPLAY"])then
+		local frame_count = Replay.GetFrameCount()
+		RAYGUI["_VAR"]["GuiSliderBar"] = frame/frame_count
+
+		RAYGUI.GuiSliderBar(10, offset, screenWidth-20, 20, "", "", 0.00, 1.00)
+
+		offset = offset - 30
 	end
 
 	if showReplaysSaving then
-		if (RAYGUI.GuiButton(10, 80 , 200, 20, "Save")) then
+		if (RAYGUI.GuiButton(10, offset, screenWidth-20, 20, "Save")) then
 			showReplaysSaving = false
 
 			if RAYGUI["_VAR"]["GuiTextBox"] ~= "" then
@@ -350,13 +350,21 @@ function API.Draw.init()
 			RAYGUI["_VAR"]["GuiTextBox"] = ""
 		end
 
-		RAYGUI.GuiTextBox(10, 40, 200, 20, true)
+		offset = offset - 30
+
+		RAYGUI.GuiTextBox(10, offset, screenWidth-20, 20, true)
+
+		offset = offset - 30
 	end
 
-	if Game.IsMode(Game["MODE_REPLAY"])then
-		local frame_count = Replay.GetFrameCount()
-		RAYGUI["_VAR"]["GuiSliderBar"] = frame/frame_count
-		RAYGUI.GuiSliderBar(10, screenHeight-80, screenWidth-20, 20, "", "", 0.00, 1.00)
+	if showConsole then
+		RAYGUI.GuiTextBox(10, offset, screenWidth-20, 20, true)
+	end
+	
+	if showConsoleMessages then
+		for i in messages do
+			RAYLIB.DrawText(messages[i], 10, offset-20*(#messages-i+1), 20, RAYLIB["BLACK"])
+		end
 	end
 end
 

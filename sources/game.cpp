@@ -289,21 +289,17 @@ void Game::Update(dReal dt)
 		NewGame();
 	}
 
+	API::UpdateCallback(dt);
+
 	if (!state.pause)
 	{
 		numcollisions = 0;
-
-		API::UpdateCallback(dt);
-
-		/*
-		 * Pre-Step
-		 */
 
 		if (!state.freeze) {
 			switch (state.mode)
 			{
 			case SELF_PLAY: case FREE_PLAY:
-				Replay::RecordFrame(state.game_frame);
+				//Replay::RecordFrame(state.game_frame);
 	
 				if (state.step_count > state.step_frames) {
 					Freeze();
@@ -326,7 +322,7 @@ void Game::Update(dReal dt)
 				break;
 			}
 
-			state.game_frame += 1;
+			//state.game_frame += 1;
 		} else {
 			switch (state.mode)
 			{
@@ -351,42 +347,25 @@ void Game::Update(dReal dt)
 		dSpaceCollide(space, 0, nearCallback);
 		dWorldStep(world, step);
 		dJointGroupEmpty(contactgroup);
-
-		/*
-		 * Post-Step
-		 */
-
+		
 		if (!state.freeze) {
 			switch (state.mode)
 			{
 			case SELF_PLAY: case FREE_PLAY:
-				//Replay::RecordFrame(state.game_frame);
-
-				//if (state.step_count > state.step_frames) {
-				//	Freeze();
-				//}
-
-				//state.step_count += 1;
-	
+				Replay::RecordFrame(state.game_frame);
+				break;
+			case REPLAY_PLAY:
 				break;
 			}
+
+			state.game_frame += 1;
 		} else {
 			switch (state.mode)
 			{
 			case SELF_PLAY: case FREE_PLAY:
-				/*if (state.freeze_count >= state.freeze_frames) {
-					Refreeze();
-				}
-	
-				if (0 < rules.reaction_time) {
-					state.reaction_count = GetTime() - state.freeze_time;
-					if (state.reaction_count >= rules.reaction_time) Step(rules.turnframes);
-				}*/
-	
 				break;
 			}
 	
-			//state.freeze_count += 1;
 		}
 	}
 }
@@ -574,7 +553,7 @@ void Game::SetSelectedPlayer(PlayerID player_id)
 
 void Game::SetBodyState(PlayerID player_id, BodyID body_id, bool state)
 {
-	players[player_id].body[body_id].m_data.active = state;
+	players[player_id].body[body_id].active = state;
 }
 
 void Game::TogglePause()
@@ -974,6 +953,10 @@ void Game::EnterMode(Gamemode mode)
 	for (auto& p : players) {
 		p.RelaxAll();
 		p.RelaxAllAlt();
+
+		for (auto& b : p.body) {
+			b.active = false;
+		}
 	}
 
 	state.reaction_count = 0;
@@ -995,9 +978,8 @@ void Game::EnterMode(Gamemode mode)
 
 		Freeze();
 
-		//Replay::Begin();
+		Replay::Begin();
 
-		//Replay::RecordFrame(state.game_frame);
 		break;
 	}
 }
