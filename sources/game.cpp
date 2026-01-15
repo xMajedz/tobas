@@ -847,6 +847,18 @@ static void gSelector(Camera3D camera)
 
 void Window::Update()
 {
+	if (IsWindowResized()) {
+		
+		width = GetScreenWidth();
+		height = GetScreenHeight();
+
+		UnloadRenderTexture(background);
+		background = LoadRenderTexture(width, height);
+
+		UnloadRenderTexture(foreground);
+		foreground = LoadRenderTexture(width, height);
+	}
+
 	SetWindowTitle(TextFormat("TOBAS %dFPS", GetFPS()));
 
 	const auto& camera = Gamecam::Get();

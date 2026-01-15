@@ -111,8 +111,7 @@ static int RAYGUI_GuiTextBox(lua_State* L)
 	lua_getfield(L, -1, "_VAR");
 	lua_getfield(L, -1, "GuiTextBox");
 	
-	const char* _VAR = lua_tostring(L, -1);
-	TextCopy(RAYGUI_GuiTextBoxContent, _VAR);
+	TextCopy(RAYGUI_GuiTextBoxContent, lua_tostring(L, -1));
 
 	bool editMode = lua_toboolean(L, -4);
 	float h = lua_tonumber(L, -5);
@@ -126,10 +125,56 @@ static int RAYGUI_GuiTextBox(lua_State* L)
 			editMode
 	);
 
-	lua_pushboolean(L, (bool)status);
-
 	Luau::dostring(L, TextFormat(
 			"_G[\"RAYGUI\"][\"_VAR\"][\"GuiTextBox\"]=\"%s\"", RAYGUI_GuiTextBoxContent)
+	);
+
+	lua_pushboolean(L, (bool)status);
+
+	return 1;
+}
+
+static int RAYGUI_GuiTextBox2(lua_State* L)
+{
+	bool editMode = lua_toboolean(L, -1);
+	int textSize = lua_tointeger(L, -2);
+	
+	char text[textSize];
+	TextCopy(text, lua_tostring(L, -3));
+
+	float h = lua_tonumber(L, -4);
+	float w = lua_tonumber(L, -5);
+	float y = lua_tonumber(L, -6);
+	float x = lua_tonumber(L, -7);
+
+	int status = GuiTextBox((Rectangle){x, y, w, h}, text, textSize, editMode);
+
+	lua_pushboolean(L, (bool)status);
+
+	return 1;
+}
+
+static int RAYGUI_GuiTextInputBox2(lua_State* L)
+{
+	bool secretViewActive = lua_toboolean(L, -1);
+	auto textMaxSize = lua_tointeger(L, -2);
+	char* text;
+	auto buttons = lua_tostring(L, -4);
+	auto message = lua_tostring(L, -5);
+	auto title = lua_tostring(L, -6);
+	float h = lua_tonumber(L, -7);
+	float w = lua_tonumber(L, -8);
+	float y = lua_tonumber(L, -9);
+	float x = lua_tonumber(L, -10);
+
+	int status = GuiTextInputBox(
+		(Rectangle){x, y, w, h},
+		title,
+		message,
+		buttons,
+		text,
+		textMaxSize,
+		&secretViewActive
 	);
 
 	return 1;
@@ -245,6 +290,9 @@ static const luaL_Reg api_raygui[] {
 	{"GuiButton", RAYGUI_GuiButton},
 
 	{"GuiTextBox", RAYGUI_GuiTextBox},
+	{"GuiTextBox2", RAYGUI_GuiTextBox2},
+
+	{"GuiTextInputBox2", RAYGUI_GuiTextInputBox2},
 	{"GuiTextInputBox", RAYGUI_GuiTextInputBox},
 
 	{"GuiSlider", RAYGUI_GuiSlider},

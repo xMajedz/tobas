@@ -162,6 +162,34 @@ static int RAYLIB_IsKeyUp(lua_State* L)
 	return 1;
 }
 
+static int RAYLIB_GetScreenWidth(lua_State* L)
+{
+	lua_pushinteger(L, GetScreenWidth());
+	return 1;
+}
+
+static int RAYLIB_GetScreenHeight(lua_State* L)
+{
+	lua_pushinteger(L, GetScreenHeight());
+	return 1;
+}
+
+static int RAYLIB_ToggleFullscreen(lua_State* L)
+{
+	ToggleFullscreen();
+	lua_pushinteger(L, 1);
+	return 1;
+}
+
+static int RAYLIB_SetWindowSize(lua_State* L)
+{
+	auto h = lua_tointeger(L, -1);
+	auto w = lua_tointeger(L, -2);
+	SetWindowSize(w, h);
+	lua_pushinteger(L, 1);
+	return 1;
+}
+
 static const luaL_Reg api_raylib[] {
 	{"DrawText", RAYLIB_DrawText},
 	{"DrawRectangle", RAYLIB_DrawRectangle},
@@ -180,6 +208,12 @@ static const luaL_Reg api_raylib[] {
 	{"IsKeyDown", RAYLIB_IsKeyDown},
 	{"IsKeyUp", RAYLIB_IsKeyUp},
 
+	{"SetWindowSize", RAYLIB_SetWindowSize},
+	
+	{"GetScreenWidth", RAYLIB_GetScreenWidth},
+	{"GetScreenHeight", RAYLIB_GetScreenHeight},
+
+	{"ToggleFullscreen", RAYLIB_ToggleFullscreen},
 
 	{NULL, NULL},
 };

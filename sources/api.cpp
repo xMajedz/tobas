@@ -1010,13 +1010,6 @@ static int API_connection_type(lua_State* L)
 	return 1;
 }
 
-static int API_GetWindowSize(lua_State* L)
-{
-	lua_pushnumber(L, Window::GetWidth());
-	lua_pushnumber(L, Window::GetHeight());
-	return 2;
-}
-
 static int API_dofile(lua_State* L)
 {
 	const char* filepath = lua_tostring(L, -1);
@@ -1122,8 +1115,6 @@ static const luaL_Reg api_main[] {
 	{"Reset", API_Reset},
 	{"log", API_log},
 	{"parse_t", API_parse_t},
-
-	{"GetWindowSize", API_GetWindowSize},
 
 	{"dofile", API_dofile},
 	{"require", API_require},

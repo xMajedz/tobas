@@ -14,7 +14,7 @@ local showSettings = false
 local showConsole = false
 local showConsoleMessages = false
 
-local screenWidth, screenHeight = API.GetWindowSize()
+local screenWidth, screenHeight = RAYLIB.GetScreenWidth(), RAYLIB.GetScreenHeight()
 
 local mod, o_count, p_count, p_details, frame, reaction_time, reaction_count, rules, gravity, console_message
 
@@ -101,13 +101,8 @@ function API.Update.init(dt)
 			RAYGUI["_VAR"]["GuiTextBox"] = ""
 		end
 
-		if showConsole then
-			showConsoleMessages = false
-			showConsole = false
-		else
-			showConsoleMessages = true
-			showConsole = true
-		end
+		showConsoleMessages = (showConsole and showConsoleMessages) == false
+		showConsole = showConsole == false
 	end
 
 	if not showConsole and RAYLIB.IsKeyPressed(RAYLIB["KEY_SLASH"]) then
@@ -324,6 +319,26 @@ function API.Draw.init()
 
 	if showSettings then
 		RAYGUI.GuiGroupBox(15, 50, 200, 400, "Settings")
+
+		local offset = 50
+
+		for i, res in {"800x450", "1600x900"} do
+			local width = res:gsub("x.+", "")
+			local height = res:gsub(".+x", "")
+
+			offset = offset + 20
+
+			if (RAYGUI.GuiButton(15, offset, 200, 20, res)) then
+				RAYLIB.SetWindowSize(width, height)
+				screenWidth, screenHeight = width, height
+			end
+
+		end
+
+		if (RAYGUI.GuiButton(15, offset + 20, 200, 20, "Fullscreen")) then
+			RAYLIB.ToggleFullscreen()
+			screenWidth, screenHeight = RAYLIB.GetScreenWidth(), RAYLIB.GetScreenHeight()
+		end
 	end
 
 	local offset = screenHeight-30
@@ -357,8 +372,7 @@ function API.Draw.init()
 		offset = offset - 30
 	end
 
-	if showConsole then
-		RAYGUI.GuiTextBox(10, offset, screenWidth-20, 20, true)
+	if showConsole and RAYGUI.GuiTextBox(10, offset, screenWidth-20, 20, true) then
 	end
 	
 	if showConsoleMessages then
@@ -366,6 +380,20 @@ function API.Draw.init()
 			RAYLIB.DrawText(messages[i], 10, offset-20*(#messages-i+1), 20, RAYLIB["BLACK"])
 		end
 	end
+
+	--[[
+	-- Maybe Active Inactive setup
+	--]]
+	
+	--RAYGUI["_VAR"]["GuiTextBox"] = "help"
+	--RAYGUI.GuiTextBox(10, offset, screenWidth-20, 20, true)
+	--RAYGUI.GuiTextBox2(10, offset, screenWidth-20, 20, "help", 1024, true)
+
+	--offset = offset - 30
+
+	--RAYGUI["_VAR"]["GuiTextBox"] = "help2"
+	--RAYGUI.GuiTextBox(10, offset, screenWidth-20, 20, true)
+	--RAYGUI.GuiTextBox2(10, offset, screenWidth-20, 20, "help2", 1024, true)
 end
 
 function API.Console.init(msg)
