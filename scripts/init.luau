@@ -17,10 +17,28 @@ local showConsoleMessages = false
 local screenWidth, screenHeight = RAYLIB.GetScreenWidth(), RAYLIB.GetScreenHeight()
 
 local Data = {}
+Data["GravityX_GuiTextBox"] = API.CreateData(1024)
+Data["GravityY_GuiTextBox"] = API.CreateData(1024)
+Data["GravityZ_GuiTextBox"] = API.CreateData(1024)
+Data["Players_GuiTextBox"] = API.CreateData(1024)
+Data["TurnFrames_GuiTextBox"] = API.CreateData(1024)
+Data["ReactionTime_GuiTextBox"] = API.CreateData(1024)
+Data["MaxContacts_GuiTextBox"] =  API.CreateData(1024)
+Data["Friction_GuiTextBox"] = API.CreateData(1024)
+
 Data["Console_GuiTextBox"] = API.CreateData(1024)
 Data["ReplayName_GuiTextBox"] = API.CreateData(1024)
 
 local editValue = {}
+editValue["GravityX_GuiTextBox"] = false
+editValue["GravityY_GuiTextBox"] = false
+editValue["GravityZ_GuiTextBox"] = false
+editValue["Players_GuiTextBox"] = false
+editValue["TurnFrames_GuiTextBox"] = false
+editValue["ReactionTime_GuiTextBox"] = false
+editValue["MaxContacts_GuiTextBox"] =  false
+editValue["Friction_GuiTextBox"] = false
+
 editValue["Console_GuiTextBox"] = false
 editValue["ReplayName_GuiTextBox"] = false
 
@@ -89,9 +107,19 @@ function API.NewGame.init()
 		p_details = p_details .. "b:" .. b_count .. " "
 		p_details = p_details .. "j:" .. j_count .. " "
 	end
+
 	rules = Game.GetGamerules()
-	gravity = `{rules.gravity.x}, {rules.gravity.y}, {rules.gravity.z}`
+
 	reaction_time = Game.GetReactionTime()
+
+	API.StringToData(`{rules.gravity.x}`, Data["GravityX_GuiTextBox"])
+	API.StringToData(`{rules.gravity.y}`, Data["GravityY_GuiTextBox"])
+	API.StringToData(`{rules.gravity.z}`, Data["GravityZ_GuiTextBox"])
+	API.StringToData(`{rules.numplayers}`, Data["Players_GuiTextBox"])
+	API.StringToData(`{rules.turnframes}`, Data["TurnFrames_GuiTextBox"])
+	API.StringToData(`{rules.reaction_time}`, Data["ReactionTime_GuiTextBox"])
+	API.StringToData(`{rules.max_contacts}`, Data["MaxContacts_GuiTextBox"])
+	API.StringToData(`{rules.friction}`, Data["Friction_GuiTextBox"])
 end
 
 function API.Update.init(dt)
@@ -255,14 +283,55 @@ function API.Draw.init()
 	if showRules then
 		RAYGUI.GuiGroupBox(15, 50, 200, 380, "Rules")
 		RAYGUI.GuiLabel(20,  50, 200, 40, rules.mod)
-		RAYGUI.GuiLabel(20,  70, 200, 40, gravity)
-		RAYGUI.GuiLabel(20,  90, 200, 40, `{rules.numplayers}`)
-		RAYGUI.GuiLabel(20, 110, 200, 40, `{rules.turnframes}`)
-		RAYGUI.GuiLabel(20, 130, 200, 40, `{rules.max_contacts}`)
-		RAYGUI.GuiLabel(20, 150, 200, 40, `{rules.reaction_time}`)
+
+		RAYGUI.GuiLabel(20,  75, 200, 40, "Gravity")
+
+		if RAYGUI.GuiTextBox2(20, 110, 60, 20, Data["GravityX_GuiTextBox"], 1024, editValue["GravityX_GuiTextBox"]) then
+			editValue["GravityX_GuiTextBox"] = editValue["GravityX_GuiTextBox"] == false
+		end
+
+		if RAYGUI.GuiTextBox2(85, 110, 60, 20, Data["GravityY_GuiTextBox"], 1024, editValue["GravityY_GuiTextBox"]) then
+			editValue["GravityY_GuiTextBox"] = editValue["GravityY_GuiTextBox"] == false
+		end
+
+		if RAYGUI.GuiTextBox2(150, 110, 60, 20, Data["GravityZ_GuiTextBox"], 1024, editValue["GravityZ_GuiTextBox"]) then
+			editValue["GravityZ_GuiTextBox"] = editValue["GravityZ_GuiTextBox"] == false
+		end
+
+		RAYGUI.GuiLabel(20, 125, 200, 60, "Players")
+
+		if RAYGUI.GuiTextBox2(20, 160, 60, 20, Data["Players_GuiTextBox"], 1024, editValue["Players_GuiTextBox"]) then
+			editValue["Players_GuiTextBox"] = editValue["Players_GuiTextBox"] == false
+		end
+
+		RAYGUI.GuiLabel(20, 175, 200, 60, "Turn Frames")
+
+		if RAYGUI.GuiTextBox2(20, 210, 60, 20, Data["TurnFrames_GuiTextBox"], 1024, editValue["TurnFrames_GuiTextBox"]) then
+			editValue["TurnFrames_GuiTextBox"] = editValue["TurnFrames_GuiTextBox"] == false
+		end
+
+		RAYGUI.GuiLabel(20, 225, 200, 60, "Reaction Time")
+
+		if RAYGUI.GuiTextBox2(20, 260, 60, 20, Data["ReactionTime_GuiTextBox"], 1024, editValue["ReactionTime_GuiTextBox"]) then
+			editValue["ReactionTime_GuiTextBox"] = editValue["ReactionTime_GuiTextBox"] == false
+		end
+
+		RAYGUI.GuiLabel(20, 275, 200, 60, "Max Contacts")
+
+		if RAYGUI.GuiTextBox2(20, 310, 60, 20, Data["MaxContacts_GuiTextBox"], 1024, editValue["MaxContacts_GuiTextBox"]) then
+			editValue["MaxContacts_GuiTextBox"] = editValue["MaxContacts_GuiTextBox"] == false
+		end
+		
+		RAYGUI.GuiLabel(20, 325, 200, 60, "Friction")
+
+		if RAYGUI.GuiTextBox2(20, 360, 60, 20, Data["Friction_GuiTextBox"], 1024, editValue["Friction_GuiTextBox"]) then
+			editValue["Friction_GuiTextBox"] = editValue["Friction_GuiTextBox"] == false
+		end
+
+		--[[
 		RAYGUI.GuiLabel(20, 170, 200, 40, `{rules.engagedistance}`)
 		RAYGUI.GuiLabel(20, 190, 200, 40, `{rules.engageheight}`)
-		RAYGUI.GuiLabel(20, 210, 200, 40, `{rules.friction}`)
+		]]
 	end
 
 	if showMods then 
