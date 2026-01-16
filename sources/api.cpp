@@ -39,6 +39,8 @@ void API::Init()
 	luaL_openlibs(L);
 	luaL_sandbox(L);
 
+	data = new Arena(1024*1024);
+
 	Luau::setlogcallback(log_luau);
 
 	dSetErrorHandler(log_ode);
@@ -1093,7 +1095,7 @@ static int API_Reset(lua_State* L)
 	return 1;
 }
 
-static int API_parse_t (lua_State* L)
+static int API_parse_t(lua_State* L)
 {
 	if (lua_istable(L, -1)) {
 		lua_getfield(L, -1, "mod");
@@ -1111,7 +1113,47 @@ static int API_parse_t (lua_State* L)
 	return 1;
 }
 
+static int API_CreateData(lua_State* L)
+{
+	lua_pushlightuserdata(L, (void*)API::data->allocate(lua_tointeger(L, -1)));
+	return 1;
+}
+
+static int API_StringToData(lua_State* L)
+{
+	char* data = (char*)lua_touserdata(L, -1);
+	const char* string = lua_tostring(L, -2);
+	TextCopy(data, string);
+	return 1;
+}
+
+static int API_NumberToData(lua_State* L)
+{
+	auto data = lua_touserdata(L, -1);
+	lua_Number number = lua_tonumber(L, -2);
+	*((double*)data) = number;
+	return 1;
+}
+
+static int API_StringFromData(lua_State* L)
+{
+	lua_pushstring(L, (char*)lua_touserdata(L, -1));
+	return 1;
+}
+
+static int API_NumberFromData(lua_State* L)
+{
+	lua_pushnumber(L, *((double*)lua_touserdata(L, -1)));
+	return 1;
+}
+
 static const luaL_Reg api_main[] {
+	{"CreateData", API_CreateData},
+	{"StringToData", API_StringToData},
+	{"NumberToData", API_NumberToData},
+	{"StringFromData", API_StringFromData},
+	{"NumberFromData", API_NumberFromData},
+
 	{"Reset", API_Reset},
 	{"log", API_log},
 	{"parse_t", API_parse_t},
@@ -1162,6 +1204,7 @@ static const luaL_Reg api_main[] {
 	{"range_alt", API_range_alt},
 	{"connections", API_connections},
 	{"connection_type", API_connection_type},
+
 	{NULL, NULL},
 };
 

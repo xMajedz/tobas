@@ -7,6 +7,8 @@ namespace API
 {
 	static lua_State* L;
 
+	static Arena* data;
+
 	static Gamerules rules;
 
 	static std::vector<Body>   o_vector;

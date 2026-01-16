@@ -16,6 +16,14 @@ local showConsoleMessages = false
 
 local screenWidth, screenHeight = RAYLIB.GetScreenWidth(), RAYLIB.GetScreenHeight()
 
+local Data = {}
+Data["Console_GuiTextBox"] = API.CreateData(1024)
+Data["ReplayName_GuiTextBox"] = API.CreateData(1024)
+
+local editValue = {}
+editValue["Console_GuiTextBox"] = false
+editValue["ReplayName_GuiTextBox"] = false
+
 local mod, o_count, p_count, p_details, frame, reaction_time, reaction_count, rules, gravity, console_message
 
 local messages = {}
@@ -91,14 +99,16 @@ function API.Update.init(dt)
 	reaction_count = math.round(reaction_time - Game.GetReactionCount())
 
 	if RAYLIB.IsKeyPressed(RAYLIB["KEY_ENTER"]) then
-		if showConsole and RAYGUI["_VAR"]["GuiTextBox"] ~= "" then
+		local s = API.StringFromData(Data["Console_GuiTextBox"])
+
+		if showConsole and s ~= "" then
 			if Net then
-				Net.ClientEcho(RAYGUI["_VAR"]["GuiTextBox"])
+				Net.ClientEcho(s)
 			else
-				API.log(RAYGUI["_VAR"]["GuiTextBox"])
+				API.log(s)
 			end
 
-			RAYGUI["_VAR"]["GuiTextBox"] = ""
+			API.StringToData("", Data["Console_GuiTextBox"])
 		end
 
 		showConsoleMessages = (showConsole and showConsoleMessages) == false
@@ -111,7 +121,6 @@ function API.Update.init(dt)
 	end
 
 	if RAYLIB.IsKeyPressed(RAYLIB["KEY_TAB"]) then
-		API.log("TAB")
 	end
 
 	if RAYLIB.IsKeyPressed(RAYLIB["KEY_F"]) then
@@ -356,23 +365,32 @@ function API.Draw.init()
 		if (RAYGUI.GuiButton(10, offset, screenWidth-20, 20, "Save")) then
 			showReplaysSaving = false
 
-			if RAYGUI["_VAR"]["GuiTextBox"] ~= "" then
-				Replay.Save(RAYGUI["_VAR"]["GuiTextBox"] .. ".bin")
+			local s = API.StringFromData("", Data["Console_GuiTextBox"])
+
+			if s ~= "" then
+				Replay.Save(s .. ".bin")
 			else
 				Replay.Save("utitiledreplayfile.bin")
 			end
 
-			RAYGUI["_VAR"]["GuiTextBox"] = ""
+			API.StringToData("", Data["Console_GuiTextBox"])
 		end
 
 		offset = offset - 30
 
-		RAYGUI.GuiTextBox(10, offset, screenWidth-20, 20, true)
+		local data = Data["ReplayName_GuiTextBox"]
+		local edit = editValue["ReplayName_GuiTextBox"]
+
+		if RAYGUI.GuiTextBox2(10, offset, screenWidth-20, 20, data, 1024, edit) then
+			editValue["ReplayName_GuiTextBox"] = editValue["ReplayName_GuiTextBox"] == false
+			API.StringToData("", data)
+		end
 
 		offset = offset - 30
 	end
 
-	if showConsole and RAYGUI.GuiTextBox(10, offset, screenWidth-20, 20, true) then
+	if showConsole and RAYGUI.GuiTextBox2(10, offset, screenWidth-20, 20, Data["Console_GuiTextBox"], 1024, editValue["Console_GuiTextBox"]) then
+			editValue["Console_GuiTextBox"] = editValue["Console_GuiTextBox"] == false
 	end
 	
 	if showConsoleMessages then
@@ -380,20 +398,6 @@ function API.Draw.init()
 			RAYLIB.DrawText(messages[i], 10, offset-20*(#messages-i+1), 20, RAYLIB["BLACK"])
 		end
 	end
-
-	--[[
-	-- Maybe Active Inactive setup
-	--]]
-	
-	--RAYGUI["_VAR"]["GuiTextBox"] = "help"
-	--RAYGUI.GuiTextBox(10, offset, screenWidth-20, 20, true)
-	--RAYGUI.GuiTextBox2(10, offset, screenWidth-20, 20, "help", 1024, true)
-
-	--offset = offset - 30
-
-	--RAYGUI["_VAR"]["GuiTextBox"] = "help2"
-	--RAYGUI.GuiTextBox(10, offset, screenWidth-20, 20, true)
-	--RAYGUI.GuiTextBox2(10, offset, screenWidth-20, 20, "help2", 1024, true)
 end
 
 function API.Console.init(msg)

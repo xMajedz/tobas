@@ -139,8 +139,10 @@ static int RAYGUI_GuiTextBox2(lua_State* L)
 	bool editMode = lua_toboolean(L, -1);
 	int textSize = lua_tointeger(L, -2);
 	
-	char text[textSize];
-	TextCopy(text, lua_tostring(L, -3));
+	//char text[textSize];
+	//TextCopy(text, lua_tostring(L, -3));
+	//
+	char* text = (char*)lua_tolightuserdata(L, -3);
 
 	float h = lua_tonumber(L, -4);
 	float w = lua_tonumber(L, -5);
