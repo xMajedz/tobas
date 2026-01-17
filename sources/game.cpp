@@ -150,7 +150,7 @@ static void nearCallback(void*, dGeomID o1, dGeomID o2)
 		contacts[i].surface = (dSurfaceParameters) {
 			.mode = dContactApprox1|dContactBounce,
 			.mu = rules.friction,
-			.bounce = 0,
+			.bounce = rules.bounce,
 		};
 
 		m_frame_contacts[i] = contacts[i];
@@ -409,6 +409,13 @@ void Game::Draw()
 
 	DrawFloor();
 	DrawContacts(state.freeze);
+}
+
+void Game::SetGravity(dReal x, dReal y, dReal z)
+{
+
+  	dWorldSetGravity(world, x, y, z);
+	//rules.gravity = {x, y , z};
 }
 
 bool Game::GetPause()

@@ -57,6 +57,12 @@ static int Game_TogglePause(lua_State* L)
 	return 1;
 }
 
+static int Game_SetGravity(lua_State* L)
+{
+	Game::SetGravity(lua_tonumber(L, -3), lua_tonumber(L, -2), lua_tonumber(L, -1));
+	return 1;
+}
+
 static int Game_GetFreeze(lua_State* L)
 {
 	lua_pushboolean(L, Game::GetFreeze());
@@ -281,6 +287,8 @@ static int Game_GetGamerules(lua_State* L)
 	lua_setfield(L, -2, "engageheight");
 	lua_pushnumber(L, rules.friction);
 	lua_setfield(L, -2, "friction");
+	lua_pushnumber(L, rules.bounce);
+	lua_setfield(L, -2, "bounce");
 	return 1;
 }
 
@@ -331,6 +339,8 @@ static const luaL_Reg api_game[]
 
 	{"IsSelectedPlayerValid", Game_IsSelectedPlayerValid},
 	{"IsSelectedJointValid", Game_IsSelectedJointValid},
+
+	{"SetGravity", Game_SetGravity},
 
 	{"GetMod", Game_GetMod},
 	{"GetGameFrame", Game_GetGameFrame},

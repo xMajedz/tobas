@@ -30,6 +30,7 @@ struct Gamerules
 	dReal engagedistance;
 	dReal engageheight;
 	dReal friction;
+	dReal bounce;
 
 	vec3 gravity;
 };
@@ -136,6 +137,8 @@ namespace Game
 	std::vector<Body> GetObjects();
 	
 	void NearCallback(dGeomID o1, dGeomID o2);
+
+	void SetGravity(dReal x, dReal y, dReal z);
 
 	std::string_view GetMod();
 

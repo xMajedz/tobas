@@ -20,11 +20,16 @@ local Data = {}
 Data["GravityX_GuiTextBox"] = API.CreateData(1024)
 Data["GravityY_GuiTextBox"] = API.CreateData(1024)
 Data["GravityZ_GuiTextBox"] = API.CreateData(1024)
+
 Data["Players_GuiTextBox"] = API.CreateData(1024)
+Data["EngageHeight_GuiTextBox"] = API.CreateData(1024)
+Data["EngageDistance_GuiTextBox"] = API.CreateData(1024)
+
 Data["TurnFrames_GuiTextBox"] = API.CreateData(1024)
 Data["ReactionTime_GuiTextBox"] = API.CreateData(1024)
 Data["MaxContacts_GuiTextBox"] =  API.CreateData(1024)
 Data["Friction_GuiTextBox"] = API.CreateData(1024)
+Data["Bounce_GuiTextBox"] = API.CreateData(1024)
 
 Data["Console_GuiTextBox"] = API.CreateData(1024)
 Data["ReplayName_GuiTextBox"] = API.CreateData(1024)
@@ -33,11 +38,15 @@ local editValue = {}
 editValue["GravityX_GuiTextBox"] = false
 editValue["GravityY_GuiTextBox"] = false
 editValue["GravityZ_GuiTextBox"] = false
+
 editValue["Players_GuiTextBox"] = false
+editValue["EngageHeight_GuiTextBox"] = false
+editValue["EngageDistance_GuiTextBox"] = false
 editValue["TurnFrames_GuiTextBox"] = false
 editValue["ReactionTime_GuiTextBox"] = false
 editValue["MaxContacts_GuiTextBox"] =  false
 editValue["Friction_GuiTextBox"] = false
+editValue["Bounce_GuiTextBox"] = false
 
 editValue["Console_GuiTextBox"] = false
 editValue["ReplayName_GuiTextBox"] = false
@@ -116,10 +125,13 @@ function API.NewGame.init()
 	API.StringToData(`{rules.gravity.y}`, Data["GravityY_GuiTextBox"])
 	API.StringToData(`{rules.gravity.z}`, Data["GravityZ_GuiTextBox"])
 	API.StringToData(`{rules.numplayers}`, Data["Players_GuiTextBox"])
+	API.StringToData(`{rules.engageheight}`, Data["EngageHeight_GuiTextBox"])
+	API.StringToData(`{rules.engagedistance}`, Data["EngageDistance_GuiTextBox"])
 	API.StringToData(`{rules.turnframes}`, Data["TurnFrames_GuiTextBox"])
 	API.StringToData(`{rules.reaction_time}`, Data["ReactionTime_GuiTextBox"])
 	API.StringToData(`{rules.max_contacts}`, Data["MaxContacts_GuiTextBox"])
 	API.StringToData(`{rules.friction}`, Data["Friction_GuiTextBox"])
+	API.StringToData(`{rules.bounce}`, Data["Bounce_GuiTextBox"])
 end
 
 function API.Update.init(dt)
@@ -281,10 +293,13 @@ function API.Draw.init()
 	end
 
 	if showRules then
-		RAYGUI.GuiGroupBox(15, 50, 200, 380, "Rules")
-		RAYGUI.GuiLabel(20,  50, 200, 40, rules.mod)
+		if RAYGUI.GuiWindowBox(10, 40, 400, 400, "Rules") then
+			showRules = false
+		end
 
-		RAYGUI.GuiLabel(20,  75, 200, 40, "Gravity")
+		--RAYGUI.GuiLabel(20,  50, 200, 40, rules.mod)
+
+		RAYGUI.GuiLabel(20, 75, 200, 40, "Gravity")
 
 		if RAYGUI.GuiTextBox2(20, 110, 60, 20, Data["GravityX_GuiTextBox"], 1024, editValue["GravityX_GuiTextBox"]) then
 			editValue["GravityX_GuiTextBox"] = editValue["GravityX_GuiTextBox"] == false
@@ -298,40 +313,60 @@ function API.Draw.init()
 			editValue["GravityZ_GuiTextBox"] = editValue["GravityZ_GuiTextBox"] == false
 		end
 
-		RAYGUI.GuiLabel(20, 125, 200, 60, "Players")
+		RAYGUI.GuiLabel(20, 125, 170, 40, "Max Contacts")
 
-		if RAYGUI.GuiTextBox2(20, 160, 60, 20, Data["Players_GuiTextBox"], 1024, editValue["Players_GuiTextBox"]) then
-			editValue["Players_GuiTextBox"] = editValue["Players_GuiTextBox"] == false
-		end
-
-		RAYGUI.GuiLabel(20, 175, 200, 60, "Turn Frames")
-
-		if RAYGUI.GuiTextBox2(20, 210, 60, 20, Data["TurnFrames_GuiTextBox"], 1024, editValue["TurnFrames_GuiTextBox"]) then
-			editValue["TurnFrames_GuiTextBox"] = editValue["TurnFrames_GuiTextBox"] == false
-		end
-
-		RAYGUI.GuiLabel(20, 225, 200, 60, "Reaction Time")
-
-		if RAYGUI.GuiTextBox2(20, 260, 60, 20, Data["ReactionTime_GuiTextBox"], 1024, editValue["ReactionTime_GuiTextBox"]) then
-			editValue["ReactionTime_GuiTextBox"] = editValue["ReactionTime_GuiTextBox"] == false
-		end
-
-		RAYGUI.GuiLabel(20, 275, 200, 60, "Max Contacts")
-
-		if RAYGUI.GuiTextBox2(20, 310, 60, 20, Data["MaxContacts_GuiTextBox"], 1024, editValue["MaxContacts_GuiTextBox"]) then
+		if RAYGUI.GuiTextBox2(20, 160, 60, 20, Data["MaxContacts_GuiTextBox"], 1024, editValue["MaxContacts_GuiTextBox"]) then
 			editValue["MaxContacts_GuiTextBox"] = editValue["MaxContacts_GuiTextBox"] == false
 		end
-		
-		RAYGUI.GuiLabel(20, 325, 200, 60, "Friction")
+	
+		RAYGUI.GuiLabel(20, 175, 200, 40, "Friction")
 
-		if RAYGUI.GuiTextBox2(20, 360, 60, 20, Data["Friction_GuiTextBox"], 1024, editValue["Friction_GuiTextBox"]) then
+		if RAYGUI.GuiTextBox2(20, 210, 60, 20, Data["Friction_GuiTextBox"], 1024, editValue["Friction_GuiTextBox"]) then
 			editValue["Friction_GuiTextBox"] = editValue["Friction_GuiTextBox"] == false
 		end
 
-		--[[
-		RAYGUI.GuiLabel(20, 170, 200, 40, `{rules.engagedistance}`)
-		RAYGUI.GuiLabel(20, 190, 200, 40, `{rules.engageheight}`)
-		]]
+		RAYGUI.GuiLabel(20, 225, 200, 40, "Bounce")
+
+		if RAYGUI.GuiTextBox2(20, 260, 60, 20, Data["Bounce_GuiTextBox"], 1024, editValue["Bounce_GuiTextBox"]) then
+			editValue["Bounce_GuiTextBox"] = editValue["Bounce_GuiTextBox"] == false
+		end
+
+		RAYGUI.GuiLabel(20, 275, 200, 40, "Players")
+
+		if RAYGUI.GuiTextBox2(20, 310, 60, 20, Data["Players_GuiTextBox"], 1024, editValue["Players_GuiTextBox"]) then
+			editValue["Players_GuiTextBox"] = editValue["Players_GuiTextBox"] == false
+		end
+
+		RAYGUI.GuiLabel(20, 325, 200, 40, "Engage Height")
+
+		if RAYGUI.GuiTextBox2(20, 360, 60, 20, Data["EngageHeight_GuiTextBox"], 1024, editValue["EngageHeight_GuiTextBox"]) then
+			editValue["EngageHeight_GuiTextBox"] = editValue["EngageHeight_GuiTextBox"] == false
+		end
+		
+		RAYGUI.GuiLabel(20, 375, 200, 40, "Engage Distance")
+
+		if RAYGUI.GuiTextBox2(20, 410, 60, 20, Data["EngageDistance_GuiTextBox"], 1024, editValue["EngageDistance_GuiTextBox"]) then
+			editValue["EngageDistance_GuiTextBox"] = editValue["EngageDistance_GuiTextBox"] == false
+		end
+		
+		RAYGUI.GuiLabel(220, 75, 200, 40, "Turn Frames")
+
+		if RAYGUI.GuiTextBox2(220, 110, 60, 20, Data["TurnFrames_GuiTextBox"], 1024, editValue["TurnFrames_GuiTextBox"]) then
+			editValue["TurnFrames_GuiTextBox"] = editValue["TurnFrames_GuiTextBox"] == false
+		end
+
+		RAYGUI.GuiLabel(220, 125, 200, 40, "Reaction Time")
+
+		if RAYGUI.GuiTextBox2(220, 160, 60, 20, Data["ReactionTime_GuiTextBox"], 1024, editValue["ReactionTime_GuiTextBox"]) then
+			editValue["ReactionTime_GuiTextBox"] = editValue["ReactionTime_GuiTextBox"] == false
+		end
+
+		if RAYGUI.GuiButton(220, screenHeight-80, 100, 20, "Apply") then
+			local x = tonumber(API.StringFromData(Data["GravityX_GuiTextBox"]))
+			local y = tonumber(API.StringFromData(Data["GravityY_GuiTextBox"]))
+			local z = tonumber(API.StringFromData(Data["GravityZ_GuiTextBox"]))
+			Game.SetGravity(x, y, z)
+		end
 	end
 
 	if showMods then 
