@@ -51,7 +51,7 @@ editValue["Bounce_GuiTextBox"] = false
 editValue["Console_GuiTextBox"] = false
 editValue["ReplayName_GuiTextBox"] = false
 
-local mod, o_count, p_count, p_details, frame, reaction_time, reaction_count, rules, gravity, console_message
+local mod, o_count, p_count, p_details, frame, contact_count, reaction_count, rules, gravity, console_message
 
 local messages = {}
 local commands = {}
@@ -119,8 +119,6 @@ function API.NewGame.init()
 
 	rules = Game.GetGamerules()
 
-	reaction_time = Game.GetReactionTime()
-
 	API.StringToData(`{rules.gravity.x}`, Data["GravityX_GuiTextBox"])
 	API.StringToData(`{rules.gravity.y}`, Data["GravityY_GuiTextBox"])
 	API.StringToData(`{rules.gravity.z}`, Data["GravityZ_GuiTextBox"])
@@ -136,7 +134,8 @@ end
 
 function API.Update.init(dt)
 	frame = Game.GetGameFrame()
-	reaction_count = math.round(reaction_time - Game.GetReactionCount())
+	contact_count = Game.GetContactCount()
+	reaction_count = math.round(rules.reaction_time - Game.GetReactionCount())
 
 	if RAYLIB.IsKeyPressed(RAYLIB["KEY_ENTER"]) then
 		local s = API.StringFromData(Data["Console_GuiTextBox"])
@@ -287,9 +286,11 @@ function API.Draw.init()
 		offset = offset + 20
 		RAYGUI.GuiLabel(10, offset, screenWidth-10, 10, `{frame}`)
 		offset = offset + 20
-		if reaction_time > 0 then
+		if rules.reaction_time > 0 then
 			RAYGUI.GuiLabel(10, offset, screenWidth-10, 10, `{reaction_count}`)
+			offset = offset + 20
 		end
+		RAYGUI.GuiLabel(10, offset, screenWidth-10, 10, `{contact_count}`)
 	end
 
 	if showRules then
@@ -366,6 +367,23 @@ function API.Draw.init()
 			local y = tonumber(API.StringFromData(Data["GravityY_GuiTextBox"]))
 			local z = tonumber(API.StringFromData(Data["GravityZ_GuiTextBox"]))
 			Game.SetGravity(x, y, z)
+
+			local mc = tonumber(API.StringFromData(Data["MaxContacts_GuiTextBox"]))
+			Game.SetMaxContacts(mc)
+
+			local friction = tonumber(API.StringFromData(Data["Friction_GuiTextBox"]))
+			Game.SetFriction(friction)
+
+			local bounce = tonumber(API.StringFromData(Data["Bounce_GuiTextBox"]))
+			Game.SetBounce(bounce)
+
+			local tf = tonumber(API.StringFromData(Data["TurnFrames_GuiTextBox"]))
+			rules.turnframes = tf
+			Game.SetTurnFrames(tf)
+
+			local rt = tonumber(API.StringFromData(Data["ReactionTime_GuiTextBox"]))
+			rules.reaction_time = rt
+			Game.SetReactionTime(rt)
 		end
 	end
 

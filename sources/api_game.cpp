@@ -63,12 +63,41 @@ static int Game_SetGravity(lua_State* L)
 	return 1;
 }
 
+static int Game_SetMaxContacts(lua_State* L)
+{
+	Game::SetMaxContacts(lua_tointeger(L, -1));
+	return 1;
+}
+
+static int Game_SetFriction(lua_State* L)
+{
+	Game::SetFriction(lua_tonumber(L, -1));
+	return 1;
+}
+
+static int Game_SetBounce(lua_State* L)
+{
+	Game::SetBounce(lua_tonumber(L, -1));
+	return 1;
+}
+
+static int Game_SetTurnFrames(lua_State* L)
+{
+	Game::SetTurnFrames(lua_tointeger(L, -1));
+	return 1;
+}
+
+static int Game_SetReactionTime(lua_State* L)
+{
+	Game::SetReactionTime(lua_tointeger(L, -1));
+	return 1;
+}
+
 static int Game_GetFreeze(lua_State* L)
 {
 	lua_pushboolean(L, Game::GetFreeze());
 	return 1;
 }
-
 
 static int Game_GetPause(lua_State* L)
 {
@@ -89,6 +118,12 @@ static int Game_GetMod(lua_State* L)
 	return 1;
 }
 
+static int Game_GetMaxContacts(lua_State* L)
+{
+	lua_pushinteger(L, Game::GetMaxContacts());
+	return 1;
+}
+
 static int Game_GetGameFrame(lua_State* L)
 {
 	lua_pushinteger(L, Game::GetGameFrame());
@@ -104,6 +139,12 @@ static int Game_GetReactionTime(lua_State* L)
 static int Game_GetReactionCount(lua_State* L)
 {
 	lua_pushnumber(L, Game::GetReactionCount());
+	return 1;
+}
+
+static int Game_GetContactCount(lua_State* L)
+{
+	lua_pushinteger(L, Game::GetContactCount());
 	return 1;
 }
 
@@ -341,11 +382,19 @@ static const luaL_Reg api_game[]
 	{"IsSelectedJointValid", Game_IsSelectedJointValid},
 
 	{"SetGravity", Game_SetGravity},
+	{"SetMaxContacts", Game_SetMaxContacts},
+	{"SetFriction", Game_SetFriction},
+	{"SetBounce", Game_SetBounce},
+	{"SetTurnFrames", Game_SetTurnFrames},
+	{"SetReactionTime", Game_SetReactionTime},
 
 	{"GetMod", Game_GetMod},
+	{"GetMaxContacts", Game_GetGameFrame},
 	{"GetGameFrame", Game_GetGameFrame},
 	{"GetReactionTime", Game_GetReactionTime},
 	{"GetReactionCount", Game_GetReactionCount},
+	{"GetContactCount", Game_GetContactCount},
+
 	{"GetObjectCount", Game_GetObjectCount},
 	{"GetPlayerCount", Game_GetPlayerCount},
 	{"GetPlayerBodyCount", Game_GetPlayerBodyCount},

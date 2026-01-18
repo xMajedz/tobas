@@ -48,11 +48,10 @@ struct Gamestate
 
 	dReal freeze_time = 0;
 	int freeze_frames = 0;
+	int freeze_frame = 0;
 	int freeze_count = 0;
 
 	dReal step_time = 0;
-	int step_frames = 0;
-	int step_count = 0;
 
 	BodyID  selected_object  = -1;
 
@@ -139,15 +138,23 @@ namespace Game
 	void NearCallback(dGeomID o1, dGeomID o2);
 
 	void SetGravity(dReal x, dReal y, dReal z);
+	void SetMaxContacts(size_t count);
+	void SetFriction(dReal frction);
+	void SetBounce(dReal bounce);
+	void SetTurnFrames(size_t frames);
+	void SetReactionTime(size_t t);
 
 	std::string_view GetMod();
 
+	size_t GetContactCount();
 	size_t GetObjectCount();
 	size_t GetPlayerCount();
 	size_t GetPlayerBodyCount(PlayerID player_id);
 	size_t GetPlayerJointCount(PlayerID player_id);
 
-	int GetGameFrame();
+	size_t GetMaxContacts();
+	size_t GetGameFrame();
+
 	dReal GetReactionTime();
 	dReal GetReactionCount();
 

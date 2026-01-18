@@ -65,10 +65,8 @@ void Game::NewGame()
 	state.freeze = true;
 	state.freeze_time = GetTime();
 	state.freeze_frames = 50;
+	state.freeze_frame = 0;
 	state.freeze_count = 0;
-
-	state.step_frames = 0;
-	state.step_count = 0;
 
 	space = dHashSpaceCreate(0);
   	contactgroup = dJointGroupCreate(0);
@@ -124,6 +122,11 @@ void Game::Quit()
 	Replay::Close();
 
 	if (Window::Initialized()) Window::Close();
+}
+
+size_t Game::GetContactCount()
+{
+	return numcollisions;
 }
 
 static void nearCallback(void*, dGeomID o1, dGeomID o2)
@@ -234,12 +237,9 @@ void Game::Freeze()
 {
 	state.freeze = true;
 	state.freeze_time = GetTime();
-	state.step_count = 0;
 
 	for (auto& o : objects) o.Freeze();
 	for (auto& p : players) p.Freeze();
-
-	for (int i = 0; i < rules.max_contacts; i += 1) m_freeze_contacts[i] = m_frame_contacts[i];
 }
 
 void Game::Step(int frame_count)
@@ -267,7 +267,7 @@ void Game::Step(int frame_count)
 		}
 		}
 	case FREE_PLAY:
-		state.step_frames = frame_count;
+		state.freeze_frame = state.game_frame + frame_count;
 		state.freeze = false;
 		Refreeze();
 		break;
@@ -301,11 +301,9 @@ void Game::Update(dReal dt)
 			case SELF_PLAY: case FREE_PLAY:
 				//Replay::RecordFrame(state.game_frame);
 	
-				if (state.step_count > state.step_frames) {
+				if (state.game_frame >= state.freeze_frame) {
 					Freeze();
 				}
-	
-				state.step_count += 1;
 	
 				break;
 			case REPLAY_PLAY:
@@ -333,7 +331,10 @@ void Game::Update(dReal dt)
 	
 				if (0 < rules.reaction_time) {
 					state.reaction_count = GetTime() - state.freeze_time;
-					if (state.reaction_count >= rules.reaction_time) Step(rules.turnframes);
+
+					if (state.reaction_count >= rules.reaction_time) {
+						Step(rules.turnframes);
+					}
 				}
 	
 				break;
@@ -347,12 +348,13 @@ void Game::Update(dReal dt)
 		dSpaceCollide(space, 0, nearCallback);
 		dWorldStep(world, step);
 		dJointGroupEmpty(contactgroup);
-		
+
 		if (!state.freeze) {
 			switch (state.mode)
 			{
 			case SELF_PLAY: case FREE_PLAY:
 				Replay::RecordFrame(state.game_frame);
+
 				break;
 			case REPLAY_PLAY:
 				break;
@@ -365,7 +367,6 @@ void Game::Update(dReal dt)
 			case SELF_PLAY: case FREE_PLAY:
 				break;
 			}
-	
 		}
 	}
 }
@@ -408,7 +409,6 @@ void Game::Draw()
 		players[state.selected_player].joint[state.selected_joint].DrawSelect();
 
 	DrawFloor();
-	DrawContacts(state.freeze);
 }
 
 void Game::SetGravity(dReal x, dReal y, dReal z)
@@ -416,6 +416,32 @@ void Game::SetGravity(dReal x, dReal y, dReal z)
 
   	dWorldSetGravity(world, x, y, z);
 	//rules.gravity = {x, y , z};
+}
+
+void Game::SetMaxContacts(size_t count)
+{
+	rules.max_contacts = count;
+}
+
+
+void Game::SetFriction(dReal friction)
+{
+	rules.friction = friction;
+}
+
+void Game::SetBounce(dReal bounce)
+{
+	rules.bounce = bounce;
+}
+
+void Game::SetTurnFrames(size_t frames)
+{
+	rules.turnframes = frames;
+}
+
+void Game::SetReactionTime(size_t t)
+{
+	rules.reaction_time = t;
 }
 
 bool Game::GetPause()
@@ -443,7 +469,12 @@ std::string_view Game::GetMod()
 	return rules.mod;
 }
 
-int Game::GetGameFrame()
+size_t Game::GetMaxContacts()
+{
+	return rules.max_contacts;
+}
+
+size_t Game::GetGameFrame()
 {
 	return state.game_frame;
 }
@@ -980,7 +1011,6 @@ void Game::EnterMode(Gamemode mode)
 
 	state.reaction_count = 0;
 	state.freeze_count = 0;
-	state.step_count = 0;
 	
 	switch(mode)
 	{
