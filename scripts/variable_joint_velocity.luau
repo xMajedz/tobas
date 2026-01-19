@@ -14,8 +14,6 @@ function API.Update.JVJ(dt)
 
 			local ratio = API.NumberFromData(value)
 
-			API.log(ratio)
-
 			if RAYLIB.IsKeyDown(RAYLIB["KEY_LEFT_SHIFT"]) then
 				Expermental.ToggleSelectedJointActiveStateAlt(ratio * Game.GetSelectedJointVelocityAlt())
 			else
