@@ -29,7 +29,7 @@ void Game::Init()
 	SetExitKey(KEY_NULL);
 }
 
-void Game::NewGame()
+void Game::ImportMod()
 {
 	if (space != nullptr)
 		dSpaceDestroy(space);
@@ -43,7 +43,6 @@ void Game::NewGame()
 		players.clear();
 
 	rules = API::GetRules();
-	rules.max_contacts = 8;
 
 	o_count = API::GetObjectsCount();
 	jo_count = API::GetJointObjectsCount();
@@ -59,7 +58,10 @@ void Game::NewGame()
 	joint_objects = API::GetJointObjects();
 
 	players = API::GetPlayers();
+}
 
+void Game::NewGame()
+{
 	state.game_frame = 0;
 
 	state.freeze = true;
@@ -85,8 +87,7 @@ void Game::NewGame()
 
 	int count = 1;
 
-	for (auto& p : players)
-	{
+	for (auto& p : players) {
 		p.b_count = p.body.size();
 		p.j_count = p.joint.size();
 		p.SetCatBits(2<<count, 2<<count);
@@ -104,7 +105,6 @@ void Game::NewGame()
 	state.running = true;
 	
 	Replay::WriteMetaData();
-	//Replay::RecordFrame();
 
 	API::NewGameCallback();
 }
@@ -215,22 +215,8 @@ void Game::Reset()
 	dJointGroupDestroy(contactgroup);
 	dSpaceDestroy(space);
 
+	ImportMod();
 	NewGame();
-}
-
-void Game::EnterEvent(EventType event)
-{
-	state.event = event;
-
-	switch(event)
-	{
-	case STEP:
-		for (auto& o : objects) o.Step();
-		for (auto& p : players) p.Step();
-		break;
-	case FREEZE:
-		break;
-	}
 }
 
 void Game::Freeze()
@@ -244,12 +230,11 @@ void Game::Freeze()
 
 void Game::Step(int frame_count)
 {
+	bool ready = true;
+
 	switch(state.mode)
 	{
 	case SELF_PLAY:
-		{
-		bool ready = true;
-
 		if (state.selected_player != -1) {
 			players[state.selected_player].Ready();
 		}
@@ -261,16 +246,12 @@ void Game::Step(int frame_count)
 				break;
 			}
 		}
-		
-		if (!ready) {
-			break;
-		}
-		}
 	case FREE_PLAY:
-		state.freeze_frame = state.game_frame + frame_count;
-		state.freeze = false;
-		Refreeze();
-		break;
+		if (ready) {
+			state.freeze_frame = state.game_frame + frame_count;
+			state.freeze = false;
+			Refreeze();
+		}
 	}
 }
 
@@ -279,20 +260,16 @@ void Game::Step()
 	Step(1);
 }
 
-void Game::UpdateState(dReal dt)
-{
-}
-
 void Game::Update(dReal dt)
 {
 	if (!state.running) {
+		ImportMod();
 		NewGame();
 	}
 
 	API::UpdateCallback(dt);
 
-	if (!state.pause)
-	{
+	if (!state.pause) {
 		numcollisions = 0;
 
 		if (!state.freeze) {
@@ -343,7 +320,9 @@ void Game::Update(dReal dt)
 			state.freeze_count += 1;
 		}
 
-		EnterEvent(STEP);
+
+		for (auto& o : objects) o.Step();
+		for (auto& p : players) p.Step();
 
 		dSpaceCollide(space, 0, nearCallback);
 		dWorldStep(world, step);
@@ -414,8 +393,8 @@ void Game::Draw()
 void Game::SetGravity(dReal x, dReal y, dReal z)
 {
 
+	rules.gravity = {x, y , z};
   	dWorldSetGravity(world, x, y, z);
-	//rules.gravity = {x, y , z};
 }
 
 void Game::SetMaxContacts(size_t count)

@@ -1,22 +1,25 @@
-local screenWidth, screenHeight = API.GetWindowSize()
+local screenWidth, screenHeight = RAYLIB.GetScreenWidth(), RAYLIB.GetScreenHeight()
 
 local gear_count = 5
 local current_gear_alt = gear_count
 local current_gear = gear_count
+local value = API.CreateData(4)
 
-RAYGUI["_VAR"]["GuiSlider"] = 1.00
+API.NumberToData(1.00, value)
 
 function API.Update.JVJ(dt)
 	if Game.IsFreeze() and Game.IsMode(Game["MODE_FREEPLAY"]) and Game.IsSelectedJointValid() then
 		if not RAYLIB.IsKeyDown(RAYLIB["KEY_LEFT_CONTROL"]) and RAYLIB.IsKeyPressed(RAYLIB["KEY_Z"]) then
 			Game.Refreeze()
 
+			local ratio = API.NumberFromData(value)
+
+			API.log(ratio)
+
 			if RAYLIB.IsKeyDown(RAYLIB["KEY_LEFT_SHIFT"]) then
-				local vel = Game.GetSelectedJointVelocityAlt() * RAYGUI["_VAR"]["GuiSlider"]
-				Expermental.ToggleSelectedJointActiveStateAlt(vel)
+				Expermental.ToggleSelectedJointActiveStateAlt(ratio * Game.GetSelectedJointVelocityAlt())
 			else
-				local vel = Game.GetSelectedJointVelocity() * RAYGUI["_VAR"]["GuiSlider"]
-				Expermental.ToggleSelectedJointActiveState(vel)
+				Expermental.ToggleSelectedJointActiveState(ratio * Game.GetSelectedJointVelocity())
 			end
 		end
 
@@ -30,7 +33,7 @@ function API.Update.JVJ(dt)
 
 				local ratio = current_gear_alt/gear_count
 
-				RAYGUI["_VAR"]["GuiSlider"] = ratio
+				API.NumberToData(ratio, value)
 
 				Expermental.TriggerSelectedJointActiveStateAlt(Game.GetSelectedJointVelocityAlt() * ratio)
 			else
@@ -40,7 +43,7 @@ function API.Update.JVJ(dt)
 
 				local ratio = current_gear/gear_count
 
-				RAYGUI["_VAR"]["GuiSlider"] = ratio
+				API.NumberToData(ratio, value)
 
 				Expermental.TriggerSelectedJointActiveState(Game.GetSelectedJointVelocity() * ratio)
 			end
@@ -57,7 +60,7 @@ function API.Update.JVJ(dt)
 
 				local ratio = current_gear_alt/gear_count
 
-				RAYGUI["_VAR"]["GuiSlider"] = ratio
+				API.NumberToData(ratio, value)
 
 				Expermental.TriggerSelectedJointActiveStateAlt(Game.GetSelectedJointVelocityAlt() * ratio)
 			else
@@ -67,7 +70,7 @@ function API.Update.JVJ(dt)
 
 				local ratio = current_gear/gear_count
 
-				RAYGUI["_VAR"]["GuiSlider"] = ratio
+				API.NumberToData(ratio, value)
 
 				Expermental.TriggerSelectedJointActiveState(Game.GetSelectedJointVelocity() * ratio)
 			end
@@ -75,9 +78,11 @@ function API.Update.JVJ(dt)
 	end
 end
 
+local w, h = (screenWidth-200)/2, screenHeight-80
+
 function API.Draw.VJV()
 	if not Game.IsMode(Game["MODE_REPLAY"]) then
-		if RAYGUI.GuiSlider((screenWidth-200)/2, screenHeight-80, screenWidth/4, 20, "Min", "Max", 0.00, 1.00) then
+		if RAYGUI.GuiSlider(w, h, screenWidth/4, 20, "Min", "Max", value, 0.00, 1.00) then
 			Game.Refreeze()
 		end
 	end

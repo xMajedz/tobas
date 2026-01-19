@@ -13,19 +13,13 @@ enum Gamemode
 	FREE_PLAY_TOGETEHR,
 };
 
-enum EventType
-{
-	STEP,
-	FREEZE,
-};
-
 struct Gamerules
 {
 	std::string_view mod = "nomod";
 
 	int numplayers;
 	int turnframes;
-	int max_contacts;
+	int max_contacts = 8;
 	dReal reaction_time;
 	dReal engagedistance;
 	dReal engageheight;
@@ -38,7 +32,6 @@ struct Gamerules
 struct Gamestate
 {
 	Gamemode mode = FREE_PLAY;
-	EventType event = FREEZE;
 
 	double time = 0;
 
@@ -159,8 +152,11 @@ namespace Game
 	dReal GetReactionCount();
 
 	void Start();
-	void NewGame();
 	void Reset();
+
+	void ImportMod();
+	void NewGame();
+
 	void ToggleGhosts();
 
 	void TriggerPlayerJointState(PlayerID player_id, JointID joint_id, JointState state);
@@ -200,14 +196,12 @@ namespace Game
 
 	void UndoSelectedPlayerMove();
 
-	void UpdateState(dReal dt);
 	void Update(dReal dt);
 
 	void DrawContacts(bool freeze);
 	void DrawFloor();
 	void Draw();
 
-	void EnterEvent(EventType event);
 	void EnterMode(Gamemode mode);
 
 	void Step(int);

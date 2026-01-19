@@ -102,46 +102,11 @@ static int RAYGUI_GuiMessageBox(lua_State* L)
 	return 1;
 }
 
-static int RAYGUI_GuiTextBoxTextSize = 1024;
-static char RAYGUI_GuiTextBoxContent[1024];
-
 static int RAYGUI_GuiTextBox(lua_State* L)
-{
-	lua_getglobal(L, "RAYGUI");
-	lua_getfield(L, -1, "_VAR");
-	lua_getfield(L, -1, "GuiTextBox");
-	
-	TextCopy(RAYGUI_GuiTextBoxContent, lua_tostring(L, -1));
-
-	bool editMode = lua_toboolean(L, -4);
-	float h = lua_tonumber(L, -5);
-	float w = lua_tonumber(L, -6);
-	float y = lua_tonumber(L, -7);
-	float x = lua_tonumber(L, -8);
-
-	int status = GuiTextBox((Rectangle){x, y, w, h},
-			RAYGUI_GuiTextBoxContent,
-			RAYGUI_GuiTextBoxTextSize,
-			editMode
-	);
-
-	Luau::dostring(L, TextFormat(
-			"_G[\"RAYGUI\"][\"_VAR\"][\"GuiTextBox\"]=\"%s\"", RAYGUI_GuiTextBoxContent)
-	);
-
-	lua_pushboolean(L, (bool)status);
-
-	return 1;
-}
-
-static int RAYGUI_GuiTextBox2(lua_State* L)
 {
 	bool editMode = lua_toboolean(L, -1);
 	int textSize = lua_tointeger(L, -2);
 	
-	//char text[textSize];
-	//TextCopy(text, lua_tostring(L, -3));
-	//
 	char* text = (char*)lua_tolightuserdata(L, -3);
 
 	float h = lua_tonumber(L, -4);
@@ -187,8 +152,6 @@ static int RAYGUI_GuiTextInputBox(lua_State* L)
 	bool secretViewActive = lua_toboolean(L, -1);
 	auto textMaxSize = lua_tointeger(L, -2);
 
-	//char* text;
-
 	auto buttons = lua_tostring(L, -3);
 	auto message = lua_tostring(L, -4);
 	auto title = lua_tostring(L, -5);
@@ -202,7 +165,7 @@ static int RAYGUI_GuiTextInputBox(lua_State* L)
 		title,
 		message,
 		buttons,
-		RAYGUI_GuiTextBoxContent,
+		0,
 		textMaxSize,
 		&secretViewActive
 	);
@@ -210,32 +173,26 @@ static int RAYGUI_GuiTextInputBox(lua_State* L)
 	return 1;
 }
 
-static float RAYGUI_GuiSliderVal = 1.00;
-
 static int RAYGUI_GuiSlider(lua_State* L)
 {
-	lua_getglobal(L, "RAYGUI");
-	lua_getfield(L, -1, "_VAR");
-	lua_getfield(L, -1, "GuiSlider");
+	float max = lua_tonumber(L, -1);
+	float min = lua_tonumber(L, -2);
 
-	RAYGUI_GuiSliderVal = lua_tonumber(L, -1);
+	float* value = (float*)lua_tolightuserdata(L, -3);
 
-	float max = lua_tonumber(L, -4);
-	float min = lua_tonumber(L, -5);
+	auto textL = lua_tostring(L, -4);
+	auto textR = lua_tostring(L, -5);
 
-	auto textL = lua_tostring(L, -6);
-	auto textR = lua_tostring(L, -7);
-
-	float h = lua_tonumber(L, -8);
-	float w = lua_tonumber(L, -9);
-	float y = lua_tonumber(L, -10);
-	float x = lua_tonumber(L, -11);
+	float h = lua_tonumber(L, -6);
+	float w = lua_tonumber(L, -7);
+	float y = lua_tonumber(L, -8);
+	float x = lua_tonumber(L, -9);
 
 	int status  = GuiSlider(
 		(Rectangle){x, y, w, h},
 		textR,
 		textL,
-		&RAYGUI_GuiSliderVal,
+		value,
 		min,
 		max
 	);
@@ -245,32 +202,26 @@ static int RAYGUI_GuiSlider(lua_State* L)
 	return 1;
 }
 
-static float RAYGUI_GuiSliderBarVal = 1.00;
-
 static int RAYGUI_GuiSliderBar(lua_State* L)
 {
-	lua_getglobal(L, "RAYGUI");
-	lua_getfield(L, -1, "_VAR");
-	lua_getfield(L, -1, "GuiSliderBar");
+	float max = lua_tonumber(L, -1);
+	float min = lua_tonumber(L, -2);
 
-	RAYGUI_GuiSliderBarVal = lua_tonumber(L, -1);
+	float* value = (float*)lua_tolightuserdata(L, -3);
 
-	float max = lua_tonumber(L, -4);
-	float min = lua_tonumber(L, -5);
+	auto textL = lua_tostring(L, -4);
+	auto textR = lua_tostring(L, -5);
 
-	auto textL = lua_tostring(L, -6);
-	auto textR = lua_tostring(L, -7);
-
-	float h = lua_tonumber(L, -8);
-	float w = lua_tonumber(L, -9);
-	float y = lua_tonumber(L, -10);
-	float x = lua_tonumber(L, -11);
+	float h = lua_tonumber(L, -6);
+	float w = lua_tonumber(L, -7);
+	float y = lua_tonumber(L, -8);
+	float x = lua_tonumber(L, -9);
 
 	int status  = GuiSliderBar(
 		(Rectangle){x, y, w, h},
 		textR,
 		textL,
-		&RAYGUI_GuiSliderBarVal,
+		value,
 		min,
 		max
 	);
@@ -292,9 +243,7 @@ static const luaL_Reg api_raygui[] {
 	{"GuiButton", RAYGUI_GuiButton},
 
 	{"GuiTextBox", RAYGUI_GuiTextBox},
-	{"GuiTextBox2", RAYGUI_GuiTextBox2},
 
-	{"GuiTextInputBox2", RAYGUI_GuiTextInputBox2},
 	{"GuiTextInputBox", RAYGUI_GuiTextInputBox},
 
 	{"GuiSlider", RAYGUI_GuiSlider},

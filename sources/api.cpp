@@ -1131,7 +1131,7 @@ static int API_NumberToData(lua_State* L)
 {
 	auto data = lua_touserdata(L, -1);
 	lua_Number number = lua_tonumber(L, -2);
-	*((double*)data) = number;
+	*((float*)data) = (float)number;
 	return 1;
 }
 
@@ -1143,7 +1143,7 @@ static int API_StringFromData(lua_State* L)
 
 static int API_NumberFromData(lua_State* L)
 {
-	lua_pushnumber(L, *((double*)lua_touserdata(L, -1)));
+	lua_pushnumber(L, *((float*)lua_touserdata(L, -1)));
 	return 1;
 }
 

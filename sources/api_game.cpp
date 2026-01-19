@@ -3,6 +3,12 @@
 
 typedef auto (*c)(lua_State) -> int;
 
+static int Game_ImportMod(lua_State* L)
+{
+	Game::ImportMod();
+	return 1;
+}
+
 static int Game_NewGame(lua_State* L)
 {
 	Game::NewGame();
@@ -335,6 +341,7 @@ static int Game_GetGamerules(lua_State* L)
 
 static const luaL_Reg api_game[]
 {
+	{"ImportMod", Game_ImportMod},
 	{"NewGame", Game_NewGame},
 
 	{"Step", Game_Step},

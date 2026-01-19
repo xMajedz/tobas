@@ -51,6 +51,8 @@ editValue["Bounce_GuiTextBox"] = false
 editValue["Console_GuiTextBox"] = false
 editValue["ReplayName_GuiTextBox"] = false
 
+local replay_slider_value = API.CreateData(4)
+
 local mod, o_count, p_count, p_details, frame, contact_count, reaction_count, rules, gravity, console_message
 
 local messages = {}
@@ -302,63 +304,63 @@ function API.Draw.init()
 
 		RAYGUI.GuiLabel(20, 75, 200, 40, "Gravity")
 
-		if RAYGUI.GuiTextBox2(20, 110, 60, 20, Data["GravityX_GuiTextBox"], 1024, editValue["GravityX_GuiTextBox"]) then
+		if RAYGUI.GuiTextBox(20, 110, 60, 20, Data["GravityX_GuiTextBox"], 1024, editValue["GravityX_GuiTextBox"]) then
 			editValue["GravityX_GuiTextBox"] = editValue["GravityX_GuiTextBox"] == false
 		end
 
-		if RAYGUI.GuiTextBox2(85, 110, 60, 20, Data["GravityY_GuiTextBox"], 1024, editValue["GravityY_GuiTextBox"]) then
+		if RAYGUI.GuiTextBox(85, 110, 60, 20, Data["GravityY_GuiTextBox"], 1024, editValue["GravityY_GuiTextBox"]) then
 			editValue["GravityY_GuiTextBox"] = editValue["GravityY_GuiTextBox"] == false
 		end
 
-		if RAYGUI.GuiTextBox2(150, 110, 60, 20, Data["GravityZ_GuiTextBox"], 1024, editValue["GravityZ_GuiTextBox"]) then
+		if RAYGUI.GuiTextBox(150, 110, 60, 20, Data["GravityZ_GuiTextBox"], 1024, editValue["GravityZ_GuiTextBox"]) then
 			editValue["GravityZ_GuiTextBox"] = editValue["GravityZ_GuiTextBox"] == false
 		end
 
 		RAYGUI.GuiLabel(20, 125, 170, 40, "Max Contacts")
 
-		if RAYGUI.GuiTextBox2(20, 160, 60, 20, Data["MaxContacts_GuiTextBox"], 1024, editValue["MaxContacts_GuiTextBox"]) then
+		if RAYGUI.GuiTextBox(20, 160, 60, 20, Data["MaxContacts_GuiTextBox"], 1024, editValue["MaxContacts_GuiTextBox"]) then
 			editValue["MaxContacts_GuiTextBox"] = editValue["MaxContacts_GuiTextBox"] == false
 		end
 	
 		RAYGUI.GuiLabel(20, 175, 200, 40, "Friction")
 
-		if RAYGUI.GuiTextBox2(20, 210, 60, 20, Data["Friction_GuiTextBox"], 1024, editValue["Friction_GuiTextBox"]) then
+		if RAYGUI.GuiTextBox(20, 210, 60, 20, Data["Friction_GuiTextBox"], 1024, editValue["Friction_GuiTextBox"]) then
 			editValue["Friction_GuiTextBox"] = editValue["Friction_GuiTextBox"] == false
 		end
 
 		RAYGUI.GuiLabel(20, 225, 200, 40, "Bounce")
 
-		if RAYGUI.GuiTextBox2(20, 260, 60, 20, Data["Bounce_GuiTextBox"], 1024, editValue["Bounce_GuiTextBox"]) then
+		if RAYGUI.GuiTextBox(20, 260, 60, 20, Data["Bounce_GuiTextBox"], 1024, editValue["Bounce_GuiTextBox"]) then
 			editValue["Bounce_GuiTextBox"] = editValue["Bounce_GuiTextBox"] == false
 		end
 
 		RAYGUI.GuiLabel(20, 275, 200, 40, "Players")
 
-		if RAYGUI.GuiTextBox2(20, 310, 60, 20, Data["Players_GuiTextBox"], 1024, editValue["Players_GuiTextBox"]) then
+		if RAYGUI.GuiTextBox(20, 310, 60, 20, Data["Players_GuiTextBox"], 1024, editValue["Players_GuiTextBox"]) then
 			editValue["Players_GuiTextBox"] = editValue["Players_GuiTextBox"] == false
 		end
 
 		RAYGUI.GuiLabel(20, 325, 200, 40, "Engage Height")
 
-		if RAYGUI.GuiTextBox2(20, 360, 60, 20, Data["EngageHeight_GuiTextBox"], 1024, editValue["EngageHeight_GuiTextBox"]) then
+		if RAYGUI.GuiTextBox(20, 360, 60, 20, Data["EngageHeight_GuiTextBox"], 1024, editValue["EngageHeight_GuiTextBox"]) then
 			editValue["EngageHeight_GuiTextBox"] = editValue["EngageHeight_GuiTextBox"] == false
 		end
 		
 		RAYGUI.GuiLabel(20, 375, 200, 40, "Engage Distance")
 
-		if RAYGUI.GuiTextBox2(20, 410, 60, 20, Data["EngageDistance_GuiTextBox"], 1024, editValue["EngageDistance_GuiTextBox"]) then
+		if RAYGUI.GuiTextBox(20, 410, 60, 20, Data["EngageDistance_GuiTextBox"], 1024, editValue["EngageDistance_GuiTextBox"]) then
 			editValue["EngageDistance_GuiTextBox"] = editValue["EngageDistance_GuiTextBox"] == false
 		end
 		
 		RAYGUI.GuiLabel(220, 75, 200, 40, "Turn Frames")
 
-		if RAYGUI.GuiTextBox2(220, 110, 60, 20, Data["TurnFrames_GuiTextBox"], 1024, editValue["TurnFrames_GuiTextBox"]) then
+		if RAYGUI.GuiTextBox(220, 110, 60, 20, Data["TurnFrames_GuiTextBox"], 1024, editValue["TurnFrames_GuiTextBox"]) then
 			editValue["TurnFrames_GuiTextBox"] = editValue["TurnFrames_GuiTextBox"] == false
 		end
 
 		RAYGUI.GuiLabel(220, 125, 200, 40, "Reaction Time")
 
-		if RAYGUI.GuiTextBox2(220, 160, 60, 20, Data["ReactionTime_GuiTextBox"], 1024, editValue["ReactionTime_GuiTextBox"]) then
+		if RAYGUI.GuiTextBox(220, 160, 60, 20, Data["ReactionTime_GuiTextBox"], 1024, editValue["ReactionTime_GuiTextBox"]) then
 			editValue["ReactionTime_GuiTextBox"] = editValue["ReactionTime_GuiTextBox"] == false
 		end
 
@@ -384,6 +386,10 @@ function API.Draw.init()
 			local rt = tonumber(API.StringFromData(Data["ReactionTime_GuiTextBox"]))
 			rules.reaction_time = rt
 			Game.SetReactionTime(rt)
+
+			if true then	
+				Game.NewGame()
+			end
 		end
 	end
 
@@ -399,11 +405,13 @@ function API.Draw.init()
 					if mod:match("^[%.%w%-_]+%.luau") then
 						API.Reset()
 						API.loadmod(mod:match("^[%w%-_]+"))
+						Game.ImportMod()
 						Game.NewGame()
 					end
 					if mod:match("^[%.%w%-_]+%.tbm") then
 						API.Reset()
 						ms.loadmodTBM2(mod:match("^[%w%-_]+"))
+						Game.ImportMod()
 						Game.NewGame()
 					end
 	
@@ -475,11 +483,8 @@ function API.Draw.init()
 	local offset = screenHeight-30
 
 	if Game.IsMode(Game["MODE_REPLAY"])then
-		local frame_count = Replay.GetFrameCount()
-		RAYGUI["_VAR"]["GuiSliderBar"] = frame/frame_count
-
-		RAYGUI.GuiSliderBar(10, offset, screenWidth-20, 20, "", "", 0.00, 1.00)
-
+		API.NumberToData(frame/Replay.GetFrameCount(), replay_slider_value)
+		RAYGUI.GuiSliderBar(10, offset, screenWidth-20, 20, "", "", replay_slider_value, 0.00, 1.00)
 		offset = offset - 30
 	end
 
@@ -503,7 +508,7 @@ function API.Draw.init()
 		local data = Data["ReplayName_GuiTextBox"]
 		local edit = editValue["ReplayName_GuiTextBox"]
 
-		if RAYGUI.GuiTextBox2(10, offset, screenWidth-20, 20, data, 1024, edit) then
+		if RAYGUI.GuiTextBox(10, offset, screenWidth-20, 20, data, 1024, edit) then
 			editValue["ReplayName_GuiTextBox"] = editValue["ReplayName_GuiTextBox"] == false
 			API.StringToData("", data)
 		end
@@ -511,7 +516,7 @@ function API.Draw.init()
 		offset = offset - 30
 	end
 
-	if showConsole and RAYGUI.GuiTextBox2(10, offset, screenWidth-20, 20, Data["Console_GuiTextBox"], 1024, editValue["Console_GuiTextBox"]) then
+	if showConsole and RAYGUI.GuiTextBox(10, offset, screenWidth-20, 20, Data["Console_GuiTextBox"], 1024, editValue["Console_GuiTextBox"]) then
 			editValue["Console_GuiTextBox"] = editValue["Console_GuiTextBox"] == false
 	end
 	
