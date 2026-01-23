@@ -27,6 +27,11 @@ void Arena::clear()
 	m_offset = 0;
 }
 
+uintptr_t Arena::buffer()
+{
+	return m_ptr;
+}
+
 size_t Arena::offset()
 {
 	return m_offset;

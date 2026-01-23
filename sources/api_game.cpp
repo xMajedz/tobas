@@ -419,15 +419,15 @@ static const luaL_Reg api_game[]
 	{NULL, NULL},
 };
 
-static int Replay_Load(lua_State* L)
+static int Replay_Import(lua_State* L)
 {
-	Replay::Load(lua_tostring(L, -1));
+	Replay::Import(lua_tostring(L, -1));
 	return 1;
 }
 
-static int Replay_Save(lua_State* L)
+static int Replay_Export(lua_State* L)
 {
-	Replay::Save(lua_tostring(L, -1));
+	Replay::Export(lua_tostring(L, -1));
 	return 1;
 }
 
@@ -439,8 +439,8 @@ static int Replay_GetFrameCount(lua_State* L)
 
 static const luaL_Reg api_replay[]
 {
-	{"Load", Replay_Load},
-	{"Save", Replay_Save},
+	{"Import", Replay_Import},
+	{"Export", Replay_Export},
 
 	{"GetFrameCount", Replay_GetFrameCount},
 

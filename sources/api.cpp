@@ -75,6 +75,8 @@ void API::Reset()
 void API::Close()
 {
 	lua_close(L);
+	data->clear();
+	delete data;
 }
 
 lua_State* API::GetL()

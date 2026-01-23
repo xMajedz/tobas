@@ -118,6 +118,7 @@ namespace Game
 	dReal GetSelectedJointVelocityAlt();
 
 	Joint& GetJoint(PlayerID player_id, JointID joint_id);
+	Body& GetBody(PlayerID player_id, BodyID body_id);
 
 	
 	void SetBodyState(PlayerID player_id, BodyID body_id, bool state);
@@ -205,7 +206,6 @@ namespace Game
 	void EnterMode(Gamemode mode);
 
 	void Step(int);
-	void Step();
 	void Freeze();
 	void Refreeze();
 
@@ -272,15 +272,16 @@ struct FrameData
 
 namespace Replay 
 {
-	static Arena* storage = nullptr;
+	static Arena* data = nullptr;
 
-	static size_t frame_count = 0;
-	static uintptr_t frames;
-
+	static size_t chunk = 0;
+	static size_t chunk_count = 0;
+	static uint32_t max_frames = 0;
 
 	void Init();
 	void Close();
 	
+	void Reset();
 	void Begin();
 
 	void WriteMetaData();
@@ -288,13 +289,12 @@ namespace Replay
 	void WriteReplayData(std::string data);
 	
 	void RecordFrame(int game_frame);
-	void RecordFrame();
-	void Play(int game_frame);
+	void PlayFrame(int game_frame);
 
-	void Load(std::string replay_name);
-	void Save(std::string replay_name);
+	void Import(std::string replay_name);
+	void Export(std::string replay_name);
 
 	void Destroy();
 
-	uint32_t GetFrameCount();
+	size_t GetFrameCount();
 }

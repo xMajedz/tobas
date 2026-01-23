@@ -13,6 +13,7 @@ public:
 
 	void clear();
 
+	uintptr_t buffer();
 	size_t offset();
 	size_t size();
 private:

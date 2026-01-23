@@ -166,7 +166,7 @@ function API.Update.init(dt)
 
 	if RAYLIB.IsKeyPressed(RAYLIB["KEY_F"]) then
 		showReplaysSaving = true
-		Replay.Save("tempreplayfile.bin")
+		Replay.Export("tempreplayfile.bin")
 	end
 	
 if Net then
@@ -189,7 +189,8 @@ else
 	end
 
 	if Game.IsFreeze() and not Game.IsMode(Game["MODE_REPLAY"]) and RAYLIB.IsKeyPressed(RAYLIB["KEY_SPACE"]) then
-		Game.Step((RAYLIB.IsKeyDown(RAYLIB["KEY_LEFT_SHIFT"]) and 1) or Game.Step(rules.turnframes))
+		local step_size = (RAYLIB.IsKeyDown(RAYLIB["KEY_LEFT_SHIFT"]) and 1) or rules.turnframes
+		Game.Step(step_size)
 	end
 
 	if Game.IsMode(Game["MODE_REPLAY"]) and RAYLIB.IsKeyPressed(RAYLIB["KEY_SPACE"]) then
@@ -433,7 +434,8 @@ function API.Draw.init()
 			local replay = replays[i]:gsub("replays[/\\]", "")
 			if RAYGUI.GuiButton(15, 30 + 20 * (i + 1), 200, 20, replay) then
 				if replay:match("^[%.%w%-_]+%.rpl") then
-					Replay.Load(replay)
+					Replay.Import(replay)
+					Game.EnterMode(Game["MODE_REPLAY"])
 				end
 
 				showReplays = false
@@ -492,15 +494,15 @@ function API.Draw.init()
 		if (RAYGUI.GuiButton(10, offset, screenWidth-20, 20, "Save")) then
 			showReplaysSaving = false
 
-			local s = API.StringFromData("", Data["Console_GuiTextBox"])
+			local s = API.StringFromData(Data["ReplayName_GuiTextBox"])
 
 			if s ~= "" then
-				Replay.Save(s .. ".bin")
+				Replay.Export(s .. ".bin")
 			else
-				Replay.Save("utitiledreplayfile.bin")
+				Replay.Export("utitiledreplayfile.bin")
 			end
 
-			API.StringToData("", Data["Console_GuiTextBox"])
+			API.StringToData("", Data["ReplayName_GuiTextBox"])
 		end
 
 		offset = offset - 30
@@ -510,7 +512,6 @@ function API.Draw.init()
 
 		if RAYGUI.GuiTextBox(10, offset, screenWidth-20, 20, data, 1024, edit) then
 			editValue["ReplayName_GuiTextBox"] = editValue["ReplayName_GuiTextBox"] == false
-			API.StringToData("", data)
 		end
 
 		offset = offset - 30
