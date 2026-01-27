@@ -1,5 +1,3 @@
-local screenWidth, screenHeight = RAYLIB.GetScreenWidth(), RAYLIB.GetScreenHeight()
-
 local gear_count = 5
 local current_gear_alt = gear_count
 local current_gear = gear_count
@@ -76,13 +74,13 @@ function API.Update.JVJ(dt)
 	end
 end
 
-local w, h = (screenWidth-200)/2, screenHeight-80
 
 function API.Draw.VJV()
+	local screenWidth, screenHeight = RAYLIB.GetScreenWidth(), RAYLIB.GetScreenHeight()
+
 	if not Game.IsMode(Game["MODE_REPLAY"]) then
-		if RAYGUI.GuiSlider(w, h, screenWidth/4, 20, "Min", "Max", value, 0.00, 1.00) then
+		if RAYGUI.GuiSlider((screenWidth-200)/2, screenHeight-80, screenWidth/4, 20, "Min", "Max", value, 0.00, 1.00) then
 			Game.Refreeze()
 		end
 	end
 end
-

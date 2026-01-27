@@ -8,6 +8,7 @@ int main()
 	Game::Init();
 
 	bool running = true;
+
 	while (running)
 	{
 		Window::Update();
@@ -15,11 +16,13 @@ int main()
 		Game::Update(Game::GetFrameTime());
 		
 		Window::Draw();
-	
-		running = !raylib::WindowShouldClose();
+
+		running = Game::Running() && !raylib::WindowShouldClose();
 
 		Console::Update();
 	}
 
 	Game::Quit();
+
+	if (Window::Initialized()) Window::Close();
 }

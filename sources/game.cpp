@@ -85,13 +85,14 @@ void Game::NewGame()
 	for (auto& jo : joint_objects)
 		jo.Create(world, space, objects[jo.connections[0]], objects[jo.connections[1]]);
 
-	int count = 1;
+	int p_count = 1;
 
 	for (auto& p : players) {
 		p.b_count = p.body.size();
 		p.j_count = p.joint.size();
-		p.SetCatBits(2<<count, 2<<count);
-		p.SetColBits(255-(2<<count), 255-(2<<count));
+
+		p.SetCatBits(2<<p_count, 2<<p_count);
+		p.SetColBits(255-(2<<p_count), 255-(2<<p_count));
 
 		p.Create(world, space);
 
@@ -99,7 +100,7 @@ void Game::NewGame()
 		//p.SetEngageheight(rules.engageheight);
 		p.SetOffset();
 
-		count += 1;
+		p_count += 1;
 	}
 
 	state.running = true;
@@ -107,6 +108,11 @@ void Game::NewGame()
 	Replay::WriteMetaData();
 
 	API::NewGameCallback();
+}
+
+void Game::Stop()
+{
+	state.running = !state.running;
 }
 
 void Game::Quit()
@@ -119,9 +125,8 @@ void Game::Quit()
 	}
 
 	API::Close();
-	Replay::Close();
 
-	if (Window::Initialized()) Window::Close();
+	Replay::Close();
 }
 
 size_t Game::GetContactCount()
@@ -270,6 +275,8 @@ void Game::Update(dReal dt)
 		numcollisions = 0;
 
 		if (!state.freeze) {
+			state.game_frame += 1;
+
 			switch (state.mode)
 			{
 			case SELF_PLAY: case FREE_PLAY:
@@ -281,20 +288,18 @@ void Game::Update(dReal dt)
 	
 				break;
 			case REPLAY_PLAY:
-				double frame_count = Replay::GetFrameCount();
+				auto max_frame = Replay::GetMaxFrame();
 				
-				if (state.game_frame > frame_count + 100) {
+				if (state.game_frame >= max_frame + 100) {
 					EnterMode(REPLAY_PLAY);
 				}
-	
-				if (state.game_frame < frame_count) {
+
+				if (state.game_frame <= max_frame) {
 					Replay::PlayFrame(state.game_frame);
 				}
 	
 				break;
 			}
-
-			//state.game_frame += 1;
 		} else {
 			switch (state.mode)
 			{
@@ -317,27 +322,12 @@ void Game::Update(dReal dt)
 			state.freeze_count += 1;
 		}
 
-
 		for (auto& o : objects) o.Step();
 		for (auto& p : players) p.Step();
 
 		dSpaceCollide(space, 0, nearCallback);
 		dWorldStep(world, step);
 		dJointGroupEmpty(contactgroup);
-
-		if (!state.freeze) {
-			switch (state.mode)
-			{
-			case SELF_PLAY: case FREE_PLAY:
-				//Replay::RecordFrame(state.game_frame);
-
-				break;
-			case REPLAY_PLAY:
-				break;
-			}
-
-			state.game_frame += 1;
-		}
 	}
 }
 
@@ -775,12 +765,12 @@ void Game::CycleSelectedJointState()
 	players[state.selected_player].joint[state.selected_joint].CycleState();
 }
 
-static Shader shader;
-
 void rl_log(int level, const char* msg, va_list)
 {
 	Console::log(TextFormat("%d: %s", level, msg));
 }
+
+static Shader shader;
 
 void Window::Init()
 {
@@ -1296,31 +1286,36 @@ void Replay::Import(std::string replay_name)
 	std::ifstream savedreplayfile(replay, std::ios::binary);
 
 	char c;
-	int i;
 
 	auto buffer = (uint8_t*)data->buffer();
 
 	uint8_t max_frames_buffer[4];
+
 	savedreplayfile.get(c);
-	max_frames_buffer[0] = (uint8_t)c;
+	max_frames_buffer[0] = c;
 	savedreplayfile.get(c);
-	max_frames_buffer[1] = (uint8_t)c;
+	max_frames_buffer[1] = c;
 	savedreplayfile.get(c);
-	max_frames_buffer[2] = (uint8_t)c;
+	max_frames_buffer[2] = c;
 	savedreplayfile.get(c);
-	max_frames_buffer[3] = (uint8_t)c;
+	max_frames_buffer[3] = c;
 
 	max_frames = *((uint32_t*)max_frames_buffer);
 
-	LOG(max_frames)
+	uint8_t chunk_count_buffer[4];
 
 	savedreplayfile.get(c);
+	chunk_count_buffer[0] = c;
+	savedreplayfile.get(c);
+	chunk_count_buffer[1] = c;
+	savedreplayfile.get(c);
+	chunk_count_buffer[2] = c;
+	savedreplayfile.get(c);
+	chunk_count_buffer[3] = c;
 
-	chunk_count = (uint32_t)c;
+	chunk_count = *((uint32_t*)chunk_count_buffer);
 
-	LOG(chunk_count)
-
-	for (i = 0; savedreplayfile.get(c); i += 1) {
+	for (int i = 0; savedreplayfile.get(c); i += 1) {
 		buffer[i] = (uint8_t)c;
 	}
 
@@ -1335,17 +1330,20 @@ void Replay::Export(std::string replay_name)
 	std::ofstream savedreplayfile(replay.append(".rpl"), std::ios::binary);
 
 	auto buffer = (uint8_t*)data->buffer();
-	
-	LOG(max_frames)
 
-	uint8_t* max_frames_buffer = (uint8_t*)(&max_frames);
+	uint8_t* max_frames_buffer = (uint8_t*)&max_frames;
 
 	savedreplayfile << max_frames_buffer[0];
 	savedreplayfile << max_frames_buffer[1];
 	savedreplayfile << max_frames_buffer[2];
 	savedreplayfile << max_frames_buffer[3];
 
-	savedreplayfile << chunk_count;
+	uint8_t* chunk_count_buffer = (uint8_t*)&chunk_count;
+
+	savedreplayfile << chunk_count_buffer[0];
+	savedreplayfile << chunk_count_buffer[1];
+	savedreplayfile << chunk_count_buffer[2];
+	savedreplayfile << chunk_count_buffer[3];
 
 	for (int i = 0; i < data->offset(); i += 1) {
 		savedreplayfile << buffer[i];
@@ -1354,7 +1352,7 @@ void Replay::Export(std::string replay_name)
 	savedreplayfile.close();
 }
 
-size_t Replay::GetFrameCount()
+size_t Replay::GetMaxFrame()
 {
 	return max_frames;
 }

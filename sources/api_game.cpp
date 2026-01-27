@@ -280,26 +280,31 @@ static int Game_ToggleSelectedJointActiveStateAlt(lua_State* L)
 	Game::ToggleSelectedJointActiveStateAlt();
 	return 1;
 }
+
 static int Game_ToggleSelectedJointActiveState(lua_State* L)
 {
 	Game::ToggleSelectedJointActiveState();
 	return 1;
 }
+
 static int Game_ToggleSelectedJointPassiveStateAlt(lua_State* L)
 {
 	Game::ToggleSelectedJointPassiveStateAlt();
 	return 1;
 }
+
 static int Game_ToggleSelectedJointPassiveState(lua_State* L)
 {
 	Game::ToggleSelectedJointPassiveState();
 	return 1;
 }
+
 static int Game_CycleSelectedJointStateAlt(lua_State* L)
 {
 	Game::CycleSelectedJointStateAlt();
 	return 1;
 }
+
 static int Game_CycleSelectedJointState(lua_State* L)
 {
 	Game::CycleSelectedJointState();
@@ -339,8 +344,16 @@ static int Game_GetGamerules(lua_State* L)
 	return 1;
 }
 
+static int Game_Quit(lua_State* L)
+{
+	Game::Stop();
+	return 1;
+}
+
 static const luaL_Reg api_game[]
 {
+	{"Quit", Game_Quit},
+
 	{"ImportMod", Game_ImportMod},
 	{"NewGame", Game_NewGame},
 
@@ -431,9 +444,9 @@ static int Replay_Export(lua_State* L)
 	return 1;
 }
 
-static int Replay_GetFrameCount(lua_State* L)
+static int Replay_GetMaxFrame(lua_State* L)
 {
-	lua_pushinteger(L, Replay::GetFrameCount());
+	lua_pushinteger(L, Replay::GetMaxFrame());
 	return 1;
 }
 
@@ -442,7 +455,7 @@ static const luaL_Reg api_replay[]
 	{"Import", Replay_Import},
 	{"Export", Replay_Export},
 
-	{"GetFrameCount", Replay_GetFrameCount},
+	{"GetMaxFrame", Replay_GetMaxFrame},
 
 	{NULL, NULL},
 };

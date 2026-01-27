@@ -283,6 +283,10 @@ function API.Draw.init()
 		if RAYGUI.GuiButton(offset, 10, button_size, 25, "Settings") then
 			showSettings = showSettings == false
 		end
+
+		if RAYGUI.GuiButton(screenWidth - button_size - 10, screenHeight - 45, button_size, 25, "Quit") then
+			Game.Quit()
+		end
 	else
 		local offset = 10
 		RAYGUI.GuiLabel(10, offset, screenWidth-10, 10, `{mod}: o:{o_count} p:{p_count} {p_details}`)
@@ -446,11 +450,14 @@ function API.Draw.init()
 	if showScripts then
 		RAYGUI.GuiGroupBox(15, 50, 200, 400, "Scripts")
 		local scripts = RAYLIB.LoadDirectoryFiles("scripts")
+
 		for i = 1, #scripts do
 			local script = scripts[i]:gsub("scripts[/\\]", "")
 			if (RAYGUI.GuiButton(15, 30 + 20 * (i + 1), 200, 20, script)) then
 				script = script:gsub("%..+", "")
+
 				API.loadscript(script)
+
 				loaded_scripts[script] = 1
 
 				showScripts = false
@@ -485,7 +492,7 @@ function API.Draw.init()
 	local offset = screenHeight-30
 
 	if Game.IsMode(Game["MODE_REPLAY"])then
-		API.NumberToData(frame/Replay.GetFrameCount(), replay_slider_value)
+		API.NumberToData(frame/Replay.GetMaxFrame(), replay_slider_value)
 		RAYGUI.GuiSliderBar(10, offset, screenWidth-20, 20, "", "", replay_slider_value, 0.00, 1.00)
 		offset = offset - 30
 	end
@@ -494,10 +501,10 @@ function API.Draw.init()
 		if (RAYGUI.GuiButton(10, offset, screenWidth-20, 20, "Save")) then
 			showReplaysSaving = false
 
-			local s = API.StringFromData(Data["ReplayName_GuiTextBox"])
+			local text = API.StringFromData(Data["ReplayName_GuiTextBox"])
 
-			if s ~= "" then
-				Replay.Export(s .. ".bin")
+			if text ~= "" then
+				Replay.Export(text .. ".bin")
 			else
 				Replay.Export("utitiledreplayfile.bin")
 			end

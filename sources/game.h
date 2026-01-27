@@ -95,6 +95,8 @@ namespace Game
 	void Init();
 	void Quit();
 
+	void Stop();
+
 	void TogglePause();
 	bool GetFreeze();
 	bool GetPause();
@@ -296,5 +298,5 @@ namespace Replay
 
 	void Destroy();
 
-	size_t GetFrameCount();
+	size_t GetMaxFrame();
 }

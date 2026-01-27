@@ -49,6 +49,9 @@ void Player::Create(dWorldID world, dSpaceID space)
 		b.frame_position = b.m_position;
 		b.freeze_position = b.m_position;
 
+		b.frame_orientation = b.m_orientation;
+		b.freeze_orientation = b.m_orientation;
+
 		b.m_cat_bits = b_cat_bits;
 		b.m_col_bits = b_col_bits;
 
@@ -71,6 +74,9 @@ void Player::Create(dWorldID world, dSpaceID space)
 
 		j.frame_position = j.m_position;
 		j.freeze_position = j.m_position;
+
+		j.frame_orientation = j.m_orientation;
+		j.freeze_orientation = j.m_orientation;
 
 		j.m_cat_bits = j_cat_bits;
 		j.m_col_bits = j_col_bits;

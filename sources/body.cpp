@@ -430,8 +430,8 @@ void Body::DrawFreeze(Color color)
 
 void Body::DrawFreeze()
 {
-	if (active) DrawFreeze(m_active_color);
 	if (!select && !active) DrawFreeze(m_color);
+	if (active) DrawFreeze(m_active_color);
 }
 
 
@@ -758,13 +758,11 @@ void Joint::Draw(Color color)
 
 void Joint::Draw(bool freeze)
 {
-	if (!m_composite) return;
-
-	if (!freeze) {
-		Draw(m_color);
-	} else {
+	if (freeze) {
 		DrawFreeze();
 		DrawGhost();
+	} else {
+		Draw(m_color);
 	}
 }
 
