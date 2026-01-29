@@ -13,9 +13,8 @@ Player::Player(PlayerID id, std::string_view name)
 	m_j_color = BLACK;
 	m_g_color = Fade(BLACK, 0.10);
 
-	//m_b_active_color = Fade(BLACK, 0.10);
 	m_b_active_color = BLACK;
-	m_j_select_color = WHITE;
+	m_j_select_color = Fade(WHITE, 0.90);
 
 	m_offset = { 0 };
 

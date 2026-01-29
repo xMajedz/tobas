@@ -202,6 +202,7 @@ static void nearCallback(void*, dGeomID o1, dGeomID o2)
 void Game::Refreeze()
 {
 	state.freeze_count = 0;
+
 	for (auto& o : objects) o.Refreeze();
 	for (auto& p : players) p.Refreeze();
 }
@@ -257,6 +258,7 @@ void Game::Step(int frame_count)
 
 			state.freeze_frame = state.game_frame + frame_count;
 			state.freeze = false;
+
 			Refreeze();
 		}
 	}
@@ -274,16 +276,19 @@ void Game::Update(dReal dt)
 	if (!state.pause) {
 		numcollisions = 0;
 
-		if (!state.freeze) {
-			state.game_frame += 1;
+		for (auto& o : objects) o.Step();
+		for (auto& p : players) p.Step();
 
+		if (!state.freeze) {
 			switch (state.mode)
 			{
 			case SELF_PLAY: case FREE_PLAY:
 				//Replay::RecordFrame(state.game_frame);
-	
+				
 				if (state.game_frame >= state.freeze_frame) {
 					Freeze();
+				} else {
+					state.game_frame += 1;
 				}
 	
 				break;
@@ -298,8 +303,11 @@ void Game::Update(dReal dt)
 					Replay::PlayFrame(state.game_frame);
 				}
 	
+				state.game_frame += 1;
+
 				break;
 			}
+
 		} else {
 			switch (state.mode)
 			{
@@ -321,9 +329,6 @@ void Game::Update(dReal dt)
 	
 			state.freeze_count += 1;
 		}
-
-		for (auto& o : objects) o.Step();
-		for (auto& p : players) p.Step();
 
 		dSpaceCollide(space, 0, nearCallback);
 		dWorldStep(world, step);
@@ -566,6 +571,7 @@ void Game::TogglePause()
 void Game::ToggleGhosts()
 {
 	for (auto& p : players) if (p.GetID() != state.selected_player && 0 > state.selected_player) p.ToggleGhost();
+
 	Refreeze();
 }
 
@@ -771,6 +777,7 @@ void rl_log(int level, const char* msg, va_list)
 }
 
 static Shader shader;
+static Model sphere;
 
 void Window::Init()
 {
@@ -780,6 +787,8 @@ void Window::Init()
 	InitWindow(width, height, "TOBAS");
 
 	Gamecam::Init();
+
+	sphere = LoadModel("resources/model/sphere.obj");
 
 	shader = LoadShader(NULL, "resources/shader/tobas.fs");
 
@@ -869,6 +878,7 @@ void Window::Update()
 
 	if (Game::GetSelectedPlayerID() != -1)
 		Game::SetSelectedJoint(selected_joint);
+
 	if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
 		Game::SetSelectedPlayer(selected_player);
 
@@ -891,6 +901,9 @@ void Window::RenderBackground(Camera3D camera)
 	BeginTextureMode(background);
 	ClearBackground(RAYWHITE);
 	BeginMode3D(camera);
+
+	//DrawModel(sphere, (Vector3){0.00, 0.00, 0.00}, 1.0, WHITE);
+
 	Game::Draw();
 	EndMode3D();
 	EndTextureMode();
@@ -932,6 +945,7 @@ void Window::Draw()
 
 void Window::Close()
 {
+	UnloadModel(sphere);
 	UnloadShader(shader);
 	UnloadRenderTexture(background);
 	UnloadRenderTexture(foreground);

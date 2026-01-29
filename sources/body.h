@@ -101,6 +101,11 @@ struct Body
 	void SetColBits(uint32_t bits);
 	void SetColBits();
 
+	void SetOrientation(raylib::Vector4 q);
+	void SetPosition(raylib::Vector3 p);
+	void SetLinearVel(raylib::Vector3 v);
+	void SetAngularVel(raylib::Vector3 v);
+
 	void Freeze();
 
 	void Refreeze();
@@ -113,9 +118,7 @@ struct Body
 	void Draw(bool freeze);
 
 	void DrawFreeze(raylib::Color color);
-	void DrawFreeze();
 	void DrawSelect();
-	void DrawGhost();
 
 	void ToggleGhost();
 	void ToggleState();
@@ -179,6 +182,7 @@ struct Joint : public Body
 	void Draw(raylib::Color color);
 	void Draw(bool freeze);
 
+	void DrawFreeze(raylib::Color color);
 	void DrawSelect();
 
 	void DrawAxis(bool freeze);

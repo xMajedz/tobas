@@ -40,7 +40,7 @@ Body::Body(BodyID id, const char* name)
 	m_active_color = BLACK;
 
 	select = false;
-	m_select_color = WHITE;
+	m_select_color = Fade(WHITE, 0.10);
 
 	m_static = false;
 	m_composite = false;
@@ -54,6 +54,9 @@ void Body::Create(dWorldID world, dSpaceID space)
 
 	frame_position = m_position;
 	freeze_position = m_position;
+
+	frame_orientation = m_orientation;
+	freeze_orientation = m_orientation;
 
 	if (m_static) {
 		CreateStatic();
@@ -116,6 +119,22 @@ void Body::CreateGeom()
 		dMassSetCylinder(&mass, density, 1, length, radius);
 	} break;
 	}
+	
+	dGeomSetPosition(
+		dGeom,
+		m_position.x,
+		m_position.y,
+		m_position.z
+	);
+
+	dGeomSetQuaternion(
+		dGeom,
+		(dQuaternion){
+		m_orientation.w,
+		m_orientation.x,
+		m_orientation.y,
+		m_orientation.z,
+	});
 }
 
 void Body::CreateDynamic()
@@ -137,10 +156,32 @@ void Body::CreateComposite(dBodyID b)
 	dGeomSetBody(dGeom, b);
 }
 
-/*void Body::SetPosition(Vector3 position)
+void Body::SetOrientation(Vector4 q)
 {
-	dGeomSetPosition(dGeom, position.x, position.y, position.z);
-}*/
+	dGeomSetQuaternion(
+		dGeom,
+		(dQuaternion){
+		q.w,
+		q.x,
+		q.y,
+		q.z,
+	});
+}
+
+void Body::SetPosition(Vector3 p)
+{
+	dGeomSetPosition(dGeom, p.x, p.y, p.z);
+}
+
+void Body::SetLinearVel(Vector3 v)
+{
+	dBodySetLinearVel(dBody, v.x, v.y, v.z);
+}
+
+void Body::SetAngularVel(Vector3 v)
+{
+	dBodySetAngularVel(dBody, v.x, v.y, v.z);
+}
 
 void Body::SetColor(Color color)
 {
@@ -242,14 +283,14 @@ void Body::Freeze()
 
 	dQuaternion orientation = { 0 };
 	dGeomGetQuaternion(dGeom, orientation);
-	//freeze_orientation = (Vector4){orientation[1], orientation[2], orientation[3], orientation[0]};
 	freeze_orientation = {orientation[1], orientation[2], orientation[3], orientation[0]};
 
 	const dReal* position = dGeomGetPosition(dGeom);
 	freeze_position = {position[0], position[1], position[2]};
 }
 
-void Body::Refreeze() {
+void Body::Refreeze()
+{
 	if (!m_static) {
 		dBodySetLinearVel(
 			dBody, 
@@ -317,14 +358,15 @@ void Body::Reset()
 
 void Body::DrawObject(Color color)
 {
-	switch(shape) {
-	case BOX: {
+	switch(shape)
+	{
+	case BOX:
 		DrawCube((Vector3){ 0.0f, 0.0f, 0.0f }, m_sides.x, m_sides.y, m_sides.z, color);
-	} break;
-	case SPHERE: {
+		break;
+	case SPHERE:
 		DrawSphere((Vector3){ 0.0f, 0.0f, 0.0f }, radius, color);
-	} break;
-	case CAPSULE: {
+		break;
+	case CAPSULE:
 		DrawCapsule(
 				(Vector3){ 0.0f, 0.0f, -(length/2) },
 				(Vector3){ 0.0f, 0.0f,  (length/2) },
@@ -333,8 +375,8 @@ void Body::DrawObject(Color color)
 				16,
 				color
 		);
-	} break;
-	case CYLINDER: {
+		break;
+	case CYLINDER:
 		DrawCylinderEx(
 				(Vector3){ 0.0f, 0.0f, -(length/2) },
 				(Vector3){ 0.0f, 0.0f,  (length/2) },
@@ -343,20 +385,21 @@ void Body::DrawObject(Color color)
 				16,
 				color
 		);
-	} break;
+		break;
 	}
 }
 
 void Body::DrawObjectWires(Color color)
 {
-	switch(shape) {
-	case BOX: {
+	switch(shape)
+	{
+	case BOX:
 		DrawCubeWires((Vector3){ 0.0f, 0.0f, 0.0f }, m_sides.x, m_sides.y, m_sides.z, color);
-	} break;
-	case SPHERE: {
+		break;
+	case SPHERE:
 		DrawSphereWires((Vector3){ 0.0f, 0.0f, 0.0f }, radius, 16, 16, color);
-	} break;
-	case CAPSULE: {
+		break;
+	case CAPSULE:
 		DrawCapsuleWires(
 				(Vector3){ 0.0f, 0.0f, -(length/2) },
 				(Vector3){ 0.0f, 0.0f,  (length/2) },
@@ -365,8 +408,8 @@ void Body::DrawObjectWires(Color color)
 				16,
 				color
 		);
-	} break;
-	case CYLINDER: {
+		break;
+	case CYLINDER:
 		DrawCylinderWiresEx(
 				(Vector3){ 0.0f, 0.0f, -(length/2) },
 				(Vector3){ 0.0f, 0.0f,  (length/2) },
@@ -375,7 +418,7 @@ void Body::DrawObjectWires(Color color)
 				16,
 				color
 		);
-	} break;
+		break;
 	}
 }
 
@@ -398,6 +441,7 @@ void Body::Draw(Color color)
 	rlRotatef(RAD2DEG * angle, axis.x, axis.y, axis.z);
 
 	DrawObject(color);
+
 	rlPopMatrix();
 }
 
@@ -428,28 +472,25 @@ void Body::DrawFreeze(Color color)
 	rlPopMatrix();
 }
 
-void Body::DrawFreeze()
-{
-	if (!select && !active) DrawFreeze(m_color);
-	if (active) DrawFreeze(m_active_color);
-}
-
-
 void Body::DrawSelect()
 {
 	DrawFreeze(m_select_color);
 }
 
-void Body::DrawGhost()
-{
-	if (ghost) Draw(m_g_color);
-}
-
 void Body::Draw(bool freeze)
 {
 	if (freeze) {
-		DrawFreeze();
-		DrawGhost();
+		if (active) {
+			DrawFreeze(m_active_color);
+		} else {
+			DrawFreeze(m_color);
+		}
+
+		if (!m_static) {
+			if (ghost) {
+				Draw(m_g_color);
+			}
+		}
 	} else {
 		Draw(m_color);
 	}
@@ -472,8 +513,9 @@ std::string Body::GetName()
 
 RayCollision Body::CollideMouseRay(Ray ray, RayCollision collision)
 {
-	switch(shape) {
-	case BOX: {
+	switch(shape)
+	{
+	case BOX:
 		collision = GetRayCollisionBox(ray,
 			(BoundingBox) {
 				(Vector3){
@@ -488,8 +530,9 @@ RayCollision Body::CollideMouseRay(Ray ray, RayCollision collision)
 				},
 			}
 		);
-	} break;
-	case SPHERE: {
+
+		break;
+	case SPHERE:
 		collision = GetRayCollisionSphere(ray,
 			(Vector3){
 				freeze_position.x,
@@ -498,8 +541,9 @@ RayCollision Body::CollideMouseRay(Ray ray, RayCollision collision)
 			},
 			radius
 		);
-	} break;
-	case CAPSULE: {
+
+		break;
+	case CAPSULE:
 		collision = GetRayCollisionBox(ray,
 			(BoundingBox) {
 				(Vector3){
@@ -514,8 +558,9 @@ RayCollision Body::CollideMouseRay(Ray ray, RayCollision collision)
 				},
 			}
 		);
-	} break;
-	case CYLINDER: {
+
+		break;
+	case CYLINDER:
 		collision = GetRayCollisionBox(ray,
 			(BoundingBox) {
 				(Vector3){
@@ -530,7 +575,8 @@ RayCollision Body::CollideMouseRay(Ray ray, RayCollision collision)
 				},
 			}
 		);
-	} break;
+
+		break;
 	}
 
 	return collision;
@@ -542,28 +588,49 @@ Joint::Joint(JointID id, const char* name)
 	m_name = name;
 	state = RELAX;
 	state_alt = RELAX;
+
+	m_orientation = {0.00, 0.00, 0.00, 1.00};
+	m_position = { 0 };
+	m_offset =  { 0 };
+
+	frame_orientation = {0.00, 0.00, 0.00, 1.00};
+	frame_position = { 0 };
+	frame_offset =  { 0 };
+
+	frame_linear_vel = { 0 };
+	frame_angular_vel = { 0 };
+
+	freeze_orientation = {0.00, 0.00, 0.00, 1.00};
+	freeze_position = { 0 };
+	freeze_offset =  { 0 };
+
+	freeze_linear_vel = { 0 };
+	freeze_angular_vel = { 0 };
+
+	select = false;
+	m_select_color = Fade(WHITE, 0.10);
 }
 
 void Joint::Create(dWorldID world, dSpaceID space, Body b1, Body b2)
 {
 	m_world = world;
 	m_space = space;
-	if (m_composite) {
-		m_offset = {
-			m_position.x - b1.m_position.x,
-			m_position.y - b1.m_position.y,
-			m_position.z - b1.m_position.z,
-		};
 
+	frame_position = m_position;
+	freeze_position = m_position;
+
+	frame_orientation = m_orientation;
+	freeze_orientation = m_orientation;
+
+	if (m_composite) {
 		CreateComposite(b1.dBody);
 		dBody = b1.dBody;
-
 		dGeomSetOffsetWorldPosition(dGeom, m_position.x, m_position.y, m_position.z);
 	}
 	
 	switch(type)
 	{
-	case HINGE: {
+	case HINGE:
 		dJoint = dJointCreateHinge(world, 0);
 		dJointAttach(dJoint, b1.dBody, b2.dBody);
 		dJointSetHingeAnchor(
@@ -597,26 +664,32 @@ void Joint::Create(dWorldID world, dSpaceID space, Body b1, Body b2)
 			dParamFudgeFactor,
 			0.50
 		);
-	} break;
-	case dSLIDER: {
+
+		break;
+	case dSLIDER:
 		dJoint = dJointCreateSlider(world, 0);
 		dJointAttach(dJoint, b1.dBody, b2.dBody);
 		dJointSetSliderAxis(
 			dJoint,
 			axis.x,
 			axis.y,
-			axis.z);
+			axis.z
+		);
 
 		dJointSetSliderParam(
 			dJoint,
 			dParamHiStop,
-			range[0]);
+			range[0]
+		);
+
 		dJointSetSliderParam(
 			dJoint,
 			dParamLoStop,
-			range[1]);
-	} break;
-	case UNIVERSAL: {
+			range[1]
+		);
+
+		break;
+	case UNIVERSAL:
 		dJoint = dJointCreateUniversal(world, 0);
 		dJointAttach(dJoint, b1.dBody, b2.dBody);
 		dJointSetUniversalAnchor(
@@ -669,8 +742,9 @@ void Joint::Create(dWorldID world, dSpaceID space, Body b1, Body b2)
 			dParamFudgeFactor,
 			0.50
 		);
-	} break;
-	case HINGE2: {
+
+		break;
+	case HINGE2:
 		dJoint = dJointCreateHinge2(world, 0);
 		dJointAttach(dJoint, b1.dBody, b2.dBody);
 		dJointSetHinge2Anchor(
@@ -721,7 +795,8 @@ void Joint::Create(dWorldID world, dSpaceID space, Body b1, Body b2)
 			dParamFudgeFactor,
 			0.50
 		);
-	} break;
+
+		break;
 	default:
 		dJoint = dJointCreateFixed(world, 0);
 		dJointAttach(dJoint, b1.dBody, b2.dBody);
@@ -745,6 +820,7 @@ void Joint::Draw(Color color)
 
 	float angle;
 	Vector3 axis;
+
 	QuaternionToAxisAngle(q, &axis, &angle);
 
 	rlPushMatrix();
@@ -759,16 +835,97 @@ void Joint::Draw(Color color)
 void Joint::Draw(bool freeze)
 {
 	if (freeze) {
-		DrawFreeze();
-		DrawGhost();
+		DrawFreeze(m_color);
+
+		if (ghost) {
+			Draw(m_g_color);
+		}
 	} else {
 		Draw(m_color);
 	}
 }
 
+void Joint::DrawFreeze(Color color)
+{
+	Quaternion q = {
+		freeze_orientation.x,
+		freeze_orientation.y,
+		freeze_orientation.z,
+		freeze_orientation.w
+	};
+
+	float angle;
+	Vector3 axis;
+
+	QuaternionToAxisAngle(q, &axis, &angle);
+	rlPushMatrix();
+	rlTranslatef(
+		freeze_position.x,
+		freeze_position.y,
+		freeze_position.z
+	);
+
+	rlRotatef(RAD2DEG * angle, axis.x, axis.y, axis.z);
+
+	DrawObject(color);
+
+	rlPopMatrix();
+}
+
 void Joint::DrawSelect()
 {
-	DrawFreeze(m_select_color);
+	Quaternion q = {
+		freeze_orientation.x,
+		freeze_orientation.y,
+		freeze_orientation.z,
+		freeze_orientation.w
+	};
+
+	float angle;
+	Vector3 axis;
+
+	QuaternionToAxisAngle(q, &axis, &angle);
+	rlPushMatrix();
+	rlTranslatef(
+		freeze_position.x,
+		freeze_position.y,
+		freeze_position.z
+	);
+
+	rlRotatef(RAD2DEG * angle, axis.x, axis.y, axis.z);
+
+	switch(shape)
+	{
+	case BOX:
+		DrawCube((Vector3){ 0.0f, 0.0f, 0.0f }, m_sides.x, m_sides.y, m_sides.z, m_select_color);
+		break;
+	case SPHERE:
+		DrawSphere((Vector3){ 0.0f, 0.0f, 0.0f }, radius * 1.2, m_select_color);
+		break;
+	case CAPSULE:
+		DrawCapsule(
+				(Vector3){ 0.0f, 0.0f, -(length/2) },
+				(Vector3){ 0.0f, 0.0f,  (length/2) },
+				radius,
+				16,
+				16,
+				m_select_color
+		);
+		break;
+	case CYLINDER:
+		DrawCylinderEx(
+				(Vector3){ 0.0f, 0.0f, -(length/2) },
+				(Vector3){ 0.0f, 0.0f,  (length/2) },
+				radius,
+				radius,
+				16,
+				m_select_color
+		);
+		break;
+	}
+
+	rlPopMatrix();
+
 	DrawAxis(true);
 	DrawRange(true);
 }
@@ -859,15 +1016,16 @@ void Joint::TriggerActiveStateAlt(dReal vel)
 
 void Joint::TriggerPassiveStateAlt(dReal strength)
 {
-	switch(type) {
-	case UNIVERSAL: {
+	switch(type)
+	{
+	case UNIVERSAL:
 		dJointSetUniversalParam(dJoint, dParamFMax2, strength);
 		dJointSetUniversalParam(dJoint, dParamVel2, 0.00);
-	} break;
-	case HINGE2: {
+		break;
+	case HINGE2:
 		dJointSetHinge2Param(dJoint, dParamFMax2, strength);
 		dJointSetHinge2Param(dJoint, dParamVel2, 0.00);
-	} break;
+		break;
 	}
 }
 
@@ -875,22 +1033,22 @@ void Joint::TriggerActiveState(dReal vel)
 {
 	switch(type)
 	{
-	case HINGE: {
+	case HINGE:
 		dJointSetHingeParam(dJoint, dParamFMax, strength);
 		dJointSetHingeParam(dJoint, dParamVel, vel);
-	} break;
-	case dSLIDER: {
+		break;
+	case dSLIDER:
 		dJointSetSliderParam(dJoint, dParamFMax, strength);
 		dJointSetSliderParam(dJoint, dParamVel, vel);
-	} break;
-	case UNIVERSAL: {
+		break;
+	case UNIVERSAL:
 		dJointSetUniversalParam(dJoint, dParamFMax, strength);
 		dJointSetUniversalParam(dJoint, dParamVel, vel);
-	} break;
-	case HINGE2: {
+		break;
+	case HINGE2:
 		dJointSetHinge2Param(dJoint, dParamFMax, strength);
 		dJointSetHinge2Param(dJoint, dParamVel, vel);
-	} break;
+		break;
 	}
 }
 
@@ -898,53 +1056,63 @@ void Joint::TriggerPassiveState(dReal strength)
 {
 	switch(type)
 	{
-	case HINGE: {
+	case HINGE:
 		dJointSetHingeParam(dJoint, dParamFMax, strength);
 		dJointSetHingeParam(dJoint, dParamVel, 0.00);
-	} break;
-	case dSLIDER: {
+		break;
+	case dSLIDER:
 		dJointSetSliderParam(dJoint, dParamFMax, strength);
 		dJointSetSliderParam(dJoint, dParamVel, 0.00);
-	} break;
-	case UNIVERSAL: {
+		break;
+	case UNIVERSAL:
 		dJointSetUniversalParam(dJoint, dParamFMax, strength);
 		dJointSetUniversalParam(dJoint, dParamVel, 0.00);
-	} break;
-	case HINGE2: {
+		break;
+	case HINGE2:
 		dJointSetHinge2Param(dJoint, dParamFMax, strength);
 		dJointSetHinge2Param(dJoint, dParamVel, 0.00);
-	} break;
+		break;
 	}
 }
 
 void Joint::TogglePassiveState()
 {
-	if (state == RELAX) {
-		state = HOLD;
-		TriggerPassiveState(strength);
-	} else {
+	switch(state)
+	{
+	case HOLD:
 		state = RELAX;
 		TriggerPassiveState(0.00);
+		break;
+	default:
+		state = HOLD;
+		TriggerPassiveState(strength);
 	}
 }
 
 void Joint::TogglePassiveStateAlt()
 {
-	if (state_alt == RELAX) {
-		state_alt = HOLD;
-		TriggerPassiveStateAlt(strength);
-	} else {
+
+	switch(state_alt)
+	{
+	case HOLD:
 		state_alt = RELAX;
 		TriggerPassiveStateAlt(0.00);
+		break;
+	default:
+		state_alt = HOLD;
+		TriggerPassiveStateAlt(strength);
 	}
 }
 
 void Joint::ToggleActiveState(dReal vel)
 {
-	if (state == FORWARD) {
+	switch(state)
+	{
+	case FORWARD:
 		state = BACKWARD;
 		TriggerActiveState(-1.00 * vel);
-	} else {
+		break;
+	default:
 		state = FORWARD;
 		TriggerActiveState(1.00 * vel);
 	}
@@ -952,10 +1120,13 @@ void Joint::ToggleActiveState(dReal vel)
 
 void Joint::ToggleActiveStateAlt(dReal vel)
 {
-	if (state_alt == FORWARD) {
+	switch(state_alt)
+	{
+	case FORWARD:
 		state_alt = BACKWARD;
 		TriggerActiveStateAlt(-1.00 * vel);
-	} else {
+		break;
+	default:
 		state_alt = FORWARD;
 		TriggerActiveStateAlt(1.00 * vel);
 	}
@@ -963,42 +1134,30 @@ void Joint::ToggleActiveStateAlt(dReal vel)
 
 void Joint::ToggleActiveState()
 {
-	if (state == FORWARD) {
-		state = BACKWARD;
-		TriggerActiveState(-1.00 * velocity);
-	} else {
-		state = FORWARD;
-		TriggerActiveState(1.00 * velocity);
-	}
+	ToggleActiveState(velocity);
 }
 
 void Joint::ToggleActiveStateAlt()
 {
-	if (state_alt == FORWARD) {
-		state_alt = BACKWARD;
-		TriggerActiveStateAlt(-1.00 * velocity_alt);
-	} else {
-		state_alt = FORWARD;
-		TriggerActiveStateAlt(1.00 * velocity_alt);
-	}
+	ToggleActiveStateAlt(velocity_alt);
 }
 
 void Joint::CycleState()
 {
 	switch(state)
 	{
-	case FORWARD: {
+	case FORWARD:
 		state = BACKWARD;
 		TriggerActiveState(-1.00 * velocity);
-	} break;
-	case BACKWARD: {
+		break;
+	case BACKWARD:
 		state = HOLD;
 		TriggerPassiveState(strength);
-	} break;
-	case HOLD: {
+		break;
+	case HOLD:
 		state = RELAX;
 		TriggerPassiveState(0.00);
-	} break;
+		break;
 	default:
 		state = FORWARD;
 		TriggerActiveState(1.00 * velocity);
@@ -1009,18 +1168,18 @@ void Joint::CycleStateAlt()
 {
 	switch(state_alt)
 	{
-	case FORWARD: {
+	case FORWARD:
 		state_alt = BACKWARD;
 		TriggerActiveStateAlt(-1.00 * velocity_alt);
-	} break;
-	case BACKWARD: {
+		break;
+	case BACKWARD:
 		state_alt = HOLD;
 		TriggerPassiveStateAlt(strength_alt);
-	} break;
-	case HOLD: {
+		break;
+	case HOLD:
 		state_alt = RELAX;
 		TriggerPassiveStateAlt(0.00);
-	} break;
+		break;
 	default:
 		state_alt = FORWARD;
 		TriggerActiveStateAlt(1.00 * velocity_alt);
