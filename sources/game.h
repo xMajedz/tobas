@@ -274,6 +274,8 @@ struct FrameData
 
 namespace Replay 
 {
+	static std::string_view mod;
+
 	static Arena* data = nullptr;
 
 	static size_t chunk = 0;
@@ -298,5 +300,6 @@ namespace Replay
 
 	void Destroy();
 
+	std::string_view GetMod();
 	size_t GetMaxFrame();
 }

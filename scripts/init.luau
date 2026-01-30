@@ -439,6 +439,17 @@ function API.Draw.init()
 			if RAYGUI.GuiButton(15, 30 + 20 * (i + 1), 200, 20, replay) then
 				if replay:match("^[%.%w%-_]+%.rpl") then
 					Replay.Import(replay)
+					--[[
+					local mod = Replay.GetMod()
+					if mod:match("^CONVERTED_.+") then
+						API.Reset()
+						local mod_name = mod:gsub("CONVERTED_", "")
+						ms.loadmodTBM2(mod_name)
+						Game.ImportMod()
+						Game.NewGame()
+					end
+					Replay.Import(replay)
+					]]
 					Game.EnterMode(Game["MODE_REPLAY"])
 				end
 

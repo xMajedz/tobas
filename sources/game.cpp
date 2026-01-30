@@ -1220,6 +1220,8 @@ void Replay::Begin()
 
 void Replay::PlayFrame(int game_frame)
 {
+	if (chunk_count < 1) return;
+
 	uint32_t* buffer = (uint32_t*)data->buffer();
 	uint32_t o_count = buffer[0];
 	uint32_t p_count = buffer[1];
@@ -1301,7 +1303,21 @@ void Replay::Import(std::string replay_name)
 
 	char c;
 
-	auto buffer = (uint8_t*)data->buffer();
+	//auto mod = Game::GetMod();
+
+	char mod_name[1024];
+	
+	for (int i = 0; savedreplayfile.get(c); i += 1) {
+		if (c != '\0') {
+			mod_name[i] = c;
+			continue;
+		}
+
+		mod_name[i] = '\0';
+		break;
+	}
+
+	mod = mod_name;
 
 	uint8_t max_frames_buffer[4];
 
@@ -1329,6 +1345,8 @@ void Replay::Import(std::string replay_name)
 
 	chunk_count = *((uint32_t*)chunk_count_buffer);
 
+	auto buffer = (uint8_t*)data->buffer();
+
 	for (int i = 0; savedreplayfile.get(c); i += 1) {
 		buffer[i] = (uint8_t)c;
 	}
@@ -1343,7 +1361,13 @@ void Replay::Export(std::string replay_name)
 
 	std::ofstream savedreplayfile(replay.append(".rpl"), std::ios::binary);
 
-	auto buffer = (uint8_t*)data->buffer();
+	auto mod = Game::GetMod();
+	
+	for (int i = 0; i < mod.size(); i += 1) {
+		savedreplayfile << mod.data()[i];
+	}
+
+	savedreplayfile << '\0';
 
 	uint8_t* max_frames_buffer = (uint8_t*)&max_frames;
 
@@ -1359,11 +1383,34 @@ void Replay::Export(std::string replay_name)
 	savedreplayfile << chunk_count_buffer[2];
 	savedreplayfile << chunk_count_buffer[3];
 
-	for (int i = 0; i < data->offset(); i += 1) {
+	auto buffer = (uint8_t*)data->buffer();
+
+	uint32_t o_count = buffer[0];
+	uint32_t p_count = buffer[1];
+
+	uint32_t p_offset = 2;
+
+	uint32_t j_total = 0;
+	uint32_t b_total = 0;
+
+	for (uint32_t p_id = 0; p_id < p_count; p_id += 1) {
+		j_total += buffer[p_offset + 0];
+		b_total += buffer[p_offset + 1];
+		p_offset += 2;
+	}
+
+	uint32_t chunk_size = 5 * p_count * j_total + p_count * b_total;
+
+	for (int i = 0; i < chunk_size * chunk_count; i += 1) {
 		savedreplayfile << buffer[i];
 	}
 
 	savedreplayfile.close();
+}
+
+std::string_view Replay::GetMod()
+{
+	return mod;
 }
 
 size_t Replay::GetMaxFrame()

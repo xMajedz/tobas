@@ -444,6 +444,13 @@ static int Replay_Export(lua_State* L)
 	return 1;
 }
 
+static int Replay_GetMod(lua_State* L)
+{
+	auto mod = Replay::GetMod();
+	lua_pushlstring(L, mod.data(), mod.size());
+	return 1;
+}
+
 static int Replay_GetMaxFrame(lua_State* L)
 {
 	lua_pushinteger(L, Replay::GetMaxFrame());
@@ -455,6 +462,7 @@ static const luaL_Reg api_replay[]
 	{"Import", Replay_Import},
 	{"Export", Replay_Export},
 
+	{"GetMod", Replay_GetMod},
 	{"GetMaxFrame", Replay_GetMaxFrame},
 
 	{NULL, NULL},
