@@ -286,10 +286,10 @@ if showGui then
 			showScripts = showScripts == false
 		end
 
-		if RAYGUI.GuiButton(screenWidth - 70, 10, 25, 25, "#142#") then
+		if RAYGUI.GuiButton(screenWidth - 70, 10, 25, 25, `#{RAYGUI["ICON_GEAR_BIG"]}#`) then
 			showSettings = showSettings == false
 		end
-		if RAYGUI.GuiButton(screenWidth - 35, 10, 25, 25, "#113#") then
+		if RAYGUI.GuiButton(screenWidth - 35, 10, 25, 25, `#{RAYGUI["ICON_CROSS"]}#`) then
 			Game.Quit()
 		end
 	else
