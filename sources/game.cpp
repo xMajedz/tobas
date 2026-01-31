@@ -32,17 +32,6 @@ void Game::Init()
 
 void Game::ImportMod()
 {
-	if (space != nullptr)
-		dSpaceDestroy(space);
-	if (contactgroup != nullptr)
-		dJointGroupDestroy(contactgroup);
-	if (objects.size() > 0)
-		objects.clear();
-	if (joint_objects.size() > 0)
-		joint_objects.clear();
-	if (players.size() > 0)
-		players.clear();
-
 	rules = API::GetRules();
 
 	o_count = API::GetObjectsCount();
@@ -216,14 +205,23 @@ void Game::Restart()
 
 void Game::Reset()
 {
-	objects.clear();
-	players.clear();
-
-	dJointGroupDestroy(contactgroup);
-	dSpaceDestroy(space);
-
-	ImportMod();
-	NewGame();
+	if (space != nullptr) {
+		dSpaceDestroy(space);
+		space = nullptr;
+	}
+	if (contactgroup != nullptr) {
+		dJointGroupDestroy(contactgroup);
+		contactgroup = nullptr;
+	}
+	if (objects.size() > 0) {
+		objects.clear();
+	}
+	if (joint_objects.size() > 0) {
+		joint_objects.clear();
+	}
+	if (players.size() > 0) {
+		players.clear();
+	}
 }
 
 void Game::Freeze()

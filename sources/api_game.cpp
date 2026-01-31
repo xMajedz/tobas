@@ -344,6 +344,12 @@ static int Game_GetGamerules(lua_State* L)
 	return 1;
 }
 
+static int Game_Reset(lua_State* L)
+{
+	Game::Reset();
+	return 1;
+}
+
 static int Game_Quit(lua_State* L)
 {
 	Game::Stop();
@@ -352,6 +358,7 @@ static int Game_Quit(lua_State* L)
 
 static const luaL_Reg api_game[]
 {
+	{"Reset", Game_Reset},
 	{"Quit", Game_Quit},
 
 	{"ImportMod", Game_ImportMod},

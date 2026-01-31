@@ -269,7 +269,7 @@ if showGui then
 	if showMenu then
 		local offset = 10
 		local button_size = 100
-		local gape = (screenWidth - button_size - 2 * offset)/4
+		local gape = (screenWidth - 2 * button_size + 10)/3
 		if RAYGUI.GuiButton(offset, 10, button_size, 25, "Rules") then
 			showRules = showRules == false
 		end
@@ -285,13 +285,11 @@ if showGui then
 		if RAYGUI.GuiButton(offset, 10, button_size, 25, "Scripts") then
 			showScripts = showScripts == false
 		end
-		offset = offset + gape
-		if RAYGUI.GuiButton(offset, 10, button_size, 25, "Settings") then
+
+		if RAYGUI.GuiButton(screenWidth - 70, 10, 25, 25, "#142#") then
 			showSettings = showSettings == false
 		end
-
-		--if RAYGUI.GuiButton(screenWidth - button_size - 10, screenHeight - 45, button_size, 25, "#128#") then
-		if RAYGUI.GuiButton(screenWidth - button_size - 10, screenHeight - 45, button_size, 25, "#113#") then
+		if RAYGUI.GuiButton(screenWidth - 35, 10, 25, 25, "#113#") then
 			Game.Quit()
 		end
 	else
@@ -419,12 +417,14 @@ if showGui then
 					if mod:match("^[%.%w%-_]+%.luau") then
 						API.Reset()
 						API.loadmod(mod:match("^[%w%-_]+"))
+						Game.Reset()
 						Game.ImportMod()
 						Game.NewGame()
 					end
 					if mod:match("^[%.%w%-_]+%.tbm") then
 						API.Reset()
 						ms.loadmodTBM2(mod:match("^[%w%-_]+"))
+						Game.Reset()
 						Game.ImportMod()
 						Game.NewGame()
 					end
