@@ -24,7 +24,8 @@ void Game::Init()
 	Replay::Init();
 
 	state.time = GetTime();
-	state.running = false;
+	//state.running = false;
+	state.running = true;
 
 	SetExitKey(KEY_NULL);
 }
@@ -266,11 +267,6 @@ void Game::Step(int frame_count)
 
 void Game::Update(dReal dt)
 {
-	if (!state.running) {
-		ImportMod();
-		NewGame();
-	}
-
 	API::UpdateCallback(dt);
 
 	if (!state.pause) {
@@ -330,9 +326,11 @@ void Game::Update(dReal dt)
 			state.freeze_count += 1;
 		}
 
-		dSpaceCollide(space, 0, nearCallback);
-		dWorldStep(world, step);
-		dJointGroupEmpty(contactgroup);
+		if (space != nullptr) {
+			dSpaceCollide(space, 0, nearCallback);
+			dWorldStep(world, step);
+			dJointGroupEmpty(contactgroup);
+		}
 	}
 }
 
@@ -1303,22 +1301,18 @@ void Replay::Import(std::string replay_name)
 
 	char c;
 
-	//auto mod = Game::GetMod();
-
-	char mod_name[1024];
-	
+	char mod_name[1024] = { 0 };
+	/*
 	for (int i = 0; savedreplayfile.get(c); i += 1) {
-		if (c != '\0') {
-			mod_name[i] = c;
-			continue;
+		if (c == '\0') {
+			break;
 		}
 
-		mod_name[i] = '\0';
-		break;
+		mod_name[i] = c;
 	}
-
+	
 	mod = mod_name;
-
+	*/
 	uint8_t max_frames_buffer[4];
 
 	savedreplayfile.get(c);
@@ -1363,11 +1357,11 @@ void Replay::Export(std::string replay_name)
 
 	auto mod = Game::GetMod();
 	
-	for (int i = 0; i < mod.size(); i += 1) {
+	/*for (int i = 0; i < mod.size(); i += 1) {
 		savedreplayfile << mod.data()[i];
 	}
 
-	savedreplayfile << '\0';
+	savedreplayfile << '\0';*/
 
 	uint8_t* max_frames_buffer = (uint8_t*)&max_frames;
 

@@ -1,6 +1,8 @@
 local require = API["require"]
 local ms = require("modstuff")
 
+local showGui = true
+
 local showMenu = false
 local showRules = false
 local showMods = false
@@ -137,7 +139,9 @@ end
 function API.Update.init(dt)
 	frame = Game.GetGameFrame()
 	contact_count = Game.GetContactCount()
-	reaction_count = math.round(rules.reaction_time - Game.GetReactionCount())
+	if rules then
+		reaction_count = math.round(rules.reaction_time - Game.GetReactionCount())
+	end
 
 	if RAYLIB.IsKeyPressed(RAYLIB["KEY_ENTER"]) then
 		local s = API.StringFromData(Data["Console_GuiTextBox"])
@@ -162,6 +166,7 @@ function API.Update.init(dt)
 	end
 
 	if RAYLIB.IsKeyPressed(RAYLIB["KEY_TAB"]) then
+		showGui = showGui == false
 	end
 
 	if RAYLIB.IsKeyPressed(RAYLIB["KEY_F"]) then
@@ -260,6 +265,7 @@ end
 end
 
 function API.Draw.init()
+if showGui then
 	if showMenu then
 		local offset = 10
 		local button_size = 100
@@ -284,20 +290,23 @@ function API.Draw.init()
 			showSettings = showSettings == false
 		end
 
-		if RAYGUI.GuiButton(screenWidth - button_size - 10, screenHeight - 45, button_size, 25, "Quit") then
+		--if RAYGUI.GuiButton(screenWidth - button_size - 10, screenHeight - 45, button_size, 25, "#128#") then
+		if RAYGUI.GuiButton(screenWidth - button_size - 10, screenHeight - 45, button_size, 25, "#113#") then
 			Game.Quit()
 		end
 	else
-		local offset = 10
-		RAYGUI.GuiLabel(10, offset, screenWidth-10, 10, `{mod}: o:{o_count} p:{p_count} {p_details}`)
-		offset = offset + 20
-		RAYGUI.GuiLabel(10, offset, screenWidth-10, 10, `{frame}`)
-		offset = offset + 20
-		if rules.reaction_time > 0 then
-			RAYGUI.GuiLabel(10, offset, screenWidth-10, 10, `{reaction_count}`)
+		if rules then
+			local offset = 10
+			RAYGUI.GuiLabel(10, offset, screenWidth-10, 10, `{mod}: o:{o_count} p:{p_count} {p_details}`)
 			offset = offset + 20
+			RAYGUI.GuiLabel(10, offset, screenWidth-10, 10, `{frame}`)
+			offset = offset + 20
+			if rules.reaction_time > 0 then
+				RAYGUI.GuiLabel(10, offset, screenWidth-10, 10, `{reaction_count}`)
+				offset = offset + 20
+			end
+			RAYGUI.GuiLabel(10, offset, screenWidth-10, 10, `{contact_count}`)
 		end
-		RAYGUI.GuiLabel(10, offset, screenWidth-10, 10, `{contact_count}`)
 	end
 
 	if showRules then
@@ -544,6 +553,7 @@ function API.Draw.init()
 			RAYLIB.DrawText(messages[i], 10, offset-20*(#messages-i+1), 20, RAYLIB["BLACK"])
 		end
 	end
+end
 end
 
 function API.Console.init(msg)

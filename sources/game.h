@@ -20,7 +20,7 @@ struct Gamerules
 	int numplayers;
 	int turnframes;
 	int max_contacts = 8;
-	dReal reaction_time;
+	dReal reaction_time = 0;
 	dReal engagedistance;
 	dReal engageheight;
 	dReal friction;
