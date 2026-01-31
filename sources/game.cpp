@@ -24,10 +24,33 @@ void Game::Init()
 	Replay::Init();
 
 	state.time = GetTime();
-	//state.running = false;
 	state.running = true;
 
 	SetExitKey(KEY_NULL);
+}
+
+void Game::Reset()
+{
+	if (space != nullptr) {
+		dSpaceDestroy(space);
+		space = nullptr;
+	}
+	if (contactgroup != nullptr) {
+		dJointGroupDestroy(contactgroup);
+		contactgroup = nullptr;
+	}
+	if (objects.size() > 0) {
+		objects.clear();
+		o_count = 0;
+	}
+	if (joint_objects.size() > 0) {
+		joint_objects.clear();
+		jo_count = 0;
+	}
+	if (players.size() > 0) {
+		players.clear();
+		p_count = 0;
+	}
 }
 
 void Game::ImportMod()
@@ -40,13 +63,12 @@ void Game::ImportMod()
 	p_count = API::GetPlayersCount();
 
 	objects.reserve(o_count);
-	joint_objects.reserve(jo_count);
-
-	players.reserve(p_count);
-
 	objects = API::GetObjects();
+
+	joint_objects.reserve(jo_count);
 	joint_objects = API::GetJointObjects();
 
+	players.reserve(p_count);
 	players = API::GetPlayers();
 }
 
@@ -69,28 +91,29 @@ void Game::NewGame()
 
   	dWorldSetGravity(world, rules.gravity.x, rules.gravity.y, rules.gravity.z);
 
-	for (auto& o : objects)
+	for (auto& o : objects) {
 		o.Create(world, space);
+	}
 
-	for (auto& jo : joint_objects)
+	for (auto& jo : joint_objects) {
 		jo.Create(world, space, objects[jo.connections[0]], objects[jo.connections[1]]);
+	}
 
-	int p_count = 1;
+	for (int pID = 0; pID < players.size(); pID += 1) {
+		auto& p = players[pID];
 
-	for (auto& p : players) {
 		p.b_count = p.body.size();
 		p.j_count = p.joint.size();
 
-		p.SetCatBits(2<<p_count, 2<<p_count);
-		p.SetColBits(255-(2<<p_count), 255-(2<<p_count));
+		p.SetCatBits(2<<(pID + 1), 2<<pID + 1);
+		p.SetColBits(255-(2<<(pID + 1)), 255-(2<<pID + 1));
 
 		p.Create(world, space);
 
 		//p.SetEngagedistance(rules.engagedistance, p.GetID() * (360/rules.numplayers));
 		//p.SetEngageheight(rules.engageheight);
-		p.SetOffset();
 
-		p_count += 1;
+		p.SetOffset();
 	}
 
 	state.running = true;
@@ -108,8 +131,7 @@ void Game::Stop()
 void Game::Quit()
 {
 	if (state.running) {
-		dJointGroupDestroy(contactgroup);
-		dSpaceDestroy(space);
+		Reset();
 		dWorldDestroy(world);
 		dCloseODE();
 	}
@@ -201,27 +223,6 @@ void Game::Restart()
 {
 	for (auto& o : objects) o.Reset();
 	for (auto& p : players) p.Reset();
-}
-
-void Game::Reset()
-{
-	if (space != nullptr) {
-		dSpaceDestroy(space);
-		space = nullptr;
-	}
-	if (contactgroup != nullptr) {
-		dJointGroupDestroy(contactgroup);
-		contactgroup = nullptr;
-	}
-	if (objects.size() > 0) {
-		objects.clear();
-	}
-	if (joint_objects.size() > 0) {
-		joint_objects.clear();
-	}
-	if (players.size() > 0) {
-		players.clear();
-	}
 }
 
 void Game::Freeze()

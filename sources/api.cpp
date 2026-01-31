@@ -54,12 +54,18 @@ void API::Reset()
 
 	o_vector.clear();
 
+	oj_vector.clear();
+
 	p_vector.clear();
 	
 	o = nullptr;
+	oj = nullptr;
+
 	p = nullptr;
 
 	o_count = 0;
+	oj_count = 0;
+
 	p_count = 0;
 
 	b_vector.clear();

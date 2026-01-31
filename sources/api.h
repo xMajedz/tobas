@@ -29,7 +29,6 @@ namespace API
 
 	std::vector<Joint> GetJointObjects();
 	size_t GetJointObjectsCount();
-
 	
 	static std::map<std::string_view, BodyID> o_map;
 
