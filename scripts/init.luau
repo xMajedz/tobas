@@ -36,6 +36,12 @@ Data["Bounce_GuiTextBox"] = API.CreateData(1024)
 Data["Console_GuiTextBox"] = API.CreateData(1024)
 Data["ReplayName_GuiTextBox"] = API.CreateData(1024)
 
+Data["Settings_WindowWidth_GuiTextBox"] = API.CreateData(1024)
+Data["Settings_WindowHeight_GuiTextBox"] = API.CreateData(1024)
+
+API.StringToData(tostring(screenWidth), Data["Settings_WindowWidth_GuiTextBox"])
+API.StringToData(tostring(screenHeight) ,Data["Settings_WindowHeight_GuiTextBox"])
+
 local editValue = {}
 editValue["GravityX_GuiTextBox"] = false
 editValue["GravityY_GuiTextBox"] = false
@@ -52,9 +58,12 @@ editValue["Bounce_GuiTextBox"] = false
 
 editValue["Console_GuiTextBox"] = false
 editValue["ReplayName_GuiTextBox"] = false
+editValue["Settings_WindowWidth_GuiTextBox"] = false
+editValue["Settings_WindowHeight_GuiTextBox"] = false
 
 local replay_slider_value = API.CreateData(4)
 
+local replay_list, mod_list, script_list
 local mod, o_count, p_count, p_details, frame, contact_count, reaction_count, rules, gravity, console_message
 
 local messages = {}
@@ -276,14 +285,23 @@ if showGui then
 		offset = offset + gape 
 		if RAYGUI.GuiButton(offset, 10, button_size, 25, "Mods") then
 			showMods = showMods == false
+			if showMods then
+				mod_list = RAYLIB.LoadDirectoryFiles("mods");
+			end
 		end
 		offset = offset + gape
 		if RAYGUI.GuiButton(offset, 10, button_size, 25, "Replays") then
 			showReplays = showReplays == false
+			if showReplays then
+				replay_list = RAYLIB.LoadDirectoryFiles("replays")
+			end
 		end
 		offset = offset + gape
 		if RAYGUI.GuiButton(offset, 10, button_size, 25, "Scripts") then
 			showScripts = showScripts == false
+			if showScripts then
+				script_list = RAYLIB.LoadDirectoryFiles("scripts")
+			end
 		end
 
 		if RAYGUI.GuiButton(screenWidth - 70, 10, 25, 25, `#{RAYGUI["ICON_GEAR_BIG"]}#`) then
@@ -312,8 +330,7 @@ if showGui then
 			showRules = false
 		end
 
-		--RAYGUI.GuiLabel(20,  50, 200, 40, rules.mod)
-
+		if rules then
 		RAYGUI.GuiLabel(20, 75, 200, 40, "Gravity")
 
 		if RAYGUI.GuiTextBox(20, 110, 60, 20, Data["GravityX_GuiTextBox"], 1024, editValue["GravityX_GuiTextBox"]) then
@@ -403,17 +420,25 @@ if showGui then
 				Game.NewGame()
 			end
 		end
+
+		else
+			RAYGUI.GuiLabel(20, 55, 200, 40, "No Mod Loaded")
+		end
 	end
 
 	if showMods then 
-		RAYGUI.GuiGroupBox(15, 50, 200, 400, "Mods")
-		local mods = RAYLIB.LoadDirectoryFiles("mods");
+		if RAYGUI.GuiWindowBox(10, 40, 400, 400, "Mods") then
+			showMods = false
+		end
+
 		local i = 1
 		local j = 1
-		while i <= #mods do
-			local mod = mods[i]:gsub("mods[/\\]", "")
+		while i <= #mod_list do
+			local mod = mod_list[i]:gsub("mods[/\\]", "")
 			if not mod:match(".+%.txt") then
-				if RAYGUI.GuiButton(15, 30 + 20 * (j + 1), 200, 20, mod) then
+				RAYGUI.GuiLabel(20, 10 + 30 * (j + 1), 400, 20, mod)
+
+				if RAYGUI.GuiButton(350, 10 + 30 * (j + 1), 25, 25, `#{RAYGUI["ICON_PLAYER_PLAY"]}#`) then
 					if mod:match("^[%.%w%-_]+%.luau") then
 						API.Reset()
 						API.loadmod(mod:match("^[%w%-_]+"))
@@ -430,7 +455,6 @@ if showGui then
 					end
 	
 					showMods = false
-	
 				end
 
 				j = j + 1
@@ -441,69 +465,87 @@ if showGui then
 	end
 
 	if showReplays then
-		RAYGUI.GuiGroupBox(15, 50, 200, 400, "Replays")
-		local replays = RAYLIB.LoadDirectoryFiles("replays")
-		for i = 1, #replays do
-			local replay = replays[i]:gsub("replays[/\\]", "")
-			if RAYGUI.GuiButton(15, 30 + 20 * (i + 1), 200, 20, replay) then
-				if replay:match("^[%.%w%-_]+%.rpl") then
-					Replay.Import(replay)
-					--[[
-					local mod = Replay.GetMod()
-					if mod:match("^CONVERTED_.+") then
-						API.Reset()
-						local mod_name = mod:gsub("CONVERTED_", "")
-						ms.loadmodTBM2(mod_name)
-						Game.ImportMod()
-						Game.NewGame()
-					end
-					Replay.Import(replay)
-					]]
-					Game.EnterMode(Game["MODE_REPLAY"])
-				end
+		if RAYGUI.GuiWindowBox(10, 40, 400, 400, "Replays") then
+			showReplays = false
+		end
 
-				showReplays = false
+		for i = 1, #replay_list do
+			local replay = replay_list[i]:gsub("replays[/\\]", "")
+			RAYGUI.GuiLabel(20, 10 + 30 * (i + 1), 400, 20, replay)
+
+			if not replay:match(".+%.txt") then
+				if RAYGUI.GuiButton(350, 10 + 30 * (i + 1), 25, 25, `#{RAYGUI["ICON_PLAYER_PLAY"]}#`) then
+					if replay:match("^[%.%w%-_]+%.rpl") then
+						Replay.Import(replay)
+						--[[
+						local mod = Replay.GetMod()
+						if mod:match("^CONVERTED_.+") then
+							API.Reset()
+							local mod_name = mod:gsub("CONVERTED_", "")
+							ms.loadmodTBM2(mod_name)
+							Game.ImportMod()
+							Game.NewGame()
+						end
+						]]
+						Game.EnterMode(Game["MODE_REPLAY"])
+					end
+	
+					showReplays = false
+				end
 			end
 		end
 	end
 
 	if showScripts then
-		RAYGUI.GuiGroupBox(15, 50, 200, 400, "Scripts")
-		local scripts = RAYLIB.LoadDirectoryFiles("scripts")
+		if RAYGUI.GuiWindowBox(10, 40, 400, 400, "Scripts") then
+			showScripts = false
+		end
 
-		for i = 1, #scripts do
-			local script = scripts[i]:gsub("scripts[/\\]", "")
-			if (RAYGUI.GuiButton(15, 30 + 20 * (i + 1), 200, 20, script)) then
-				script = script:gsub("%..+", "")
+		for i = 1, #script_list do
+			local script = script_list[i]:gsub("scripts[/\\]", "")
+			RAYGUI.GuiLabel(20, 10 + 30 * (i + 1), 400, 20, script)
 
-				API.loadscript(script)
+			if script:match(".+%.luau") then
+				if (RAYGUI.GuiButton(350, 10 + 30 * (i + 1), 25, 25, `#{RAYGUI["ICON_PLAYER_PLAY"]}#`)) then
+					script = script:gsub("%..+", "")
 
-				loaded_scripts[script] = 1
+					API.loadscript(script)
 
-				showScripts = false
+					loaded_scripts[script] = 1
+
+					showScripts = false
+				end
 			end
 		end
 	end
 
 	if showSettings then
-		RAYGUI.GuiGroupBox(15, 50, 200, 400, "Settings")
-
-		local offset = 50
-
-		for i, res in {"800x450", "1600x900"} do
-			local width = res:gsub("x.+", "")
-			local height = res:gsub(".+x", "")
-
-			offset = offset + 20
-
-			if (RAYGUI.GuiButton(15, offset, 200, 20, res)) then
-				RAYLIB.SetWindowSize(width, height)
-				screenWidth, screenHeight = width, height
-			end
-
+		if RAYGUI.GuiWindowBox(10, 40, 400, 400, "Settings") then
+			showSettings = false
 		end
 
-		if (RAYGUI.GuiButton(15, offset + 20, 200, 20, "Fullscreen")) then
+		RAYGUI.GuiLabel(20, 55, 200, 40, "Resolution")
+
+		if RAYGUI.GuiTextBox(20, 90, 60, 20, Data["Settings_WindowWidth_GuiTextBox"], 1024, editValue["Settings_WindowWidth_GuiTextBox"]) then
+			editValue["Settings_WindowWidth_GuiTextBox"] = editValue["Settings_WindowWidth_GuiTextBox"] == false
+		end
+
+		if RAYGUI.GuiTextBox(85, 90, 60, 20, Data["Settings_WindowHeight_GuiTextBox"], 1024, editValue["Settings_WindowHeight_GuiTextBox"]) then
+			editValue["Settings_WindowHeight_GuiTextBox"] = editValue["Settings_WindowHeight_GuiTextBox"] == false
+		end
+
+		if (RAYGUI.GuiButton(160, 90, 200, 20, "Apply")) then
+			local width = API.StringFromData(Data["Settings_WindowWidth_GuiTextBox"])
+			local height = API.StringFromData(Data["Settings_WindowHeight_GuiTextBox"])
+			screenWidth, screenHeight = width, height
+			RAYLIB.SetWindowSize(width, height)
+		end
+
+		--[[
+		--	replace with GuiCheckBox
+		--]]
+
+		if (RAYGUI.GuiButton(15, 120, 200, 20, "Fullscreen")) then
 			RAYLIB.ToggleFullscreen()
 			screenWidth, screenHeight = RAYLIB.GetScreenWidth(), RAYLIB.GetScreenHeight()
 		end

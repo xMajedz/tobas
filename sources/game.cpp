@@ -364,8 +364,13 @@ void Game::DrawFloor()
 
 void Game::Draw()
 {
-	for (auto& o : objects) o.Draw(state.freeze);
-	for (auto& p : players) p.Draw(state.freeze);
+	for (auto& o : objects) {
+		o.Draw(state.freeze);
+	}
+
+	for (auto& p : players) {
+		p.Draw(state.freeze);
+	}
 
 	if (state.freeze && state.selected_player != -1 && state.selected_joint != -1)
 		players[state.selected_player].joint[state.selected_joint].DrawSelect();
@@ -567,7 +572,9 @@ void Game::TogglePause()
 
 void Game::ToggleGhosts()
 {
-	for (auto& p : players) if (p.GetID() != state.selected_player && 0 > state.selected_player) p.ToggleGhost();
+	for (PlayerID pID = 0; pID < p_count; pID += 1) {
+		if (-1 != state.selected_player && pID != state.selected_player) players[pID].ToggleGhost();
+	}
 
 	Refreeze();
 }

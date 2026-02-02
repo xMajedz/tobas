@@ -188,7 +188,7 @@ static int RAYGUI_GuiSlider(lua_State* L)
 	float y = lua_tonumber(L, -8);
 	float x = lua_tonumber(L, -9);
 
-	int status  = GuiSlider(
+	int status = GuiSlider(
 		(Rectangle){x, y, w, h},
 		textR,
 		textL,
@@ -217,13 +217,37 @@ static int RAYGUI_GuiSliderBar(lua_State* L)
 	float y = lua_tonumber(L, -8);
 	float x = lua_tonumber(L, -9);
 
-	int status  = GuiSliderBar(
+	int status = GuiSliderBar(
 		(Rectangle){x, y, w, h},
 		textR,
 		textL,
 		value,
 		min,
 		max
+	);
+
+	lua_pushboolean(L, status);
+
+	return 1;
+}
+
+static int listViewScrollIndex = 5;
+static int listViewActive = 1;
+
+static int RAYGUI_GuiListView(lua_State* L)
+{
+	auto text = lua_tostring(L, -1);
+
+	float h = lua_tonumber(L, -2);
+	float w = lua_tonumber(L, -3);
+	float y = lua_tonumber(L, -4);
+	float x = lua_tonumber(L, -5);
+
+	int status = GuiListView(
+		(Rectangle){x, y, w, h},
+		text,
+		&listViewScrollIndex,
+		&listViewActive
 	);
 
 	lua_pushboolean(L, status);
@@ -248,6 +272,8 @@ static const luaL_Reg api_raygui[] {
 
 	{"GuiSlider", RAYGUI_GuiSlider},
 	{"GuiSliderBar", RAYGUI_GuiSliderBar},
+
+	{"GuiListView", RAYGUI_GuiListView},
 
 	{NULL, NULL},
 };

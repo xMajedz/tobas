@@ -76,6 +76,9 @@ namespace Game
 	static std::vector<Joint> joint_objects;
 
 	static std::vector<Player> players;
+	//static std::vector<Player> ghosts;
+	//static uint8_t ghosts;
+	static std::vector<PlayerID> player_ghosts;
 
 	static size_t o_count;
 	static size_t jo_count;
