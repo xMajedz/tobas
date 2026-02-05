@@ -1143,6 +1143,14 @@ static int API_NumberToData(lua_State* L)
 	return 1;
 }
 
+static int API_ByteToData(lua_State* L)
+{
+	auto data = lua_touserdata(L, -1);
+	bool byte = lua_toboolean(L, -2);
+	*((bool*)data) = (bool)byte;
+	return 1;
+}
+
 static int API_StringFromData(lua_State* L)
 {
 	lua_pushstring(L, (char*)lua_touserdata(L, -1));
@@ -1155,12 +1163,20 @@ static int API_NumberFromData(lua_State* L)
 	return 1;
 }
 
+static int API_ByteFromData(lua_State* L)
+{
+	lua_pushboolean(L, *((bool*)lua_touserdata(L, -1)));
+	return 1;
+}
+
 static const luaL_Reg api_main[] {
 	{"CreateData", API_CreateData},
 	{"StringToData", API_StringToData},
 	{"NumberToData", API_NumberToData},
+	{"ByteToData", API_ByteToData},
 	{"StringFromData", API_StringFromData},
 	{"NumberFromData", API_NumberFromData},
+	{"ByteFromData", API_ByteFromData},
 
 	{"Reset", API_Reset},
 	{"log", API_log},

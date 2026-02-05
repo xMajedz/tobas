@@ -231,6 +231,29 @@ static int RAYGUI_GuiSliderBar(lua_State* L)
 	return 1;
 }
 
+static int RAYGUI_GuiCheckBox(lua_State* L)
+{
+	bool* checked = (bool*)lua_tolightuserdata(L, -1);
+
+	auto text = lua_tostring(L, -2);
+
+	float h = lua_tonumber(L, -3);
+	float w = lua_tonumber(L, -4);
+	float y = lua_tonumber(L, -5);
+	float x = lua_tonumber(L, -6);
+	
+	int status = GuiCheckBox(
+		(Rectangle){x, y, w, h},
+		text,
+		checked
+	);
+	
+	lua_pushboolean(L, status);
+
+	return 1;
+}
+
+
 static int listViewScrollIndex = 5;
 static int listViewActive = 1;
 
@@ -274,6 +297,8 @@ static const luaL_Reg api_raygui[] {
 	{"GuiSliderBar", RAYGUI_GuiSliderBar},
 
 	{"GuiListView", RAYGUI_GuiListView},
+
+	{"GuiCheckBox", RAYGUI_GuiCheckBox},
 
 	{NULL, NULL},
 };

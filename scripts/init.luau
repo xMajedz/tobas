@@ -38,6 +38,7 @@ Data["ReplayName_GuiTextBox"] = API.CreateData(1024)
 
 Data["Settings_WindowWidth_GuiTextBox"] = API.CreateData(1024)
 Data["Settings_WindowHeight_GuiTextBox"] = API.CreateData(1024)
+Data["Settings_Fullscreen_GuiCheckBox"] = API.CreateData(1)
 
 API.StringToData(tostring(screenWidth), Data["Settings_WindowWidth_GuiTextBox"])
 API.StringToData(tostring(screenHeight) ,Data["Settings_WindowHeight_GuiTextBox"])
@@ -524,30 +525,27 @@ if showGui then
 			showSettings = false
 		end
 
-		RAYGUI.GuiLabel(20, 55, 200, 40, "Resolution")
+		RAYGUI.GuiLabel(20, 70, 200, 20, "Resolution")
 
-		if RAYGUI.GuiTextBox(20, 90, 60, 20, Data["Settings_WindowWidth_GuiTextBox"], 1024, editValue["Settings_WindowWidth_GuiTextBox"]) then
+		if RAYGUI.GuiTextBox(120, 70, 90, 20, Data["Settings_WindowWidth_GuiTextBox"], 1024, editValue["Settings_WindowWidth_GuiTextBox"]) then
 			editValue["Settings_WindowWidth_GuiTextBox"] = editValue["Settings_WindowWidth_GuiTextBox"] == false
 		end
 
-		if RAYGUI.GuiTextBox(85, 90, 60, 20, Data["Settings_WindowHeight_GuiTextBox"], 1024, editValue["Settings_WindowHeight_GuiTextBox"]) then
+		if RAYGUI.GuiTextBox(215, 70, 90, 20, Data["Settings_WindowHeight_GuiTextBox"], 1024, editValue["Settings_WindowHeight_GuiTextBox"]) then
 			editValue["Settings_WindowHeight_GuiTextBox"] = editValue["Settings_WindowHeight_GuiTextBox"] == false
 		end
 
-		if (RAYGUI.GuiButton(160, 90, 200, 20, "Apply")) then
+		if (RAYGUI.GuiButton(310, 70, 90, 20, "Apply")) then
 			local width = API.StringFromData(Data["Settings_WindowWidth_GuiTextBox"])
 			local height = API.StringFromData(Data["Settings_WindowHeight_GuiTextBox"])
 			screenWidth, screenHeight = width, height
 			RAYLIB.SetWindowSize(width, height)
 		end
 
-		--[[
-		--	replace with GuiCheckBox
-		--]]
+		RAYGUI.GuiLabel(20, 95, 200, 20, "Fullscreen Mode")
 
-		if (RAYGUI.GuiButton(15, 120, 200, 20, "Fullscreen")) then
+		if (RAYGUI.GuiButton(310, 95, 90, 20, (RAYLIB.IsWindowFullscreen() and "Disable") or "Enable")) then
 			RAYLIB.ToggleFullscreen()
-			screenWidth, screenHeight = RAYLIB.GetScreenWidth(), RAYLIB.GetScreenHeight()
 		end
 	end
 

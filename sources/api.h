@@ -26,7 +26,6 @@ namespace API
 
 	static Player* p  = nullptr;
 
-
 	std::vector<Joint> GetJointObjects();
 	size_t GetJointObjectsCount();
 	

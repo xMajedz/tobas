@@ -125,8 +125,6 @@ struct Body
 
 	BodyID GetID();
 	std::string GetName();
-
-	raylib::RayCollision CollideMouseRay(raylib::Ray ray, raylib::RayCollision collision);
 };
 
 typedef int JointID;

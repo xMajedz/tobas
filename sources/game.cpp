@@ -804,8 +804,238 @@ void Window::Init()
 	SetTargetFPS(60);
 }
 
-static Ray MouseRay = { 0 };
-static RayCollision MouseCollision = { 0 };
+static bool MouseInput = true;
+
+static RayCollision CollideObject(Ray ray, BodyID oID)
+{
+	using namespace Game;
+
+	auto& o = objects[oID];
+
+	RayCollision collision = { 0 };
+
+	switch(o.shape)
+	{
+	case BOX:
+		collision = GetRayCollisionBox(ray,
+			(BoundingBox) {
+				(Vector3){
+					o.freeze_position.x - 0.5f * o.m_sides.x,
+					o.freeze_position.y - 0.5f * o.m_sides.y,
+					o.freeze_position.z - 0.5f * o.m_sides.z,
+				},
+				(Vector3){
+					o.freeze_position.x + 0.5f * o.m_sides.x,
+					o.freeze_position.y + 0.5f * o.m_sides.y,
+					o.freeze_position.z + 0.5f * o.m_sides.z,
+				},
+			}
+		);
+
+		break;
+	case SPHERE:
+		collision = GetRayCollisionSphere(ray,
+			(Vector3){
+				o.freeze_position.x,
+				o.freeze_position.y,
+				o.freeze_position.z,
+			},
+			o.radius
+		);
+
+		break;
+	case CAPSULE:
+		collision = GetRayCollisionBox(ray,
+			(BoundingBox) {
+				(Vector3){
+					o.freeze_position.x - 0.5f * o.m_sides.x,
+					o.freeze_position.y - 0.5f * o.m_sides.y,
+					o.freeze_position.z - 0.5f * o.m_sides.z,
+				},
+				(Vector3){
+					o.freeze_position.x + 0.5f * o.m_sides.x,
+					o.freeze_position.y + 0.5f * o.m_sides.y,
+					o.freeze_position.z + 0.5f * o.m_sides.z,
+				},
+			}
+		);
+
+		break;
+	case CYLINDER:
+		collision = GetRayCollisionBox(ray,
+			(BoundingBox) {
+				(Vector3){
+					o.freeze_position.x - 0.5f * o.m_sides.x,
+					o.freeze_position.y - 0.5f * o.m_sides.y,
+					o.freeze_position.z - 0.5f * o.m_sides.z,
+				},
+				(Vector3){
+					o.freeze_position.x + 0.5f * o.m_sides.x,
+					o.freeze_position.y + 0.5f * o.m_sides.y,
+					o.freeze_position.z + 0.5f * o.m_sides.z,
+				},
+			}
+		);
+
+		break;
+	}
+
+	return collision;
+}
+
+static RayCollision CollideJoint(Ray ray, PlayerID pID, JointID jID)
+{
+	using namespace Game;
+
+	auto& j = players[pID].joint[jID];
+
+	RayCollision collision = { 0 };
+
+	switch(j.shape)
+	{
+	case BOX:
+		collision = GetRayCollisionBox(ray,
+			(BoundingBox) {
+				(Vector3){
+					j.freeze_position.x - 0.5f * j.m_sides.x,
+					j.freeze_position.y - 0.5f * j.m_sides.y,
+					j.freeze_position.z - 0.5f * j.m_sides.z,
+				},
+				(Vector3){
+					j.freeze_position.x + 0.5f * j.m_sides.x,
+					j.freeze_position.y + 0.5f * j.m_sides.y,
+					j.freeze_position.z + 0.5f * j.m_sides.z,
+				},
+			}
+		);
+
+		break;
+	case SPHERE:
+		collision = GetRayCollisionSphere(ray,
+			(Vector3){
+				j.freeze_position.x,
+				j.freeze_position.y,
+				j.freeze_position.z,
+			},
+			j.radius
+		);
+
+		break;
+	case CAPSULE:
+		collision = GetRayCollisionBox(ray,
+			(BoundingBox) {
+				(Vector3){
+					j.freeze_position.x - 0.5f * j.m_sides.x,
+					j.freeze_position.y - 0.5f * j.m_sides.y,
+					j.freeze_position.z - 0.5f * j.m_sides.z,
+				},
+				(Vector3){
+					j.freeze_position.x + 0.5f * j.m_sides.x,
+					j.freeze_position.y + 0.5f * j.m_sides.y,
+					j.freeze_position.z + 0.5f * j.m_sides.z,
+				},
+			}
+		);
+
+		break;
+	case CYLINDER:
+		collision = GetRayCollisionBox(ray,
+			(BoundingBox) {
+				(Vector3){
+					j.freeze_position.x - 0.5f * j.m_sides.x,
+					j.freeze_position.y - 0.5f * j.m_sides.y,
+					j.freeze_position.z - 0.5f * j.m_sides.z,
+				},
+				(Vector3){
+					j.freeze_position.x + 0.5f * j.m_sides.x,
+					j.freeze_position.y + 0.5f * j.m_sides.y,
+					j.freeze_position.z + 0.5f * j.m_sides.z,
+				},
+			}
+		);
+
+		break;
+	}
+
+	return collision;
+}
+
+static RayCollision CollideBody(Ray ray, PlayerID pID, BodyID bID)
+{
+	using namespace Game;
+
+	auto& b = players[pID].body[bID];
+
+	RayCollision collision = { 0 };
+
+	switch(b.shape)
+	{
+	case BOX:
+		collision = GetRayCollisionBox(ray,
+			(BoundingBox) {
+				(Vector3){
+					b.freeze_position.x - 0.5f * b.m_sides.x,
+					b.freeze_position.y - 0.5f * b.m_sides.y,
+					b.freeze_position.z - 0.5f * b.m_sides.z,
+				},
+				(Vector3){
+					b.freeze_position.x + 0.5f * b.m_sides.x,
+					b.freeze_position.y + 0.5f * b.m_sides.y,
+					b.freeze_position.z + 0.5f * b.m_sides.z,
+				},
+			}
+		);
+
+		break;
+	case SPHERE:
+		collision = GetRayCollisionSphere(ray,
+			(Vector3){
+				b.freeze_position.x,
+				b.freeze_position.y,
+				b.freeze_position.z,
+			},
+			b.radius
+		);
+
+		break;
+	case CAPSULE:
+		collision = GetRayCollisionBox(ray,
+			(BoundingBox) {
+				(Vector3){
+					b.freeze_position.x - 0.5f * b.m_sides.x,
+					b.freeze_position.y - 0.5f * b.m_sides.y,
+					b.freeze_position.z - 0.5f * b.m_sides.z,
+				},
+				(Vector3){
+					b.freeze_position.x + 0.5f * b.m_sides.x,
+					b.freeze_position.y + 0.5f * b.m_sides.y,
+					b.freeze_position.z + 0.5f * b.m_sides.z,
+				},
+			}
+		);
+
+		break;
+	case CYLINDER:
+		collision = GetRayCollisionBox(ray,
+			(BoundingBox) {
+				(Vector3){
+					b.freeze_position.x - 0.5f * b.m_sides.x,
+					b.freeze_position.y - 0.5f * b.m_sides.y,
+					b.freeze_position.z - 0.5f * b.m_sides.z,
+				},
+				(Vector3){
+					b.freeze_position.x + 0.5f * b.m_sides.x,
+					b.freeze_position.y + 0.5f * b.m_sides.y,
+					b.freeze_position.z + 0.5f * b.m_sides.z,
+				},
+			}
+		);
+
+		break;
+	}
+
+	return collision;
+}
 
 static int selected_object = -1;
 static int selected_player = -1;
@@ -815,26 +1045,36 @@ static int selected_body = -1;
 static void gSelector(Camera3D camera)
 {
 	using namespace Game;
-	RayCollision collision = { 0 };
-	MouseRay = GetMouseRay(GetMousePosition(), camera);
+
+	Ray ray = GetMouseRay(GetMousePosition(), camera);
+
+	RayCollision col1 = { 0 };
+	RayCollision col2 = { 0 };
 	
-	for (auto& o : objects) {
-		collision = o.CollideMouseRay(MouseRay, collision);
-		if (collision.hit) {
-			selected_object = o.GetID();
-			break;
+	for (BodyID oID = 0; oID < o_count; oID += 1) {
+		col1 = CollideObject(ray, oID);
+
+		if (col1.hit && (col2.distance == 0 || col2.distance > col1.distance)) {
+			selected_object = oID;
 		}
 	}
 
 	bool hit = false;
-	for (auto& p : players) {
-		for (auto& j : p.joint) {
-			collision = j.CollideMouseRay(MouseRay, collision);
-			if (collision.hit) {
-				selected_player = p.GetID();
-				selected_joint = j.GetID();
+
+	for (PlayerID pID = 0; pID < p_count; pID += 1) {
+
+		if (state.selected_player != -1 and state.selected_player != pID) break;
+
+		for (JointID jID = 0; jID < players[pID].j_count; jID += 1) {
+			col1 = CollideJoint(ray, pID, jID);
+
+			if (col1.hit && (col2.distance == 0 || col2.distance > col1.distance)) {
+				col2 = col1;
+
+				selected_player = pID;
+				selected_joint = jID;
+
 				hit = true;
-				break;
 			}
 		}
 
@@ -843,13 +1083,16 @@ static void gSelector(Camera3D camera)
 		selected_player = -1;
 		selected_joint = -1;
 
-		for (auto& b : p.body) {
-			collision = b.CollideMouseRay(MouseRay, collision);
-			if (collision.hit) {
-				selected_player = p.GetID();
-				selected_body = b.GetID();
+		for (BodyID bID = 0; bID < players[pID].b_count; bID += 1) {
+			col1 = CollideBody(ray, pID, bID);
+
+			if (col1.hit && (col2.distance == 0 || col2.distance > col1.distance)) {
+				col2 = col1;
+
+				selected_player = pID;
+				selected_body = bID;
+
 				hit = true;
-				break;
 			}
 		}
 
@@ -925,9 +1168,6 @@ void Window::RenderForeground(Camera3D camera)
 void Window::Draw()
 {
 	const auto& camera = Gamecam::Get();
-
-	//RenderBackground(camera);
-	//RenderForeground(camera);
 
 	BeginDrawing();
 

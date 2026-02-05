@@ -190,6 +190,12 @@ static int RAYLIB_SetWindowSize(lua_State* L)
 	return 1;
 }
 
+static int RAYLIB_IsWindowFullscreen(lua_State* L)
+{
+	lua_pushboolean(L, IsWindowFullscreen());
+	return 1;
+}
+
 static const luaL_Reg api_raylib[] {
 	{"DrawText", RAYLIB_DrawText},
 	{"DrawRectangle", RAYLIB_DrawRectangle},
@@ -214,6 +220,7 @@ static const luaL_Reg api_raylib[] {
 	{"GetScreenHeight", RAYLIB_GetScreenHeight},
 
 	{"ToggleFullscreen", RAYLIB_ToggleFullscreen},
+	{"IsWindowFullscreen", RAYLIB_IsWindowFullscreen},
 
 	{NULL, NULL},
 };
