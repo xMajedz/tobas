@@ -314,24 +314,22 @@ if showGui then
 	else
 		if rules then
 			local offset = 10
-			RAYGUI.GuiLabel(10, offset, screenWidth-10, 10, `{mod}: o:{o_count} p:{p_count} {p_details}`)
-			offset = offset + 20
 			RAYGUI.GuiLabel(10, offset, screenWidth-10, 10, `{frame}`)
 			offset = offset + 20
 			if rules.reaction_time > 0 then
 				RAYGUI.GuiLabel(10, offset, screenWidth-10, 10, `{reaction_count}`)
-				offset = offset + 20
 			end
-			RAYGUI.GuiLabel(10, offset, screenWidth-10, 10, `{contact_count}`)
 		end
 	end
 
 	if showRules then
-		if RAYGUI.GuiWindowBox(10, 40, 400, 400, "Rules") then
+		if RAYGUI.GuiWindowBox(10, 40, 400, 400, `Rules: {mod}`) then
 			showRules = false
 		end
 
 		if rules then
+		--RAYGUI.GuiLabel(20, 60, screenWidth-10, 40, `{mod}: o:{o_count} p:{p_count} {p_details}`)
+
 		RAYGUI.GuiLabel(20, 75, 200, 40, "Gravity")
 
 		if RAYGUI.GuiTextBox(20, 110, 60, 20, Data["GravityX_GuiTextBox"], 1024, editValue["GravityX_GuiTextBox"]) then
@@ -478,16 +476,16 @@ if showGui then
 				if RAYGUI.GuiButton(350, 10 + 30 * (i + 1), 25, 25, `#{RAYGUI["ICON_PLAYER_PLAY"]}#`) then
 					if replay:match("^[%.%w%-_]+%.rpl") then
 						Replay.Import(replay)
-						--[[
 						local mod = Replay.GetMod()
-						if mod:match("^CONVERTED_.+") then
-							API.Reset()
-							local mod_name = mod:gsub("CONVERTED_", "")
-							ms.loadmodTBM2(mod_name)
-							Game.ImportMod()
-							Game.NewGame()
+						if mod == mod_name then
+							if mod:match("^CONVERTED_.+") then
+								API.Reset()
+								local mod_name = mod:gsub("CONVERTED_", "")
+								ms.loadmodTBM2(mod_name)
+								Game.ImportMod()
+								Game.NewGame()
+							end
 						end
-						]]
 						Game.EnterMode(Game["MODE_REPLAY"])
 					end
 	

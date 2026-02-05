@@ -294,7 +294,7 @@ void Game::Update(dReal dt)
 					EnterMode(REPLAY_PLAY);
 				}
 
-				if (state.game_frame <= max_frame) {
+				if (state.game_frame < max_frame) {
 					Replay::PlayFrame(state.game_frame);
 				}
 	
@@ -1063,8 +1063,6 @@ static void gSelector(Camera3D camera)
 
 	for (PlayerID pID = 0; pID < p_count; pID += 1) {
 
-		if (state.selected_player != -1 and state.selected_player != pID) break;
-
 		for (JointID jID = 0; jID < players[pID].j_count; jID += 1) {
 			col1 = CollideJoint(ray, pID, jID);
 
@@ -1247,8 +1245,8 @@ void Game::EnterMode(Gamemode mode)
 			mode = prev_mode;
 		}
 
-		Replay::Begin();
 		Replay::Reset();
+		Replay::Begin();
 
 		state.mode = mode;
 
@@ -1344,10 +1342,12 @@ void Replay::WriteReplayData(std::string data)
 
 void Replay::RecordFrame(int game_frame)
 {
+	using namespace Game;
+
 	std::string tempframe = "F ";
 	tempframe.append(TextFormat("%d\n", game_frame));
 
-	max_frames = game_frame;
+	max_frames = game_frame + rules.turnframes;
 
 	uint32_t* buffer = (uint32_t*)data->buffer();
 	uint32_t o_count = buffer[0];
@@ -1364,7 +1364,7 @@ void Replay::RecordFrame(int game_frame)
 		p_offset += 2;
 	}
 
-	uint32_t chunk_size = 5 * p_count * j_total + p_count * b_total;
+	uint32_t chunk_size = 5 * p_count * (j_total + b_total) * sizeof(uint32_t);
 
 	buffer[p_offset + chunk_size * chunk_count] = (uint32_t)game_frame;
 
@@ -1481,7 +1481,7 @@ void Replay::PlayFrame(int game_frame)
 		p_offset += 2;
 	}
 
-	uint32_t chunk_size = 5 * p_count * j_total + p_count * b_total;
+	uint32_t chunk_size = 5 * p_count * (j_total + b_total) * sizeof(uint32_t);
 
 	uint32_t chunk_frame = buffer[p_offset + chunk_size * chunk];
 
@@ -1507,9 +1507,10 @@ void Replay::PlayFrame(int game_frame)
 
 		uint32_t b_count = p_buffer[p_id * p_count + 1];
 
-		for (uint32_t b_id = 0; b_id < j_count; b_id += 1) {
-			uint8_t* state_buffer = (uint8_t*)(buffer + (chunk_start + 5 * p_count * j_total));
+		for (uint32_t b_id = 0; b_id < b_count; b_id += 1) {
+			uint8_t* state_buffer = (uint8_t*)(buffer + (chunk_start + 5 * p_count * j_total + p_id * b_count));
 			Game::SetBodyState(p_id, b_id, (bool)state_buffer[b_id]);
+			//LOG(b_id << " " << (int)state_buffer[b_id])
 
 			//auto& Qw = *((double*)p.Q + b_id * 4 + 0);
 			//auto& Qx = *((double*)p.Q + b_id * 4 + 1);
@@ -1548,7 +1549,7 @@ void Replay::Import(std::string replay_name)
 	char c;
 
 	char mod_name[1024] = { 0 };
-	/*
+
 	for (int i = 0; savedreplayfile.get(c); i += 1) {
 		if (c == '\0') {
 			break;
@@ -1558,36 +1559,30 @@ void Replay::Import(std::string replay_name)
 	}
 	
 	mod = mod_name;
-	*/
+
 	uint8_t max_frames_buffer[4];
 
-	savedreplayfile.get(c);
-	max_frames_buffer[0] = c;
-	savedreplayfile.get(c);
-	max_frames_buffer[1] = c;
-	savedreplayfile.get(c);
-	max_frames_buffer[2] = c;
-	savedreplayfile.get(c);
-	max_frames_buffer[3] = c;
+	for (int i = 0; i < 4; i += 1) {
+		savedreplayfile.get(c);
+		max_frames_buffer[i] = c;
+	}
 
 	max_frames = *((uint32_t*)max_frames_buffer);
 
 	uint8_t chunk_count_buffer[4];
 
-	savedreplayfile.get(c);
-	chunk_count_buffer[0] = c;
-	savedreplayfile.get(c);
-	chunk_count_buffer[1] = c;
-	savedreplayfile.get(c);
-	chunk_count_buffer[2] = c;
-	savedreplayfile.get(c);
-	chunk_count_buffer[3] = c;
+	for (int i = 0; i < 4; i += 1) {
+		savedreplayfile.get(c);
+		chunk_count_buffer[i] = c;
+	}
 
 	chunk_count = *((uint32_t*)chunk_count_buffer);
 
 	auto buffer = (uint8_t*)data->buffer();
 
-	for (int i = 0; savedreplayfile.get(c); i += 1) {
+	int i = 0;
+
+	for (i = 0; savedreplayfile.get(c); i += 1) {
 		buffer[i] = (uint8_t)c;
 	}
 
@@ -1603,30 +1598,30 @@ void Replay::Export(std::string replay_name)
 
 	auto mod = Game::GetMod();
 	
-	/*for (int i = 0; i < mod.size(); i += 1) {
-		savedreplayfile << mod.data()[i];
+	for (int i = 0; i < mod.size(); i += 1) {
+		if (mod.data()[i] != '\0') {
+			savedreplayfile << mod.data()[i];
+		}
 	}
 
-	savedreplayfile << '\0';*/
+	savedreplayfile << '\0';
 
 	uint8_t* max_frames_buffer = (uint8_t*)&max_frames;
 
-	savedreplayfile << max_frames_buffer[0];
-	savedreplayfile << max_frames_buffer[1];
-	savedreplayfile << max_frames_buffer[2];
-	savedreplayfile << max_frames_buffer[3];
+	for (int i = 0; i < 4; i += 1) {
+		savedreplayfile << max_frames_buffer[i];
+	}
 
 	uint8_t* chunk_count_buffer = (uint8_t*)&chunk_count;
 
-	savedreplayfile << chunk_count_buffer[0];
-	savedreplayfile << chunk_count_buffer[1];
-	savedreplayfile << chunk_count_buffer[2];
-	savedreplayfile << chunk_count_buffer[3];
+	for (int i = 0; i < 4; i += 1) {
+		savedreplayfile << chunk_count_buffer[i];
+	}
 
-	auto buffer = (uint8_t*)data->buffer();
+	auto buffer_u32  = (uint32_t*)data->buffer();
 
-	uint32_t o_count = buffer[0];
-	uint32_t p_count = buffer[1];
+	uint32_t o_count = buffer_u32[0];
+	uint32_t p_count = buffer_u32[1];
 
 	uint32_t p_offset = 2;
 
@@ -1634,14 +1629,16 @@ void Replay::Export(std::string replay_name)
 	uint32_t b_total = 0;
 
 	for (uint32_t p_id = 0; p_id < p_count; p_id += 1) {
-		j_total += buffer[p_offset + 0];
-		b_total += buffer[p_offset + 1];
+		j_total += buffer_u32[p_offset + 0];
+		b_total += buffer_u32[p_offset + 1];
 		p_offset += 2;
 	}
 
-	uint32_t chunk_size = 5 * p_count * j_total + p_count * b_total;
+	auto buffer = (uint8_t*)data->buffer();
 
-	for (int i = 0; i < chunk_size * chunk_count; i += 1) {
+	uint32_t chunk_size = 5 * p_count * (j_total + b_total) * sizeof(uint32_t);
+
+	for (int i = 0; i < 2 + 2 * p_count + chunk_size * chunk_count; i += 1) {
 		savedreplayfile << buffer[i];
 	}
 
