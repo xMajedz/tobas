@@ -141,9 +141,30 @@ void Game::Quit()
 	Replay::Close();
 }
 
+void Game::SetBackgroundColor(uint16_t r, uint16_t g, uint16_t b, uint16_t a)
+{
+	background_color = {r, g, b, a};
+}
+
 size_t Game::GetContactCount()
 {
 	return numcollisions;
+}
+
+static void attachContact(BodyUserData* data, dBodyID b1, dBodyID b2)
+{
+	using namespace Game;
+
+	if (data != nullptr && data->contact_joint == nullptr && data->active) {
+		data->contact_joint = dJointCreateFixed(world, 0);
+		dJointAttach(data->contact_joint, b1, b2);
+		dJointSetFixed(data->contact_joint);
+	}
+
+	if (data != nullptr && data->contact_joint != nullptr && !data->active) {
+		dJointDestroy(data->contact_joint);
+		data->contact_joint = nullptr;
+	}
 }
 
 static void nearCallback(void*, dGeomID o1, dGeomID o2)
@@ -162,7 +183,7 @@ static void nearCallback(void*, dGeomID o1, dGeomID o2)
 	uint32_t cat2 = dGeomGetCategoryBits(o2);
 	uint32_t col2 = dGeomGetCollideBits(o2);
 
-	if (!(cat1 & col2 || cat2 & col1)) return;
+	//if (!(cat1 & col2 || cat2 & col1)) return;
 
 	dContact contacts[rules.max_contacts];
 
@@ -185,30 +206,8 @@ static void nearCallback(void*, dGeomID o1, dGeomID o2)
 
 	numcollisions += 1;
 
-	BodyUserData* data1 = (BodyUserData*)dGeomGetData(o1);
-	BodyUserData* data2 = (BodyUserData*)dGeomGetData(o2); 
-	
-	if (data1 != nullptr && data1->contact_joint == nullptr && data1->active) {
-		data1->contact_joint = dJointCreateFixed(world, 0);
-		dJointAttach(data1->contact_joint, b1, b2);
-		dJointSetFixed(data1->contact_joint);
-	}
-
-	if (data1 != nullptr && data1->contact_joint != nullptr && !data1->active) {
-		dJointDestroy(data1->contact_joint);
-		data1->contact_joint = nullptr;
-	}
-
-	if (data2 != nullptr && data2->contact_joint == nullptr && data2->active) {
-		data2->contact_joint = dJointCreateFixed(world, 0);
-		dJointAttach(data2->contact_joint, b1, b2);
-		dJointSetFixed(data2->contact_joint);
-	}
-
-	if (data2 != nullptr && data2->contact_joint != nullptr && !data2->active) {
-		dJointDestroy(data2->contact_joint);
-		data2->contact_joint = nullptr;
-	}
+	attachContact((BodyUserData*)dGeomGetData(o1), b1, b2);
+	attachContact((BodyUserData*)dGeomGetData(o2), b1, b2);
 }
 
 void Game::Refreeze()
@@ -1062,7 +1061,6 @@ static void gSelector(Camera3D camera)
 	bool hit = false;
 
 	for (PlayerID pID = 0; pID < p_count; pID += 1) {
-
 		for (JointID jID = 0; jID < players[pID].j_count; jID += 1) {
 			col1 = CollideJoint(ray, pID, jID);
 
@@ -1075,6 +1073,9 @@ static void gSelector(Camera3D camera)
 				hit = true;
 			}
 		}
+
+		if (state.selected_player != selected_player)
+			selected_joint = -1;
 
 		if (hit) break;
 
@@ -1143,8 +1144,10 @@ void Window::Update()
 
 void Window::RenderBackground(Camera3D camera)
 {
+	using namespace Game;
+
 	BeginTextureMode(background);
-	ClearBackground(RAYWHITE);
+	ClearBackground(background_color);
 	BeginMode3D(camera);
 
 	//DrawModel(sphere, (Vector3){0.00, 0.00, 0.00}, 1.0, WHITE);

@@ -3,6 +3,8 @@ local ms = require("modstuff")
 
 local showGui = true
 
+local darkMode = false
+
 local showMenu = false
 local showRules = false
 local showMods = false
@@ -544,6 +546,17 @@ if showGui then
 
 		if (RAYGUI.GuiButton(310, 95, 90, 20, (RAYLIB.IsWindowFullscreen() and "Disable") or "Enable")) then
 			RAYLIB.ToggleFullscreen()
+		end
+
+		RAYGUI.GuiLabel(20, 120, 200, 20, "Dark Mode")
+
+		if (RAYGUI.GuiButton(310, 120, 90, 20, (darkMode and "Disable") or "Enable")) then
+			darkMode = darkMode == false
+			if darkMode then
+				Game.SetBackgroundColor(0, 0, 0, 255)
+			else
+				Game.SetBackgroundColor(255, 255, 255, 255)
+			end
 		end
 	end
 

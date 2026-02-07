@@ -65,6 +65,10 @@ namespace Game
 	static dJointGroupID contactgroup = nullptr;
 	
 	static dGeomID floor = nullptr;
+	static dReal floor_friction = 1000;
+	static dReal floor_bounce = 0;
+
+	static raylib::Color background_color = { 255, 255, 255, 255 };
 		
 	static Gamestate state;
 	static Gamerules rules;
@@ -105,6 +109,8 @@ namespace Game
 	bool GetPause();
 	double GetTime();
 	double GetFrameTime();
+
+	void SetBackgroundColor(uint16_t r, uint16_t g, uint16_t b, uint16_t a);
 
 	void SetSelectedPlayer();
 	void SetSelectedPlayer(PlayerID);

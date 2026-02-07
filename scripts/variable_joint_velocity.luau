@@ -79,7 +79,7 @@ function API.Draw.VJV()
 	local screenWidth, screenHeight = RAYLIB.GetScreenWidth(), RAYLIB.GetScreenHeight()
 
 	if not Game.IsMode(Game["MODE_REPLAY"]) then
-		if RAYGUI.GuiSlider((screenWidth-200)/2, screenHeight-80, screenWidth/4, 20, "Min", "Max", value, 0.00, 1.00) then
+		if RAYGUI.GuiSlider(screenWidth/4, screenHeight-80, screenWidth/2, 20, "Min", "Max", value, 0.00, 1.00) then
 			Game.Refreeze()
 		end
 	end

@@ -3,6 +3,12 @@
 
 typedef auto (*c)(lua_State) -> int;
 
+static int Game_SetBackgroundColor(lua_State* L)
+{
+	Game::SetBackgroundColor(lua_tointeger(L, -4), lua_tointeger(L, -3), lua_tointeger(L, -2), lua_tointeger(L, -1));
+	return 1;
+}
+
 static int Game_ImportMod(lua_State* L)
 {
 	Game::ImportMod();
@@ -435,6 +441,8 @@ static const luaL_Reg api_game[]
 	{"GetSelectedJointVelocityAlt", Game_GetSelectedJointVelocityAlt},
 
 	{"UndoSelectedPlayerMove", Game_UndoSelectedPlayerMove},
+
+	{"SetBackgroundColor", Game_SetBackgroundColor},
 
 	{NULL, NULL},
 };
