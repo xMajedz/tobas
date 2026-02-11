@@ -18,6 +18,8 @@ void Game::Init()
 
 	step = 1.0E-2;
 
+	data = new Arena(4*1024*1024);
+
 	API::Init();
 	API::loadscript("init");
 
@@ -82,6 +84,8 @@ void Game::NewGame()
 	state.freeze_frame = 0;
 	state.freeze_count = 0;
 
+	ghost_frames = 0;
+
 	space = dHashSpaceCreate(0);
   	contactgroup = dJointGroupCreate(0);
 	floor = dCreatePlane(space, 0.00, 0.00, 1.00, 0.10);
@@ -105,12 +109,12 @@ void Game::NewGame()
 		p.b_count = p.body.size();
 		p.j_count = p.joint.size();
 
-		p.SetCatBits(2<<(pID + 1), 2<<pID + 1);
-		p.SetColBits(255-(2<<(pID + 1)), 255-(2<<pID + 1));
+		//p.SetCatBits(2<<(pID + 1), 2<<pID + 1);
+		//p.SetColBits(255-(2<<(pID + 1)), 255-(2<<pID + 1));
 
 		p.Create(world, space);
 
-		//p.SetEngagedistance(rules.engagedistance, p.GetID() * (360/rules.numplayers));
+		//p.SetEngagedistance(rules.engagedistance, pID * (360/rules.numplayers));
 		//p.SetEngageheight(rules.engageheight);
 
 		p.SetOffset();
@@ -171,17 +175,19 @@ static void nearCallback(void*, dGeomID o1, dGeomID o2)
 {
 	using namespace Game;
 
-	if (o1 == nullptr || o2 == nullptr) return;
+	//if (o1 == nullptr || o2 == nullptr) return;
 
 	dBodyID b1 = dGeomGetBody(o1);
 	dBodyID b2 = dGeomGetBody(o2);
 
 	if (dAreConnected(b1, b2)) return;
+
+	if (b1 == b2) return;
 	
-	uint32_t cat1 = dGeomGetCategoryBits(o1);
-	uint32_t col1 = dGeomGetCollideBits(o1);
-	uint32_t cat2 = dGeomGetCategoryBits(o2);
-	uint32_t col2 = dGeomGetCollideBits(o2);
+	//uint32_t cat1 = dGeomGetCategoryBits(o1);
+	//uint32_t col1 = dGeomGetCollideBits(o1);
+	//uint32_t cat2 = dGeomGetCategoryBits(o2);
+	//uint32_t col2 = dGeomGetCollideBits(o2);
 
 	//if (!(cat1 & col2 || cat2 & col1)) return;
 
@@ -237,6 +243,8 @@ void Game::Step(int frame_count)
 {
 	bool ready = true;
 
+	ghost_frames = 0;
+
 	switch(state.mode)
 	{
 	case SELF_PLAY:
@@ -261,6 +269,137 @@ void Game::Step(int frame_count)
 			Refreeze();
 		}
 	}
+}
+
+static bool GhostCacheReady()
+{
+	return false;
+}
+
+static void DrawBody(PlayerID pID, BodyID bID)
+{
+	using namespace Game;
+
+	auto& b = players[pID].body[bID];
+
+	Color color = b.m_color;
+
+	Quaternion q = {
+		b.frame_orientation.x,
+		b.frame_orientation.y,
+		b.frame_orientation.z,
+		b.frame_orientation.w,
+	};
+
+	float angle;
+	Vector3 axis;
+
+	QuaternionToAxisAngle(q, &axis, &angle);
+
+	rlPushMatrix();
+	rlTranslatef(b.frame_position.x, b.frame_position.y, b.frame_position.z);
+	rlRotatef(RAD2DEG * angle, axis.x, axis.y, axis.z);
+
+	/*
+	 */
+
+	switch(b.shape)
+	{
+	case BOX:
+		DrawCube((Vector3){ 0.0f, 0.0f, 0.0f }, b.m_sides.x, b.m_sides.y, b.m_sides.z, color);
+		break;
+	case SPHERE:
+		DrawSphere((Vector3){ 0.0f, 0.0f, 0.0f }, b.radius, color);
+		break;
+	case CAPSULE:
+		DrawCapsule(
+				(Vector3){ 0.0f, 0.0f, -(b.length/2) },
+				(Vector3){ 0.0f, 0.0f,  (b.length/2) },
+				b.radius,
+				16,
+				16,
+				color
+		);
+		break;
+	case CYLINDER:
+		DrawCylinderEx(
+				(Vector3){ 0.0f, 0.0f, -(b.length/2) },
+				(Vector3){ 0.0f, 0.0f,  (b.length/2) },
+				b.radius,
+				b.radius,
+				16,
+				color
+		);
+		break;
+	}
+
+	/*
+	 */
+
+	rlPopMatrix();
+}
+
+static void UpdateGhostCache()
+{
+	using namespace Game;
+
+	auto buffer = (dReal*)data->buffer();
+
+	uint32_t j_total = 0;
+	uint32_t b_total = 0;
+
+	for (int pID = 0; pID < p_count; pID += 1) {
+		j_total += players[pID].j_count;
+		b_total += players[pID].b_count;
+	}
+
+	uint32_t offset = 7 * ghost_frames * (j_total + b_total);
+
+	uint32_t j_offset = 0;
+	uint32_t b_offset = 0;
+
+	for (int pID = 0; pID < p_count; pID += 1) {
+		auto& p = players[pID];
+		
+		offset += 7 * pID * (p.j_count + p.b_count);
+
+		for (int jID = 0; jID < p.j_count; jID += 1) {
+			auto& j = p.joint[jID];
+
+			auto frame_buffer = (dReal*)(buffer + offset + 7 * jID);
+			
+			frame_buffer[0] = j.frame_orientation.x;
+			frame_buffer[1] = j.frame_orientation.y;
+			frame_buffer[2] = j.frame_orientation.z;
+			frame_buffer[3] = j.frame_orientation.w;
+
+			frame_buffer[4] = j.frame_position.x;
+			frame_buffer[5] = j.frame_position.y;
+			frame_buffer[6] = j.frame_position.z;
+
+			j_offset += 1;
+		}
+
+		//offset += 7 * (p.j_count + pID * p.b_count);
+		offset += 7 * (j_offset + pID * p.b_count);
+
+		for (int bID = 0; bID < p.b_count; bID += 1) {
+			auto& b = p.body[bID];
+
+			auto frame_buffer = (dReal*)(buffer + offset + 7 * bID);
+
+			frame_buffer[0] = b.frame_orientation.x;
+			frame_buffer[1] = b.frame_orientation.y;
+			frame_buffer[2] = b.frame_orientation.z;
+			frame_buffer[3] = b.frame_orientation.w;
+
+			frame_buffer[4] = b.frame_position.x;
+			frame_buffer[5] = b.frame_position.y;
+			frame_buffer[6] = b.frame_position.z;
+		}
+	}
+
+	ghost_frames += 1;
 }
 
 void Game::Update(dReal dt)
@@ -293,9 +432,19 @@ void Game::Update(dReal dt)
 					EnterMode(REPLAY_PLAY);
 				}
 
-				if (state.game_frame < max_frame) {
-					Replay::PlayFrame(state.game_frame);
+				if (Replay::CacheReady()) {
+					/*
+					 * 	TODO: Play Replay From Cache
+					 */
+				} else {	
+					if (state.game_frame < max_frame) {
+						Replay::PlayFrame(state.game_frame);
+					}
 				}
+
+				/*
+				 * 	TODO: Update Replay Cache
+				 */
 	
 				state.game_frame += 1;
 
@@ -317,6 +466,10 @@ void Game::Update(dReal dt)
 						Step(rules.turnframes);
 					}
 				}
+
+				if (ghost_frames < ghost_length) {
+					UpdateGhostCache();
+				}
 	
 				break;
 			}
@@ -325,10 +478,160 @@ void Game::Update(dReal dt)
 		}
 
 		if (space != nullptr) {
-			dSpaceCollide(space, 0, nearCallback);
-			dWorldStep(world, step);
-			dJointGroupEmpty(contactgroup);
+			if (GhostCacheReady()) {
+				/*
+				 * 	TODO: Play Ghost From Cache
+				 */
+			} else {
+				dSpaceCollide(space, 0, nearCallback);
+				dWorldStep(world, step);
+				dJointGroupEmpty(contactgroup);
+			}
 		}
+	}
+}
+
+static void DrawObject(
+		BodyShape shape,
+		vec3 sides,
+		dReal radius,
+		dReal length,
+		Color color,
+		Quaternion q,
+		Vector3 p
+)
+{
+	float angle;
+	Vector3 axis;
+
+	QuaternionToAxisAngle(q, &axis, &angle);
+
+	rlPushMatrix();
+	rlTranslatef(p.x, p.y, p.z);
+	rlRotatef(RAD2DEG * angle, axis.x, axis.y, axis.z);
+
+	switch(shape)
+	{
+	case BOX:
+		DrawCube((Vector3){ 0.0f, 0.0f, 0.0f }, sides.x, sides.y, sides.z, color);
+
+		break;
+	case SPHERE:
+		DrawSphere((Vector3){ 0.0f, 0.0f, 0.0f }, radius, color);
+
+		break;
+	case CAPSULE:
+		DrawCapsule(
+				(Vector3){ 0.0f, 0.0f, -(length/2) },
+				(Vector3){ 0.0f, 0.0f,  (length/2) },
+				radius,
+				16,
+				16,
+				color
+		);
+
+		break;
+	case CYLINDER:
+		DrawCylinderEx(
+				(Vector3){ 0.0f, 0.0f, -(length/2) },
+				(Vector3){ 0.0f, 0.0f,  (length/2) },
+				radius,
+				radius,
+				16,
+				color
+		);
+
+		break;
+	}
+
+	rlPopMatrix();
+}
+
+void Game::DrawGhostCache(int frame)
+{
+	auto buffer = (dReal*)data->buffer();
+
+	uint32_t j_total = 0;
+	uint32_t b_total = 0;
+
+	for (int pID = 0; pID < p_count; pID += 1) {
+		j_total += players[pID].j_count;
+		b_total += players[pID].b_count;
+	}
+
+	uint32_t offset = 7 * frame * (j_total + b_total);
+
+	uint32_t j_offset = 0;
+	uint32_t b_offset = 0;
+
+	for (int pID = 0; pID < p_count; pID += 1) {
+		auto& p = players[pID];
+
+		offset += 7 * pID * (p.j_count + p.b_count);
+
+		for (int jID = 0; jID < players[pID].j_count; jID += 1) {
+			auto& j = p.joint[jID];
+
+			auto frame_buffer = (dReal*)(buffer + offset + 7 * jID);
+
+			Quaternion q = {
+				frame_buffer[0],
+				frame_buffer[1],
+				frame_buffer[2],
+				frame_buffer[3],
+			};
+
+			Vector3 p = {
+				frame_buffer[4],
+				frame_buffer[5],
+				frame_buffer[6],
+			};
+
+			DrawObject(
+				j.shape,
+				j.m_sides,
+				j.radius,
+				j.length,
+				j.m_g_color,
+				q,
+				p
+			);
+
+			j_offset += 1;
+		}
+
+		//offset += 7 * (p.j_count + pID * p.b_count);
+		offset += 7 * (j_offset + pID * p.b_count);
+
+		for (int bID = 0; bID < players[pID].b_count; bID += 1) {
+			auto& b = p.body[bID];
+
+			auto frame_buffer = (dReal*)(buffer + offset + 7 * bID);
+
+			Quaternion q = {
+				frame_buffer[0],
+				frame_buffer[1],
+				frame_buffer[2],
+				frame_buffer[3],
+			};
+
+			Vector3 p = {
+				frame_buffer[4],
+				frame_buffer[5],
+				frame_buffer[6],
+			};
+
+			DrawObject(
+				b.shape,
+				b.m_sides,
+				b.radius,
+				b.length,
+				b.m_g_color,
+				q,
+				p
+			);
+		}
+
 	}
 }
 
@@ -361,14 +664,27 @@ void Game::DrawFloor()
 	rlPopMatrix();
 }
 
+static void DrawGhost()
+{
+	using namespace Game;
+
+	DrawGhostCache(rules.turnframes);
+
+	DrawGhostCache(state.freeze_count);
+}
+
 void Game::Draw()
 {
 	for (auto& o : objects) {
 		o.Draw(state.freeze);
 	}
 
-	for (auto& p : players) {
-		p.Draw(state.freeze);
+	//for (auto& p : players) {
+	//	p.Draw(state.freeze);
+	//}
+	
+	if (ghost_frames >= ghost_length) {
+		DrawGhost();
 	}
 
 	if (state.freeze && state.selected_player != -1 && state.selected_joint != -1)
@@ -1197,11 +1513,6 @@ void Window::Close()
 	CloseWindow();
 }
 
-bool Window::Initialized()
-{
-	return initialized;
-}
-
 float Window::GetWidth()
 {
 	return width;
@@ -1341,6 +1652,11 @@ void Replay::WriteReplayData(std::string data)
 	std::ofstream tempreplayfile("replays/tempreplayfile.txt", std::ios::app);
 	tempreplayfile << data << std::endl;
 	tempreplayfile.close();
+}
+
+bool Replay::CacheReady()
+{
+	return false;
 }
 
 void Replay::RecordFrame(int game_frame)

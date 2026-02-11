@@ -24,5 +24,5 @@ int main()
 
 	Game::Quit();
 
-	if (Window::Initialized()) Window::Close();
+	Window::Close();
 }

@@ -60,19 +60,19 @@ struct Gamestate
 
 namespace Game
 {
+	static Gamestate state;
+	static Gamerules rules;
+
 	static dWorldID world = nullptr;
 	static dSpaceID space = nullptr;
 	static dJointGroupID contactgroup = nullptr;
 	
 	static dGeomID floor = nullptr;
-	static dReal floor_friction = 1000;
+	static dReal floor_friction = 10E3;
 	static dReal floor_bounce = 0;
 
 	static raylib::Color background_color = { 255, 255, 255, 255 };
-		
-	static Gamestate state;
-	static Gamerules rules;
-	
+			
 	static std::vector<Body> objects;
 
 	static std::vector<Body> dynamic_objects;
@@ -83,6 +83,12 @@ namespace Game
 	//static std::vector<Player> ghosts;
 	//static uint8_t ghosts;
 	static std::vector<PlayerID> player_ghosts;
+
+	static Arena* data = nullptr;
+
+	static uintptr_t ghost_cahce;
+	static uint32_t ghost_length = 50;
+	static uint32_t ghost_frames;
 
 	static size_t o_count;
 	static size_t jo_count;
@@ -115,12 +121,12 @@ namespace Game
 	void SetSelectedPlayer();
 	void SetSelectedPlayer(PlayerID);
 
-	Player& GetPlayer(PlayerID player_id);
+	Player& GetPlayer(PlayerID pID);
 	Player& GetSelectedPlayer();
 	PlayerID GetSelectedPlayerID();
 
 	void SetSelectedJoint();
-	void SetSelectedJoint(JointID joint_id);
+	void SetSelectedJoint(JointID jID);
 
 	Joint& GetSelectedJoint();
 	JointID GetSelectedJointID();
@@ -128,11 +134,10 @@ namespace Game
 	dReal GetSelectedJointVelocity();
 	dReal GetSelectedJointVelocityAlt();
 
-	Joint& GetJoint(PlayerID player_id, JointID joint_id);
-	Body& GetBody(PlayerID player_id, BodyID body_id);
+	Joint& GetJoint(PlayerID pID, JointID jID);
+	Body& GetBody(PlayerID pID, BodyID bID);
 
-	
-	void SetBodyState(PlayerID player_id, BodyID body_id, bool state);
+	void SetBodyState(PlayerID pID, BodyID bID, bool state);
 
 	Gamemode GetGamemode();
 	Gamerules& GetGamerules();
@@ -212,11 +217,14 @@ namespace Game
 
 	void DrawContacts(bool freeze);
 	void DrawFloor();
+
+	void DrawGhostCache(int frame);
+
 	void Draw();
 
 	void EnterMode(Gamemode mode);
 
-	void Step(int);
+	void Step(int frame_count);
 	void Freeze();
 	void Refreeze();
 
@@ -237,48 +245,17 @@ namespace Window
 	static raylib::RenderTexture foreground;
 
 	void Init();
+	void Close();
+
 	void Update();
 
 	void RenderBackground(raylib::Camera3D camera);
 	void RenderForeground(raylib::Camera3D camera);
+
 	void Draw();
 
-	void  Close();
-	bool  Initialized();
 	float GetWidth ();
 	float GetHeight();
-};
-
-struct FrameObject
-{
-	uintptr_t Q = 0;
-	uintptr_t P = 0;
-	uintptr_t L = 0;
-	uintptr_t A = 0;
-};
-
-struct FramePlayer
-{
-	size_t j_count = 0;
-	size_t b_count = 0;
-
-	uintptr_t Js = 0;
-	uintptr_t Jv = 0;
-
-	uintptr_t B = 0;
-	uintptr_t Q = 0;
-	uintptr_t P = 0;
-	uintptr_t L = 0;
-	uintptr_t A = 0;
-};
-
-struct FrameData
-{
-	size_t o_count = 0;
-	size_t p_count = 0;
-
-	uintptr_t objects = 0;
-	uintptr_t players = 0;
 };
 
 namespace Replay 
@@ -286,6 +263,7 @@ namespace Replay
 	static std::string_view mod;
 
 	static Arena* data = nullptr;
+	static Arena* cache = nullptr;
 
 	static size_t chunk = 0;
 	static size_t chunk_count = 0;
@@ -301,7 +279,10 @@ namespace Replay
 	void WriteFrameData(std::string data);
 	void WriteReplayData(std::string data);
 	
+	bool CacheReady();
+
 	void RecordFrame(int game_frame);
+	//void RecallFrame
 	void PlayFrame(int game_frame);
 
 	void Import(std::string replay_name);
@@ -310,5 +291,6 @@ namespace Replay
 	void Destroy();
 
 	std::string_view GetMod();
+
 	size_t GetMaxFrame();
 }

@@ -41,7 +41,6 @@ struct Body
 	dReal length;
 	dReal density;
 
-
 	vec4 m_orientation;
 	vec3 m_position;
 	vec3 m_offset;
