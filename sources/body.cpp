@@ -87,14 +87,9 @@ void Body::CreateBody()
 		m_position.z
 	);
 
-	dBodySetQuaternion(
-		dBody,
-		(dQuaternion){
-		m_orientation.w,
-		m_orientation.x,
-		m_orientation.y,
-		m_orientation.z,
-	});
+	dQuaternion q = { m_orientation.w, m_orientation.x, m_orientation.y, m_orientation.z };
+
+	dBodySetQuaternion(dBody, q);
 
 	dBodySetMass(dBody, &mass);
 }
@@ -127,14 +122,9 @@ void Body::CreateGeom()
 		m_position.z
 	);
 
-	dGeomSetQuaternion(
-		dGeom,
-		(dQuaternion){
-		m_orientation.w,
-		m_orientation.x,
-		m_orientation.y,
-		m_orientation.z,
-	});
+	dQuaternion q = { m_orientation.w, m_orientation.x, m_orientation.y, m_orientation.z };
+	
+	dGeomSetQuaternion(dGeom, q);
 }
 
 void Body::CreateDynamic()
@@ -158,14 +148,8 @@ void Body::CreateComposite(dBodyID b)
 
 void Body::SetOrientation(Vector4 q)
 {
-	dGeomSetQuaternion(
-		dGeom,
-		(dQuaternion){
-		q.w,
-		q.x,
-		q.y,
-		q.z,
-	});
+	dQuaternion quaternion = { q.w, q.x, q.y, q.z }; 
+	dGeomSetQuaternion(dGeom, quaternion);
 }
 
 void Body::SetPosition(Vector3 p)
@@ -312,14 +296,10 @@ void Body::Refreeze()
 		freeze_position.y,
 		freeze_position.z
 	);
-	dGeomSetQuaternion(
-		dGeom,
-		(dQuaternion){
-		freeze_orientation.w,
-		freeze_orientation.x,
-		freeze_orientation.y,
-		freeze_orientation.z,
-	});
+
+	dQuaternion q = { freeze_orientation.w, freeze_orientation.x, freeze_orientation.y, freeze_orientation.z };
+
+	dGeomSetQuaternion(dGeom, q);
 };
 
 void Body::Reset()
@@ -340,14 +320,9 @@ void Body::Reset()
 		m_position.z
 	);
 
-	dGeomSetQuaternion(
-		dGeom,
-		(dQuaternion) {
-		m_orientation.w,
-		m_orientation.x,
-		m_orientation.y,
-		m_orientation.z,
-	});
+	dQuaternion q = { m_orientation.w, m_orientation.x, m_orientation.y, m_orientation.z };
+
+	dGeomSetQuaternion(dGeom, q);
 
 	frame_position = m_position;
 	freeze_position = m_position;
@@ -551,6 +526,9 @@ void Joint::Create(dWorldID world, dSpaceID space, Body b1, Body b2)
 	frame_orientation = m_orientation;
 	freeze_orientation = m_orientation;
 
+	dVector3 v_axis = { axis.x, axis.y, axis.z };
+	dVector3 v_axis_alt = { axis_alt.x, axis_alt.y, axis_alt.z };
+
 	if (m_composite) {
 		CreateComposite(b1.dBody);
 		dBody = b1.dBody;
@@ -682,18 +660,8 @@ void Joint::Create(dWorldID world, dSpaceID space, Body b1, Body b2)
 			m_position.y,
 			m_position.z
 		);
-	
-		dJointSetHinge2Axes(dJoint,
-			(dVector3){
-			axis.x,
-			axis.y,
-			axis.z,
-		},
-			(dVector3){
-			axis_alt.x,
-			axis_alt.y,
-			axis_alt.z,
-		});
+
+		dJointSetHinge2Axes(dJoint, v_axis, v_axis_alt);
 
 		dJointSetHinge2Param(
 			dJoint,

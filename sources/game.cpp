@@ -9,6 +9,9 @@ using namespace raylib;
 #include "raymath.h"
 #include "rlgl.h"
 
+static Shader shader;
+static Model sphere;
+
 void Game::Init()
 {
 	dInitODE();
@@ -271,9 +274,16 @@ void Game::Step(int frame_count)
 	}
 }
 
+static bool GhostCacheEnabled()
+{
+  return true;
+}
+
 static bool GhostCacheReady()
 {
-	return false;
+  using namespace Game;
+  
+	return ghost_frames >= ghost_length;
 }
 
 static void DrawBody(PlayerID pID, BodyID bID)
@@ -478,28 +488,16 @@ void Game::Update(dReal dt)
 		}
 
 		if (space != nullptr) {
-			if (GhostCacheReady()) {
-				/*
-				 * 	TODO: Play Ghost From Cache
-				 */
-			} else {
-				dSpaceCollide(space, 0, nearCallback);
-				dWorldStep(world, step);
-				dJointGroupEmpty(contactgroup);
-			}
+		  if (GhostCacheEnabled() && !GhostCacheReady()) {
+		     dSpaceCollide(space, 0, nearCallback);
+		     dWorldStep(world, step);
+		     dJointGroupEmpty(contactgroup);
+		  }
 		}
 	}
 }
 
-static void DrawObject(
-		BodyShape shape,
-		vec3 sides,
-		dReal radius,
-		dReal length,
-		Color color,
-		Quaternion q,
-		Vector3 p
-)
+static void DrawObject(BodyShape shape, vec3 sides, dReal radius, dReal length, Color color, Quaternion q, Vector3 p)
 {
 	float angle;
 	Vector3 axis;
@@ -517,7 +515,8 @@ static void DrawObject(
 
 		break;
 	case SPHERE:
-		DrawSphere((Vector3){ 0.0f, 0.0f, 0.0f }, radius, color);
+	  DrawModel(sphere, (Vector3){0.00, 0.00, 0.00}, radius, color);
+	  //DrawSphere((Vector3){ 0.0f, 0.0f, 0.0f }, radius, color);
 
 		break;
 	case CAPSULE:
@@ -1095,9 +1094,6 @@ void rl_log(int level, const char* msg, va_list)
 	Console::log(TextFormat("%d: %s", level, msg));
 }
 
-static Shader shader;
-static Model sphere;
-
 void Window::Init()
 {
 	SetTraceLogLevel(LOG_ERROR);
@@ -1465,9 +1461,6 @@ void Window::RenderBackground(Camera3D camera)
 	BeginTextureMode(background);
 	ClearBackground(background_color);
 	BeginMode3D(camera);
-
-	//DrawModel(sphere, (Vector3){0.00, 0.00, 0.00}, 1.0, WHITE);
-
 	Game::Draw();
 	EndMode3D();
 	EndTextureMode();
